@@ -1,0 +1,16 @@
+*.pyc
+/sklearn-route-venv
+*__pycache__*
+.pytest_cache
+.coverage
+.vscode/
+*ipynb*
+build*
+*.so
+*.c
+site/
+.ipynb_checkpoints/
+_*.html
+/dist
+/*.egg-info
+/scikit-route-venv

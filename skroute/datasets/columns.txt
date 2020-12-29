@@ -1,0 +1,27 @@
+Here are the meaning of the different columns.
+
+The columns needed for the algorithms are:
+
+* id_origin: The id where the path start
+* id_destinity: the id where the path end
+* hours: the time in hours from id_origin to the id_destinity.
+    It's only used by the algorithm only to take into acount
+    when max_time_work it's completed
+* cost: the cost of going from id_origin to the id_destinity.
+    This must be a computation of the total cost on complete
+    the path by a person taking into account the hours, and 
+    the fuel.
+
+
+The following columns are not neccesary, but will 
+help for diferents preprocessings in case you want realize:
+
+* lat_origin: latitude where the path start
+* lon_origin: longitude where the path start
+* lat_destinity: latitude where the path end
+* lon_destinity: longitude where the path end
+* origin: The exact address of the id_origin
+* destinity: the exact address of the id_destinity
+* meters: meters from id_origin to id_destinity
+* secs: secs from id_origin to id_destinity
+* kilometers: kilometers from id_origin to id_destinity
