@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Datasets - Scikit Route</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Datasets";
+    var mkdocs_page_input_path = "Datasets.md";
+    var mkdocs_page_url = "/Datasets/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Scikit Route</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../BruteForce/">BruteForce</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Clustering/">Clustering</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">Datasets</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#dataset">Dataset</a></li>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Genetics/">Genetics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Heuristics/">Heuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Installation/">Installation</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../MetaHeuristics/">MetaHeuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../NRBS/">NRBS</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Preprocessing/">Preprocessing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../SOM/">SOM</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Simmulated_Annealing/">Simmulated Annealing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../TabuSearch/">TabuSearch</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Tutorial/">Tutorial</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Utilities/">Utilities</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Scikit Route</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Datasets</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="dataset">Dataset</h1>
+<p>The dataset module are some datasets builded and adapted to the package algorithms. The purpose is to have a fast and easy understunding of the package, how the algorithms works, what kind of data is required and in wich format. </p>
+<p>The data are different Datasets wich have the main info needed for the algorithm (not all the information is needed for every algorithm). The columns are:</p>
+<ul>
+<li><em>id_origin</em> and <em>id_destinity</em>: point id that connect other point id</li>
+<li><em>lat_origin</em>, <em>lon_origin</em>, <em>lat_destinity</em>, <em>lon_destinity</em>: The same as above, but with latitude and longitude</li>
+<li><em>origin</em> and <em>destinity</em>: The same as above but with the address</li>
+<li><em>meters</em>: distance in meters from the <em>id_origin</em> to the <em>id_destinity</em></li>
+<li><em>secs</em>: distance in sec from the <em>id_origin</em> to the <em>id_destinity</em></li>
+<li><em>hours</em>: distance in hours from the <em>id_origin</em> to the <em>id_destinity</em></li>
+<li><em>kilometers</em>: distance in kilometers from the <em>id_origin</em> to the <em>id_destinity</em></li>
+<li><em>cost</em>: fuel cost, this is computation of the hours multiply for the cost per hour, and the fuel cost needed for make the route.</li>
+</ul>
+<p><img alt="Dataset example" src="../images/dataset_example.png" /></p>
+<p>There are differents datasets you can import and load easy, one time it's loaded the data can be adapted with the preprocessing module if it's required. The datasets are <code>Pandas DataFrame</code> objects</p>
+<pre><code>from sklear_route.dataset import load_alicante_murcia
+from sklear_route.dataset import load_barcelona
+from sklear_route.dataset import load_madrid
+from sklear_route.dataset import load_valencia
+from sklearn.preprocessing import matrix_to_dict
+
+#Loading distinct datasets
+df_alicante_murcia  = load_alicante_murcia()
+df_barcelona = load_barcelona()
+df_madrid = load_madrid()
+df_valencia = load_valencia()
+
+#Converting a dataset to a diagonal symmetric matrix dict of dicts
+cost_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Genetics/" class="btn btn-neutral float-right" title="Genetics">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../Clustering/" class="btn btn-neutral" title="Clustering"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../Clustering/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Genetics/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+</html>

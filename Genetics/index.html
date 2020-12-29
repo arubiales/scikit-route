@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Genetics - Scikit Route</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Genetics";
+    var mkdocs_page_input_path = "Genetics.md";
+    var mkdocs_page_url = "/Genetics/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Scikit Route</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../BruteForce/">BruteForce</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Clustering/">Clustering</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Datasets/">Datasets</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">Genetics</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#genetics">Genetics</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#genetic">Genetic</a></li>
+        
+            <li><a class="toctree-l3" href="#ensemble-genetic">Ensemble Genetic</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Heuristics/">Heuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Installation/">Installation</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../MetaHeuristics/">MetaHeuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../NRBS/">NRBS</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Preprocessing/">Preprocessing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../SOM/">SOM</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Simmulated_Annealing/">Simmulated Annealing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../TabuSearch/">TabuSearch</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Tutorial/">Tutorial</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Utilities/">Utilities</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Scikit Route</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Genetics</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="genetics">Genetics</h1>
+<p>The main advantage of this Genetic algorithm over others solutions are:
+* Easy to learn and to use, inspired in Scikit Learn library.
+* Amazingly fast, builted in Cpython results with 400 populations and more than 1000 generations are done in less than a half of a second..
+* Very well documented.</p>
+<p>Genetic Algorithm is a metaheuristic aproach wich mean is not deterministic, this lead that every time you run the result could be different but will be very near of the <strong>global optimum</strong>.</p>
+<p>This algorithm is called Genetic because is based in the Darwyn Theory of Evolution and the natural selection. This theory mainly says that <strong>in a population of individuals, the best ones have more probabilities to survive than others.</strong>. This in our problems mean that we have one <strong>initial random route</strong> (individual), from this initialization we create a  list of <strong>random routes</strong> (random population), we are now in the <strong>generation 0</strong>. so the routes (individuals) of this population, as happend in reality, have the probability of mix one routes wich others and create new routes (have children), and this new routes will have mutations and crossover for each pair of routes (parents) (they have genetics modifications). So one time that all routes of the initial list of routes (random population) have pass through this phase (or not it's depend if they have childrens or not), we will finish the generation. when we finish the generation the worst route/s (individuals) will be replaced by the best route/s (this is the natural selection, the worst individuals die.) and will start the next generation with the new routes. And this will be repeated a number <em>X</em> of times (generations).</p>
+<h2 id="genetic">Genetic</h2>
+<h3 id="hyper-parameters">Hyper - Parameters</h3>
+<div class="admonition note">
+<p><strong>sklearn_route.metaheuristics.genetics.Genetic</strong><em>(p_c=0.6, p_m=0.4, pop=400, gen=1600, k=3, early_stopping=None,
+                max_time_work=8.0, extra_cost=10.0, people=1)</em></p>
+</div>
+<ul>
+<li>
+<p><code>p_c</code>: float32, default=0.7</p>
+<blockquote>
+<p>Between 0 and 1 the probability of crossover. In each generation
+at start the algorithm generate two random probabilities these random probabilies are the choosen when crossover will take place. If the random number is 4 that mean that the number in position and the following numbers will be now at start. And the first four numbers will be at the end.
+<strong>If this ratio is very low</strong> (for example 0.1) will mean that a few new routes will be introduced (no childs in the population), so the optimization <strong>will take more time, but the algorithm will be more stable</strong>. Instead <strong>if it's too hight</strong> (for example 0.9) will mean that the majority of the population will be changed per generation (new childs) this <strong>will lead to a fast optimization but</strong> will be more inestable so the algorithm <strong>could not converge</strong>.</p>
+</blockquote>
+</li>
+<li>
+<p><code>p_m</code>: float32, default=0.4</p>
+<blockquote>
+<p>It's mutate, random probabilies are choosen when it will take
+place. If the random numbers are 2 and 8 for example, the 
+numbers located at that index will swap positions.<br />
+The same as croosover (<code>p_c</code>) a <strong>higher numbers</strong> (0.9) <strong>will lead to</strong> a lot of variation and a <strong>faster optimization</strong> in the routes (children) <strong>but</strong> also can make that the algorithm <strong>could never converge.</strong>Instead <strong>lower numbers</strong> will lead to a <strong>more stable algorithm but</strong> the alogorithm <strong>will be very slow</strong> to converge.</p>
+</blockquote>
+</li>
+<li>
+<p><code>pop</code>: int32, default=400  </p>
+<blockquote>
+<p>The number of population (different random solutions), more
+population, more probabilities to find different solutions but 
+make the algorithm more time expensive. If the number is too
+low, the solution will be bad, because the algorithm can't 
+iterate over the loss function with the enough amount of data</p>
+</blockquote>
+</li>
+<li>
+<p><code>gen</code>: int32 Default=1000</p>
+<blockquote>
+<p>The number of generations. More generations make the algorithm
+achieve better solution but also make the algorithm take more
+time. This can be solved with early_stoping parameter to make
+the algorithm stop when is not improving. If the number of
+generation is low the algorithm may not converge.</p>
+</blockquote>
+</li>
+<li>
+<p><code>k</code>: int32, default=3</p>
+<blockquote>
+<p>The number of individual populations (solutions) that
+will fight for being the best. When we are inside of a
+generation the algorithm take a subsample of numbers k. The best
+k (individual) solution is choosen as a parten for this generation.</p>
+</blockquote>
+</li>
+<li>
+<p><code>early_stopping</code>: int32, default=None</p>
+<blockquote>
+<p>If it's None, the algorithm will finish when the last generation 
+is performed. If it's other unsigned integer (positive integer
+number) if the algorithm can't improve the result while X
+generations (where x is early_stopping number) the algorithm
+will stop.</p>
+</blockquote>
+</li>
+<li>
+<p><code>max_time_work</code>: float32, default=8</p>
+<blockquote>
+<p>The number of ours that a employ can work per day. For example
+if it's 8 hours, the algorithm will force that a route have to
+finish after the 8 hours have been completed, making the
+employeed come back home. it's a time constraint.</p>
+</blockquote>
+</li>
+<li>
+<p><code>extra_cost</code>: float32, default=0</p>
+<blockquote>
+<p>If it's 0 anything happend. If it's &gt; 0 in combination with
+max_time_work when the max_time_work is reached, extra_cost is
+applied. This add a extra cost to the solution each time that
+max_time_work is reached. It's like extra pay for the worker 
+each time max_time_work is completed (journey).</p>
+</blockquote>
+</li>
+<li>
+<p><code>people</code> int32, default=1</p>
+<blockquote>
+<p>The number of people that you use in each route, for example if
+you need two truck drivers. that's another contstraint. That
+will multiply the time_costs and the extra_cost. Not the travel
+cost because it's assumed that both go in the same vehicle.</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="method">Method</h3>
+<ul>
+<li><code>.fit(route_example, time_costs, fuel_costs)</code>:<blockquote>
+<p>This method train the algorithm, we need to pass the following data:<br />
+        1. <em>route_example</em>: Is a list random route to initiate the algorithm.
+        2. <em>time_cost</em>: it's a dict of dicts that represent a diagonal matrix with the times between all points
+        3. <em>fuel_cost</em>: it's a dict of dicts that represent a diagonal matrix with the costs between all points</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="attribute">Attribute</h3>
+<ul>
+<li><code>history_</code>:<blockquote>
+<p>it's a list with the best cost in each generation. The loss function.</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="example-with-genetic-algorithm">Example with Genetic Algorithm.</h3>
+<pre><code>from sklearn_route.datasets import load_barcelona
+from sklearn_route.preprocessing import matrix_to_dict
+from sklearn_route.metaheuristics.genetics import Genetic
+
+df_barcelona = load_barcelona()
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the hour)
+time_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the cost)
+cost_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Create a random route, it's will needed to initiate the algorithm
+route_example = list(dict.fromkeys(cost_matrix_df).keys())
+
+#Instantiate the algorithm
+ga = Genetic(p_m = 0.3, pop=400, gen=2000, k=5, p_c early_stoping=100,
+            max_time_work=6, extra_cost=12.83)
+
+#random route - time_matrix - cost_matrix
+result = ga.fit(route_example, time_matrix, cost_matrix)
+
+#Printing the best route
+print(result)
+
+#Printing the loss function
+print(ga.history_)
+</code></pre>
+<h3 id="understunding-the-data-needed-by-the-algorithm">Understunding the data needed by the algorithm</h3>
+<p>The <strong>dicts of dicts</strong> time_cost and fuel_cost, are dicts of dicts for performance reason. these dicst could be also represented as diagonal symmetric matrix, columns and index represent the cost of the point. Here an example:</p>
+<pre><code>easy_route = {
+            1:{
+                1:0,
+                2:x
+                3:y
+                },
+            2:{
+                1:x,
+                2:0,
+                3:z
+                },
+            3:{
+                1:y,
+                2:z,
+                3:0
+                }
+            }
+
+#We can see clearly the matrix with pandas
+import pandas as pd
+
+#Visualice the diagonal symmetric matrix
+print(pd.DataFrame(easy_route))
+</code></pre>
+<p><strong>Output:</strong><br />
+<img alt="mini_matrix" src="../images/diagonal_matrix_mini.png" /></p>
+<p>It's important to understund that the cost matrix <strong>must be the computation of all the costs</strong> that the user of the algorithm want to take in count <strong>per person</strong>. In the majority of cases the cost will be composed by:</p>
+<ul>
+<li>The cost of the fuel for one person to go from one point to another.</li>
+<li>The cost of the hours of work needed from one point to another.</li>
+</ul>
+<p>If we have multiple persons doing the same route, the <code>people</code> parameter will multiply the cost by the number of persons and will increase the cost with the <code>extra_cost</code> in case of the <code>max_time_work</code> paremeter will be surpased.</p>
+<p>Also note that <code>extra_cost</code> <strong>could be used as a maximun capacity</strong> of a truck for example in the case of material transports problems.</p>
+<p>The other dict of dicts <code>time_matrix</code> parameter will be only used by the algorithm to compute the <code>max_time_work</code> and compute the final route of the algorithm with the times that the salesman/truck have finished their journey.</p>
+<h2 id="ensemble-genetic">Ensemble Genetic</h2>
+<div class="admonition note">
+<p><strong>sklearn_route.genetics.EnsembleGenetic</strong><em>(n_genetics=10, p_c=0.6, p_m=0.4, pop=400, gen=1600, k=3, early_stopping=None,
+                max_time_work=8.0, extra_cost=10.0, people=1, n_jobs=1)</em></p>
+</div>
+<p>Ensemble Genetic is a bagging of Genetics models, so you can refer to the documentation above to see how it works. Basically are a <em>X</em> number of Genetics estimator, this will help to get a better result than the Genetic Algorithm, the computationall cost will depend of the number of workers (n_jobs) you use. In the case you use the same <code>n_jobs</code> as <code>n_genetics</code> you will achieve the results in less than a second.</p>
+<p>As said above, the algorith is pretty much the same, so here there are only the new hyper parameters.</p>
+<h3 id="hyper-parameters_1">Hyper - Parameters.</h3>
+<ul>
+<li><code>n_genetics</code>: int, default=10 <blockquote>
+<p>The number of Genetics algorithm that will be thrown. The more algorithms better result could be achieve, but's will be computationally more expensive (this can be solved/mitigated with the n_jobs parameter)</p>
+</blockquote>
+</li>
+<li><code>n_jobs</code>: int, default=1<blockquote>
+<p>The number of workers (threads) that will use the algorithm in parallel, by default is one, and must be at least one to the algorithm run. Use this parameter with caution, maybe can collapse the computer if you select a lot jobs. </p>
+</blockquote>
+</li>
+</ul>
+<h3 id="example-with-ensemble-genetic-algorithm">Example with Ensemble Genetic Algorithm</h3>
+<pre><code>from sklearn_route.datasets import load_valencia
+from sklearn_route.preprocessing import matrix_to_dict
+from sklearn_route.genetics import EnsembleGenetic
+
+df_valencia = load_valencia()
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the hour)
+time_matrix = matrix_to_dict(df_valencia, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the cost)
+cost_matrix = matrix_to_dict(df_valencia, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;cost&quot;)
+
+#Create a random route, it's will needed to initiate the algorithm
+route_example = list(dict.fromkeys(cost_matrix_df).keys())
+
+#Instantiate the algorithm with 18 genetis algorithm and 6 jobs
+eg = EnsembleGenetic(n_genetics=18, p_m = 0.4, pop=400, gen=2000, k=5, early_stoping=100,
+            max_time_work=6, extra_cost=12.83, n_jobs=6)
+
+#random route - time_matrix - cost_matrix
+result = eg.fit(route_example, time_matrix, cost_matrix)
+
+#Printing the best route
+print(result)
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Heuristics/" class="btn btn-neutral float-right" title="Heuristics">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../Datasets/" class="btn btn-neutral" title="Datasets"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../Datasets/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Heuristics/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+</html>

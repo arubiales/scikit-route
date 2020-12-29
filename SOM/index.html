@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>SOM - Scikit Route</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "SOM";
+    var mkdocs_page_input_path = "SOM.md";
+    var mkdocs_page_url = "/SOM/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Scikit Route</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../BruteForce/">BruteForce</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Clustering/">Clustering</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Datasets/">Datasets</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Genetics/">Genetics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Heuristics/">Heuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Installation/">Installation</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../MetaHeuristics/">MetaHeuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../NRBS/">NRBS</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Preprocessing/">Preprocessing</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">SOM</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#self-organizing-maps-som">Self Organizing Maps (SOM)</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#global-understunding-of-the-algorithm">Global understunding of the Algorithm</a></li>
+        
+            <li><a class="toctree-l3" href="#som">SOM</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Simmulated_Annealing/">Simmulated Annealing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../TabuSearch/">TabuSearch</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Tutorial/">Tutorial</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Utilities/">Utilities</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Scikit Route</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>SOM</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="self-organizing-maps-som">Self Organizing Maps (SOM)</h1>
+<p>Can be used to solve de TSP/VRP problem</p>
+<p>The main <strong>advantages</strong> of SOM over others solutions are:
+* Very good results even with a huge amount of points
+* It's computed using only the point ID, latitude and longitude</p>
+<p>The main <strong>disvantages</strong> of SOM over other solutions are:
+*  The result is a very optimized route but you don't know the cost
+*  Computationally more expensive than other solutions
+*  Constrains (time/capacity) are not available in this algorithm 
+*  Penalties are not available in this algorithm (time/capacity)</p>
+<h2 id="global-understunding-of-the-algorithm">Global understunding of the Algorithm</h2>
+<p>SOM is metaheuristic aproach wich mean is not deterministic, this lead that every time you run the algorithm you cound find a different solution.</p>
+<p>This algorithm is based on Self Organizing Maps from <a href="https://sci2s.ugr.es/keel/pdf/algorithm/articulo/1990-Kohonen-PIEEE.pdf">Tehuvo Kohonen</a> and the implementation in Python is based on the <a href="https://diego.codes/post/som-tsp/">Diego Vicente</a> solution.  </p>
+<p>The main formula of the alorithm if the search formula, to explore new combinations, combined with a learning rate decay in order to minimize the searchs over the iterations. Our algorithm can be expressed as:</p>
+<div>
+<div class="MathJax_Preview">nt+1=nt+αt⋅g(we,ht)⋅Δ(e,nt)</div>
+<script type="math/tex; mode=display">nt+1=nt+αt⋅g(we,ht)⋅Δ(e,nt)</script>
+</div>
+<p>Where <span><span class="MathJax_Preview">\delta</span><script type="math/tex">\delta</script></span> is the learning rate, <span><span class="MathJax_Preview">g</span><script type="math/tex">g</script></span> is the gaussian function that look for a winner in a radius of <span><span class="MathJax_Preview">h</span><script type="math/tex">h</script></span> </p>
+<h2 id="som">SOM</h2>
+<h3 id="hyper-parameters">Hyper - Parameters</h3>
+<div class="admonition note">
+<p><strong>sklearn_route.metaheuristics.som.SOM</strong><em>(units=None, radius=None, radius_decay=0.9991, lr=0.8, lr_decay=0.9991)</em></p>
+</div>
+<ul>
+<li><code>units</code>: int, default=None<blockquote>
+<p>The number of Neurons of the SOM, if it's None the algorithm takes the number of nodes multiply by eight. More Numbers of neuron, better results but with a time penalty</p>
+</blockquote>
+</li>
+<li><code>radius</code>: int, defaultNone<blockquote>
+<p>The radius of search, if it's None the algorithm takes the number of nodes multiply by eight. The radius will decrease with the radius_decay parameter so it's good to have a high
+radius at start to find throug all nodes at the begining</p>
+</blockquote>
+</li>
+<li><code>radius_decay</code>: float, default=0.9991<blockquote>
+<p>The decay of the radius per epoch wich means the decrease of the radius</p>
+</blockquote>
+</li>
+<li>
+<p><code>lr</code>: float, default=0.8</p>
+<blockquote>
+<p>The learning rate, is how aggressive the update of the weight is, higher learning rate, more
+    aggressive is the update of the weights</p>
+</blockquote>
+</li>
+<li>
+<p><code>lr_decay</code>: float, default=0.9991</p>
+<blockquote>
+<p>The decay of the learning rate. In order to find the most optimal solution, at the end is good to have a low learning rate.</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="method">Method</h3>
+<ul>
+<li>
+<p><code>fit(nodes, epochs)</code>:</p>
+<blockquote>
+<p>Execute the algorithm and give back the best route find it</p>
+</blockquote>
+<ol>
+<li>
+<p><code>nodes</code>: tuple</p>
+<blockquote>
+<p>A tuple of tuples, each tuple is a Node with the first element the ID, the sencond the latitude
+    and the third then longitude. For example if we have a route with three points, the tuple will
+    be like this:</p>
+</blockquote>
+<p>nodes = (<br />
+    (1, 0.459887, 14.345767),<br />
+    (2, 0.634534, 12.575462),<br />
+    (3, 0.256765, 9.734435),<br />
+)<br />
+    <br></p>
+</li>
+<li>
+<p><code>epochs</code>: int, default=10_000</p>
+<blockquote>
+<p>The times that the Neural network will update the weights trying to find the optimal solution</p>
+</blockquote>
+</li>
+</ol>
+</li>
+</ul>
+<h3 id="example-som">Example SOM</h3>
+<pre><code>from sklearn_route.datasets import load_barcelona
+from sklearn_route.preprocessing import normalize, df_to_tuple
+from sklearn_route.metaheuristics.som import SOM
+
+df_barcelona = load_barcelona()[&quot;DataFrame&quot;]
+df_barcelona = df_barcelona[[&quot;id_origin&quot;, &quot;lat_origin&quot;, &quot;lon_origin&quot;]].drop_duplicates()
+df_barcelona = normalize(df_barcelona, &quot;lat_origin&quot;, &quot;lon_origin&quot;)
+
+route = df_to_tuple(df_Barcelona)
+
+som = SOM()
+result = som.fit(route)
+
+#Printing the best route
+print(result)
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Simmulated_Annealing/" class="btn btn-neutral float-right" title="Simmulated Annealing">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../Preprocessing/" class="btn btn-neutral" title="Preprocessing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../Preprocessing/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Simmulated_Annealing/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>NRBS - Scikit Route</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "NRBS";
+    var mkdocs_page_input_path = "NRBS.md";
+    var mkdocs_page_url = "/NRBS/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Scikit Route</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../BruteForce/">BruteForce</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Clustering/">Clustering</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Datasets/">Datasets</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Genetics/">Genetics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Heuristics/">Heuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Installation/">Installation</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../MetaHeuristics/">MetaHeuristics</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">NRBS</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#node-ranking-based-on-stats-nrbs">Node Ranking Based on Stats (NRBS)</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#global-understunding-of-the-algorithm">Global understunding of the Algorithm</a></li>
+        
+            <li><a class="toctree-l3" href="#nrbs-hyper-parameters">NRBS Hyper Parameters</a></li>
+        
+            <li><a class="toctree-l3" href="#method">Method</a></li>
+        
+            <li><a class="toctree-l3" href="#example-with-nrbs-algorithm">Example with NRBS algorithm</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Preprocessing/">Preprocessing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../SOM/">SOM</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Simmulated_Annealing/">Simmulated Annealing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../TabuSearch/">TabuSearch</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Tutorial/">Tutorial</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Utilities/">Utilities</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Scikit Route</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>NRBS</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="node-ranking-based-on-stats-nrbs">Node Ranking Based on Stats (NRBS)</h1>
+<p>The main advataje of NRBS over other solutions are:</p>
+<ul>
+<li>Easy to lean and to use inspired in Scikit Learn library</li>
+<li>Heuritic approach, wich mean it's deterministic, NRBS returns always the same solution with the same Hyperparameters</li>
+<li>Very Fast and with very good results</li>
+</ul>
+<h2 id="global-understunding-of-the-algorithm">Global understunding of the Algorithm</h2>
+<p>NRBS is based on <a href="https://arxiv.org/pdf/1608.01716.pdf">this paper</a>. Basically this algorithm base the <strong>connections between points of a route in the mean and standar deviation of the distance</strong> from ones point each others. For that we have two formulas:</p>
+<ol>
+<li>Priority Formula: given the mean and the standar deviation of a point distance to the rest of points, Priority function raise them to an exponent and multiply both. The node with the highest priority is the first choosen to select a connection, and it's continue till the node with less priority</li>
+</ol>
+<div>
+<div class="MathJax_Preview">P_i = \mu_i^\alpha \sigma_i^\beta</div>
+<script type="math/tex; mode=display">P_i = \mu_i^\alpha \sigma_i^\beta</script>
+</div>
+<ol>
+<li>Connection Formula: based on the mean, the standar deviation and the distance from one node to other, give us back the connection ratting, the nodes with highest connections are choosed to connect. The Exponents are the different hyper parametrs in this formula</li>
+</ol>
+<div>
+<div class="MathJax_Preview"> C_j = \frac{\mu_j^\delta \sigma_j^\epsilon}{d_{j}^{i^\lambda}}</div>
+<script type="math/tex; mode=display"> C_j = \frac{\mu_j^\delta \sigma_j^\epsilon}{d_{j}^{i^\lambda}}</script>
+</div>
+<p><strong>Caveat:</strong> This alorithm solve the TSP/VRP problem, by now it's not available with constraints but it will be in the future. </p>
+<h2 id="nrbs-hyper-parameters">NRBS Hyper Parameters</h2>
+<div class="admonition note">
+<p><strong>sklearn_route.genetics.Genetic</strong><em>(p_c=0.6, p_m=0.4, pop=400, gen=1600, k=3, early_stopping=None,
+                max_time_work=8.0, extra_cost=10.0, people=1)</em></p>
+</div>
+<ul>
+<li>
+<p><code>mean_priority</code>: float</p>
+<blockquote>
+<p>Must be a number greater than zero, it is the exponent of the Priority formula mean, higher number make points with higher mean (more distance from others) have large values and priority selection, strongly recommended a number between 0 and 2.</p>
+</blockquote>
+</li>
+<li>
+<p><code>std_priority</code>: float</p>
+<blockquote>
+<p>Must be a number greater than zero, it is the exponent of the Priority formula standar deviation, higher number make points with higher deviation (more diferents of distance between points) have larger values and priority selection, Strongly recommended a number between 0 and 2</p>
+</blockquote>
+</li>
+<li>
+<p><code>mean_connection</code>: float</p>
+<blockquote>
+<p>Must be a number greater than zero, it is the exponent of the Connection formula mean, higher number make points with higher mean (more distance from others) have large values and priority connection, strongly recommended a number between 0 and 2.</p>
+</blockquote>
+</li>
+<li>
+<p><code>std_connection</code>: float</p>
+<blockquote>
+<p>Must be a number greater than zero, it is the exponent of the Connections formula standar deviation, higher number make points with higher deviation (more diferents of distance between points) have larger values and priority connection, Strongly recommended a number between 0 and 2</p>
+</blockquote>
+</li>
+<li>
+<p><code>distance_weight</code>: float</p>
+<blockquote>
+<p>Must be a number greater than zero, it is the exponent of the Connections formula standar deviation, higher number make points with higher mean and deviation haves less importance and lower ratting at connection  have larger Strongly recommended a number between 0 and 2</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="method">Method</h2>
+<p><code>.fit(route_example, time_costs, fuel_costs):</code></p>
+<blockquote>
+<p>This method train the algorithm, we need to pass the following parameters:<br />
+<code>start_node_id</code>: The starting node.<br />
+<code>ids_node</code>: a list with all the nodes ids. <br />
+<code>cost_matrix</code>: a dict of dicts that represent a diagonal matrix with the times between all points. </p>
+</blockquote>
+<h2 id="example-with-nrbs-algorithm">Example with NRBS algorithm</h2>
+<pre><code>from sklearn_route.datasets import load_barcelona
+from sklearn_route.preprocessing import matrix_to_dict
+from sklearn_route.heuristics import NRBS 
+
+df_barcelona = load_barcelona()
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the cost)
+cost_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Create a random route, it's will needed to initiate the algorithm
+route_example = list(dict.fromkeys(cost_matrix_df).keys())
+start_id = route_example[0]
+
+nrbs = NRBS(mean_priority=0.3, pop=1.5, gen=0.4, k=2, p_c early_stoping=1)
+
+#random route - time_matrix - cost_matrix
+result = nrbs.fit(start_id, route_example, cost_matrix)
+
+#Print the cost and the route.
+print(result)
+</code></pre>
+<h3 id="understunding-the-data-needed-by-the-algorithm">Understunding the data needed by the algorithm</h3>
+<p>The <strong>dicts of dicts</strong> matrix_cost, are dicts of dicts for performance reason. these dicts could be also represented as diagonal symmetric matrix, columns and index represent the cost of the point. Here an example:</p>
+<pre><code>easy_route = {
+            1:{
+                1:0,
+                2:x
+                3:y
+                },
+            2:{
+                1:x,
+                2:0,
+                3:z
+                },
+            3:{
+                1:y,
+                2:z,
+                3:0
+                }
+            }
+
+#We can see clearly the matrix with pandas
+import pandas as pd
+
+#Visualice the diagonal symmetric matrix
+print(pd.DataFrame(easy_route))
+</code></pre>
+<p><strong>Output:</strong><br />
+<img alt="mini_matrix" src="../images/diagonal_matrix_mini.png" /></p>
+<p>It's important to understund that the cost matrix <strong>must be the computation of all the costs</strong> that the user of the algorithm want to take in count <strong>per person</strong>. In the majority of cases the cost will be composed by:</p>
+<ul>
+<li>The cost of the fuel for one person to go from one point to another.</li>
+<li>The cost of the hours of work needed from one point to another.</li>
+</ul>
+<p>If we have multiple persons doing the same route, the <code>people</code> parameter will multiply the cost by the number of persons and will increase the cost with the <code>extra_cost</code> in case of the <code>max_time_work</code> paremeter will be surpased.</p>
+<p>Also note that <code>extra_cost</code> <strong>could be used as a maximun capacity</strong> of a truck for example in the case of material transports problems.</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Preprocessing/" class="btn btn-neutral float-right" title="Preprocessing">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../MetaHeuristics/" class="btn btn-neutral" title="MetaHeuristics"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../MetaHeuristics/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Preprocessing/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+</html>

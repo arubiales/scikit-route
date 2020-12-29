@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Preprocessing - Scikit Route</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Preprocessing";
+    var mkdocs_page_input_path = "Preprocessing.md";
+    var mkdocs_page_url = "/Preprocessing/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Scikit Route</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../BruteForce/">BruteForce</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Clustering/">Clustering</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Datasets/">Datasets</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Genetics/">Genetics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Heuristics/">Heuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Installation/">Installation</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../MetaHeuristics/">MetaHeuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../NRBS/">NRBS</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">Preprocessing</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#preprocessing">Preprocessing</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#matrix_to_dict">matrix_to_dict</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../SOM/">SOM</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Simmulated_Annealing/">Simmulated Annealing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../TabuSearch/">TabuSearch</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Tutorial/">Tutorial</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Utilities/">Utilities</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Scikit Route</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Preprocessing</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="preprocessing">Preprocessing</h1>
+<p>The preprocessing module could be confused if it's compared with the Scikit Learn Preprocessing module. In this case this module is not a Mathematical module for preprocesing data, it's a module oriente to preprocesed data in order to feed the algorithms, wich means that it's not make it with mathematical purposes only with structure purposes.</p>
+<p>The different functions of the preprocessing module are:</p>
+<h2 id="matrix_to_dict">matrix_to_dict</h2>
+<p><code>matrix_to_dict</code>: is a function that convert a diagonal matrix with origins -&gt; destiny points from a dataframe to a dicts of dicts. This dict of dict is needed for the <code>Genetic</code> algorithm and the <code>EnsembleGenetic</code> algorithm in order to compute their results. The parameters of the function are:</p>
+<ul>
+<li><code>dataframe</code>: the dataframe that will be converted</li>
+<li><code>id_origin</code>: the name of the column with the id of the origin points </li>
+<li><code>id_destinity</code>: the name of the column with the id of the destinity points</li>
+<li><code>compute_column</code>: the column data that will be taken in order to create the data of the diagonal matrix</li>
+</ul>
+<p>We have the following Dataframe (Barceloa dataframe from datasets):
+<img alt="Dataset example" src="../images/dataset_example.png" /></p>
+<p>Use example:</p>
+<pre><code>from sklearn_route.datasets import load_barcelona
+from sklearn_route.preprocessing import matrix_to_dict
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the hour)
+time_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the cost)
+cost_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+</code></pre>
+<p>So the dict of dicts represent a diagonal matrix. it's transformed in a dict of dicts for performance reasons. Only for learning purpose we will represent the dict of dicts as a diagonal matrix:</p>
+<pre><code>import pandas as pd
+
+df = pd.DataFrame(cost_matrix_df)
+</code></pre>
+<p>And the result:</p>
+<p><img alt="Dataframe diagona example" src="../images/diagonal_matrix_example.png" /></p>
+<p>This matrix represent the cost of go from one point (origin id) to other (destinity id). This cost is computed with the hours and the cost of fuel per kilometer.</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../SOM/" class="btn btn-neutral float-right" title="SOM">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../NRBS/" class="btn btn-neutral" title="NRBS"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../NRBS/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../SOM/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+</html>

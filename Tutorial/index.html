@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Tutorial - Scikit Route</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Tutorial";
+    var mkdocs_page_input_path = "Tutorial.md";
+    var mkdocs_page_url = "/Tutorial/";
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Scikit Route</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../BruteForce/">BruteForce</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Clustering/">Clustering</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Datasets/">Datasets</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Genetics/">Genetics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Heuristics/">Heuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Installation/">Installation</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../MetaHeuristics/">MetaHeuristics</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../NRBS/">NRBS</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Preprocessing/">Preprocessing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../SOM/">SOM</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Simmulated_Annealing/">Simmulated Annealing</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../TabuSearch/">TabuSearch</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">Tutorial</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#tutorial">Tutorial</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#genetic">Genetic</a></li>
+        
+            <li><a class="toctree-l3" href="#clustering">Clustering</a></li>
+        
+            <li><a class="toctree-l3" href="#genetics">Genetics</a></li>
+        
+            <li><a class="toctree-l3" href="#simmulated-annealing">Simmulated Annealing</a></li>
+        
+            <li><a class="toctree-l3" href="#brute-force">Brute Force</a></li>
+        
+            <li><a class="toctree-l3" href="#utilities">Utilities</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../Utilities/">Utilities</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Scikit Route</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Tutorial</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="tutorial">Tutorial</h1>
+<p>This is a quick tutorial based on examples to learn to use quickly the differents algorithms of the library</p>
+<h2 id="genetic">Genetic</h2>
+<p>Genetic is a metaheuristic algorithm wich mean that it's not deterministic, so every time the algorithm output will be a different solution near of the unknown best solution.</p>
+<p>This Algorithm is focused in solve the MTSPTW problem (<strong>M</strong>ulti <strong>T</strong>ravel <strong>S</strong>ales <strong>P</strong>roblem with <strong>T</strong>ime <strong>W</strong>indows). This problem is about a person that need to cover a number of points to visit but have a limit of working hours (time constraint) and extra cost. If it's the case, this algorithm is the perfect solution:</p>
+<h3 id="load-the-modules">Load the modules</h3>
+<p>First of all we load the modules that we will use:</p>
+<pre><code>from sklearn_route.datasets import load_barcelona
+from sklearn_route.preprocessing import matrix_to_dict
+from sklearn_route.genetics import Genetic
+</code></pre>
+<p>If you want to know more about these modules you can visit:</p>
+<ul>
+<li><a href="../Datasets/">Datasets</a></li>
+<li><a href="../Preprocessing/">Preprocessin</a></li>
+<li><a href="../Genetics/">Genetics</a></li>
+</ul>
+<h3 id="pre-processing-data">Pre-processing data</h3>
+<p>Here we put the data in the format required by the algorithm. In this case we use the <code>matrix_to_dict</code> function to transform our <em>id_points</em> cost in fuel and in time to dicts of dicts.
+You can see the docs of all functions, using the <code>help()</code> command. Also there are more detailed examples in the docs webpage.</p>
+<pre><code>df_barcelona = load_barcelona()
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the hour)
+time_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Dataset - id of origin - id of destiny - column to transform (in this case the cost)
+cost_matrix = matrix_to_dict(df_barcelona, &quot;id_origin&quot;, &quot;id_destinity&quot;, &quot;hora&quot;)
+
+#Create a random route, it's will needed to initiate the algorithm
+route_example = list(dict.fromkeys(cost_matrix_df).keys())
+</code></pre>
+<h3 id="running-the-algorithm">Running the Algorithm</h3>
+<p>Here we see how the algorithm operation is the same as Scikit Learn. You can see all the Hyperparamenters, what they do, and examples with the builtin <code>help()</code> function. Also there are more detailed examples in the docs webpage.</p>
+<p>In this case we choose an <strong>algorithm with Methaeuristic</strong> aproach to the problem. There are other algorithms in the package that can solve this problem or have another approach.</p>
+<pre><code>#Instantiate the algorithm
+ga = Genetic(p_m = 0.3, pop=400, gen=2000, k=5, p_c early_stoping=100, max_time_work=6, extra_cost=12.83)
+
+#random route - time_matrix - cost_matrix
+result = ga.fit(route_example, time_matrix, cost_matrix)
+
+#Printing the best route
+print(result)
+
+#Printing the loss function
+print(ga.history_)
+</code></pre>
+<p>In the Genetic Algorithm we have a lot of Hyperparameters to config, for a full understanding of the Algorithm please refer to <a href="../Genetics/">Genetics</a></p>
+<h2 id="clustering">Clustering</h2>
+<h2 id="genetics">Genetics</h2>
+<h2 id="simmulated-annealing">Simmulated Annealing</h2>
+<h2 id="brute-force">Brute Force</h2>
+<h2 id="utilities">Utilities</h2>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Utilities/" class="btn btn-neutral float-right" title="Utilities">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../TabuSearch/" class="btn btn-neutral" title="TabuSearch"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+	  
+        </div>
+      </div>
+
+    </section>
+    
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../TabuSearch/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Utilities/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script src="../js/theme.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+</body>
+</html>
