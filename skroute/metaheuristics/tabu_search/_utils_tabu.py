@@ -132,7 +132,7 @@ A tuple with the best cost and the best route
     return cost_best_route, best_route
 
 
-def random_swap_indices(length):
+def random_swap_indices(length, mode=False):
     """
 Generate two random number between 0 and length
 
@@ -140,10 +140,18 @@ Parameters
 length: int
     The highest random number that can be generated
     """
-    rand_1 = int(rd.random()*length)+1
-    rand_2 = int(rd.random()*length)+1
-    while rand_1==rand_2:
+
+    if mode:
+        rand_1 = int(rd.random()*length)+1
         rand_2 = int(rd.random()*length)+1
+        while rand_1==rand_2 or abs(rand_1-rand_2) == 1:
+            rand_2 = int(rd.random()*length)+1
+    else:
+        rand_1 = int(rd.random()*length)+1
+        rand_2 = int(rd.random()*length)+1
+        while rand_1==rand_2:
+            rand_2 = int(rd.random()*length)+1
+
     return rand_1, rand_2
 
 
@@ -160,13 +168,12 @@ lenght: int
     The lenght of the route to mutate
 
     """
-    rand_1, rand_2 = random_swap_indices(length)
-
+    rand_1, rand_2 = random_swap_indices(length, mode=True)
+    
     if rand_1 > rand_2:
         mutated_route[rand_2:rand_1] = reversed(mutated_route[rand_2:rand_1])
     else:
         mutated_route[rand_1:rand_2] = reversed(mutated_route[rand_1:rand_2])
-
 
 def var_lower_length(tabu_lenght, tabu_var):
     """

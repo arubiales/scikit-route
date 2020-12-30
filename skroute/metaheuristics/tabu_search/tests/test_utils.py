@@ -75,7 +75,7 @@ class TestUtilsTabuSearch:
         random_route_2 = random_route[:]
         route_changed = cross_route(random_route_2, 19)
         assert not route_changed, "cross_route must return None because the change is inplace"
-        assert type(route_changed) == list, "cross_route must keep a list"
-        assert all(type(n) == int for n in route_changed), "cross_route must keep integers ids route"
-        assert random_route_2 != route_changed, "cross_route must change the route passed"
-        assert len(random_route_2) == len(route_changed), "cross_route can't change the lenght of the route"
+        assert type(random_route_2) == list, "cross_route must keep a list"
+        assert all(type(n) == int for n in random_route_2), "cross_route must keep integers ids route"
+        assert random_route_2 != random_route, "cross_route must change the route passed"
+        assert len(random_route_2) == len(random_route), "cross_route can't change the lenght of the route"
