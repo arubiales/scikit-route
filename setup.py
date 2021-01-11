@@ -65,5 +65,5 @@ setup(
     install_requires=REQUIREMENTS,
     ext_modules = extensions,
     include_package_data=True,
-    package_data={"": ["datasets/*.csv", "datasets/*.tsp", "datasets/*.txt", "datasets/*.pkl"]},
+    package_data={"": ["datasets/_data/_latitude_longitude/*.tsp", "datasets/*.txt", "datasets/_data/_money_cost/*.pkl"]},
 )
