@@ -1,0 +1,7 @@
+Here are the meaning of the different columns.
+
+The columns needed for the algorithms are:
+
+* id: The ID of the place
+* latitude: the latitude of the place is a float number
+* longitude: the longitude of the place is a float number

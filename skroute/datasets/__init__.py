@@ -1,5 +1,5 @@
 import pandas as pd
-from .datasets import *
+from ._datasets import *
 
 __all__ = [
     "load_alicante_murcia", "load_barcelona", "load_madrid", "load_valencia"
