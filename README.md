@@ -2,15 +2,13 @@
 
 ![Logo](docs/images/logo.png "Title")
 
-**WIP Package**
+**Scikit Route** is a Python module created with Python and Cython to optimize route and travel problems and there are a lot of different alogithms in the package for all the different purposes.
 
-**Scikit Route** is a Python module create with Python and Cython to optimize route and travel problems and there are a lot of different alogithms in the package for all the different purposes.
+**Scikit Route have the spirit and the soul of Scikit Learn** wich mean that is fully oriented to the programmer, easy to use and to understand, you can create algorithm with a few lines of code, and the modules, submodules, methods of the algorithms, etc, are the same than Scikit Learn wich will make even easier to use this library if you previously know Scikit Learn.
 
-**Scikit Route have the spirit and the soul of Scikit Learn** wich mean that is fully oriented to the programmer, easy to use and to understund, you can create algorithm with a few lines of code, and the modules, submodules, methods of the algorithms, etc, are the same than Scikit Learn wich will make even easyer to use this library if you previously know Scikit Learn.
+This project was started in 2020 by Alberto Rubiales and one of the main goals is to be integrated in the future with the Scikit Learn project.
 
-This project was started in 2020 by Alberto Rubiales and one of the main goals is to be integrated in the future with Scikit Learn project.
-
-Anyone is free to help and developt the package.
+Anyone is free to help and develop the package.
 
 ## Installation
 ### Dependencies
@@ -20,6 +18,8 @@ scikit_route requires:
 * Pandas (>=1.1)
 * Scikit-Learn (>=0.23)
 * Cython (>=0.29)
+* Googlemaps
+* Tensorflow
 
 Others version could work but it's not guaranted.
 
