@@ -1,0 +1,9 @@
+include *.txt
+include *.md
+recursive-include skroute *.pyx
+recursive-include skroute *.pxd
+recursive-include skroute *.pxi
+recursive-include skroute *.csv
+recursive-include skroute *.pkl
+recursive-include skroute *.tsp
+recursive-include skroute *.txt

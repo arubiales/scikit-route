@@ -1,10 +1,9 @@
-import os.path
+import os
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 import Cython.Compiler.Options
 Cython.Compiler.Options.annotate = True
-import re
 
 extensions = cythonize([
     Extension(
@@ -27,8 +26,6 @@ extensions = cythonize([
         sources=["skroute/metaheuristics/simulated_annealing/_base_simulated_annealing/_utils_sa.pyx"]),
     ])
 
-
-
 HERE = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -38,10 +35,9 @@ with open(os.path.join(HERE, "README.md")) as fid:
 with open(os.path.join(HERE, "requirements.txt")) as f:
     REQUIREMENTS = f.read().splitlines()
 
-
 setup(
-    name="skroute", 
-    version="1.0.0a1 ", 
+    name="scikit-route", 
+    version="1.0.0a2", 
     description="Compute Routes easy and fast",
     long_description=README, 
     long_description_content_type="text/markdown",  
