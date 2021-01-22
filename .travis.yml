@@ -16,7 +16,7 @@ install:
   - python setup.py sdist bdist_wheel
   - pwd
   - ls -lisa
-  - pip install dist/skroute*.whl
+  - pip install dist/scikit-route*.whl
   
 script:
   - cd ..
