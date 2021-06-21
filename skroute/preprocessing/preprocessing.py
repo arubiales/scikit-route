@@ -118,14 +118,6 @@ and in meters. Scikit Route don't encourage or promote the use of the Google API
 Parameters:
 -----------
 
-p_c: float32, default=0.6
-    between 0 and 1 the probability of crossover. In each generation
-    at start the algorithm generate two random probabilities these
-    random probabilies are the choosen when crossover will take
-    place. If the random number is 4 that mean that the number in
-    position and the following numbers will be now at start. And the
-    first four numbers will be at the end.
-
 api: str
     The API credential to the distance matrix Google service
 
@@ -192,7 +184,7 @@ scrap():
     - Distance in seconds from first node to second node and viceversa (symmetric)
     - Distance in meters  from first node to second node and viceversa (symmetric)
 
-    ¡Caveat!
+    Caveat!
     The None values are distances not availables in the Google API.  So sometimes
     it's needed to continue processing the result of this method by hand.
 
@@ -353,14 +345,14 @@ mode: str {"meters", "time"} default="meters"
 
     return matrix
 
-def matrix_to_dict(dict_of_dicts):
+def matrix_to_dict(matrix):
     """
 2D array with cost of each node with the rest, return a dict of dicts ready for 
 the algorithm
 
 Parameters
 -----------
-dict_of_dicts: 2d array
+matrix: 2d array
     the matrix that will be converted into a dict of dicts.
 
 Return
