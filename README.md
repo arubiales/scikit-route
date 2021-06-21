@@ -2,9 +2,9 @@
 
 ![Logo](docs/images/logo.png "Title")
 
-**Scikit Route** is a Python module created with Python and Cython to optimize route and travel problems and there are a lot of different alogithms in the package for all the different purposes.
+**Scikit Route** is a Python module created with Python C, C++ and Cython to optimize route and travel problems. Scikit Route have a lot of different alogithms in the package for all the different purposes.
 
-**Scikit Route have the spirit and the soul of Scikit Learn** wich mean that is fully oriented to the programmer, easy to use and to understand, you can create algorithm with a few lines of code, and the modules, submodules, methods of the algorithms, etc, are the same than Scikit Learn wich will make even easier to use this library if you previously know Scikit Learn.
+**Scikit Route have the spirit and the soul of Scikit Learn** wich mean that is fully oriented to the programmer, easy to use and to understand, you can create algorithm with a few lines of code, and the modules, submodules, methods, etc, are the same than Scikit Learn wich make even easier to use this library if you previously know Scikit Learn.
 
 This project was started in 2020 by Alberto Rubiales and one of the main goals is to be integrated in the future with the Scikit Learn project.
 
@@ -86,4 +86,4 @@ print(ga.history_)
 
 ### Conclusions
 
-Sklearn Route is library to **solve differents types of route problems, easy to use and fast to learn.** If you want to know more about the different algorithms, hyperparameters, how it works and more examples, **the package have a very deep and detailed documentations** with a lot of examples in the official documentation here.
+Sklearn Route is library to **solve differents types of route problems, easy to use and fast to learn.** If you want to know more about the different algorithms, hyperparameters, how it works and more examples, **the package have a very deep and detailed documentations** with a lot of examples in the official documentation [here](https://arubiales.github.io/scikit-route/).
