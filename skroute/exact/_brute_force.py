@@ -24,8 +24,9 @@ class BruteForce(BaseRouter):
     ----------
     max_nodes : int, default 11
         Hard cap on the number of nodes (``fit`` raises ``ValueError`` above it). The work
-        grows as ``(n - 1)!``: ``10!`` at n = 11 is 3.6 million tours, a few seconds at most;
-        n = 12 is eleven times more. Raise it only if you accept the time.
+        grows as ``(n - 1)!``: ``10!`` at n = 11 is 3.6 million tours — still a fraction of a
+        second (a few hundredths on a laptop); n = 12 is eleven times more, n = 13 a hundred
+        and thirty. Raise it only if you accept the time.
 
     Attributes
     ----------
@@ -47,7 +48,9 @@ class BruteForce(BaseRouter):
     that closes a trip while the next node would still fit is not representable); under
     ``split="optimal"`` it is exact for the distance-constrained multi-trip problem.
 
-    Complexity O((n - 1)! · n) time (halved when symmetric and unbudgeted), O(n) memory.
+    Complexity O((n - 1)! · n) time (roughly halved when symmetric and unbudgeted: the
+    reversal of a pair is also priced when the kept orientation is within 1e-9 of the
+    incumbent), O(n) memory.
 
     Supports: symmetric and asymmetric matrices, multi-trip objective (both split rules);
     deterministic.

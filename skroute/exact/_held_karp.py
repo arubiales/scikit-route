@@ -25,9 +25,10 @@ class HeldKarp(BaseRouter):
     ----------
     max_nodes : int, default 20
         Hard cap on the number of nodes (``fit`` raises ``ValueError`` above it). Time is
-        O(2^(n-1) · n²) and memory ``2^(n-1) · (n-1)`` doubles plus as many bytes: about
-        80 MB and well under a second at n = 20, ~740 MB at n = 23. Raise it only if you
-        accept the memory; :class:`MILP` solves these sizes instantly in any case.
+        O(2^(n-1) · n²) and memory ``2^(n-1) · (n-1)`` doubles plus as many ``int8`` parent
+        bytes: about 90 MB (80 MB of doubles) and well under a second at n = 20; ~830 MB at
+        n = 23 (738 MB of doubles plus a 92 MB parent table). Raise it only if you accept
+        the memory; :class:`MILP` solves these sizes instantly in any case.
 
     Attributes
     ----------
