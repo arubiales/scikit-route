@@ -634,14 +634,22 @@ cpdef double two_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[
     Returns
     -------
     float
-        ``cost_after - cost_before`` (``<= 0``); ``0.0`` means nothing changed, i.e. the
-        tour is 2-opt-optimal for the candidate neighbourhood.
+        ``cost_after - cost_before`` (``<= 0``); ``0.0`` means nothing changed: no node whose
+        bit was active found an improving move, i.e. the tour is 2-opt-optimal for the
+        candidate neighbourhood *up to the don't-look-bit approximation* (see Notes).
 
     Notes
     -----
     A move is applied when ``delta < -1e-9 * max(1, removed)`` with ``removed`` the cost of the
     two removed edges (the local form of the §4.0 improvement test). One sweep is O(n * k)
     delta evaluations plus O(n) per applied reversal. ``noexcept nogil``.
+
+    The bits are reset only for the four endpoints of an applied reversal, so a node whose bit
+    is set can miss a move that a later reversal elsewhere made available (its candidate's
+    successor changed). With full candidate lists, clearing the bits before every call and
+    calling until ``0.0`` is returned yields an exact 2-opt local optimum: an improving
+    reversal always has a new edge shorter than the removed edge at one of its endpoints, and
+    that endpoint's scan finds it.
 
     References
     ----------

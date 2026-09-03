@@ -2,9 +2,13 @@
 
 Every kernel of SPEC §3.5 is checked property-wise (hypothesis, ``derandomize=True``) against
 ``tests/reference.py`` on instances with ``n in 3..12``, symmetric and asymmetric finite
-matrices, random depot-first permutations and budgets in ``[max round trip, 3 x max round
-trip]`` (§6), plus unit tests for the ``n = 3`` edges, the ``SplitRule`` constants, argument
-validation and the ``.pyi`` stub surface.
+matrices of several kinds (random, Euclidean, lattice points with coincidences and exact ties,
+small integers with zero edges, all-zero, scaled by ``1e12`` and by ``1e-9``), random
+depot-first permutations and budgets in ``[max round trip, 3 x max round trip]`` (§6), plus
+unit tests for the ``n = 3`` edges, the ``SplitRule`` constants, argument validation and the
+``.pyi`` stub surface. Two properties are checked beyond the reference: no kernel reads the
+diagonal (§3.1) and the descents' don't-look bookkeeping and neighbourhoods are the documented
+ones.
 """
 
 from __future__ import annotations
@@ -97,29 +101,59 @@ def two_opt_pairs(n: int) -> list[tuple[int, int]]:
     return [(i, j) for i in range(1, n - 1) for j in range(i + 1, n)]
 
 
+def delta_tol(C: np.ndarray, tour: np.ndarray) -> float:
+    """Absolute tolerance for an O(1) delta against a recompute-by-difference: the rounding of the two
+    full sums scales with the tour cost (1e12-scaled instances lose ~1e-3 in absolute terms)."""
+    return 1e-9 * max(1.0, abs(reference.tour_cost(C, tour)))
+
+
 # ----------------------------------------------------------------------------- strategies
+# Matrix kinds: the bundled Waterloo data has coincident points (lu980: 346 duplicate rows) and
+# integer ties, so zero edges and exact ties are normal input; the scaled kinds cover the extremes.
+KINDS = ("uniform", "euclidean", "lattice", "integer", "zero", "huge", "tiny")
+
+
+def make_matrix(rng: np.random.Generator, n: int, symmetric: bool, kind: str) -> np.ndarray:
+    """Finite (n, n) float64 matrix of the given kind with a zero diagonal; symmetric when asked."""
+    if kind in ("euclidean", "lattice"):
+        xy = rng.random((n, 2)) * 100.0 if kind == "euclidean" else rng.integers(0, 3, (n, 2)).astype(float)
+        M = np.sqrt(((xy[:, None, :] - xy[None, :, :]) ** 2).sum(-1))
+        if not symmetric:
+            M = M * rng.uniform(0.7, 1.3, (n, n))
+    else:
+        if kind == "integer":
+            M = rng.integers(0, 6, (n, n)).astype(float)
+        elif kind == "zero":
+            M = np.zeros((n, n))
+        else:
+            M = rng.uniform(1.0, 100.0, (n, n))
+            if kind == "huge":
+                M = M * 1e12
+            elif kind == "tiny":
+                M = M * 1e-9
+        if symmetric:
+            M = (M + M.T) / 2.0
+    np.fill_diagonal(M, 0.0)
+    return np.ascontiguousarray(M)
+
+
 @st.composite
-def instances(draw, symmetric=None, with_time=False, min_n=3, max_n=12):
-    """Instance dict: C (and T, max_time, fixed_cost), a depot-first random tour, n, symmetric."""
+def instances(draw, symmetric=None, with_time=False, min_n=3, max_n=12, kinds=KINDS):
+    """Instance dict: C (and T, max_time, fixed_cost), a depot-first random tour, n, symmetric, kind."""
     n = draw(st.integers(min_n, max_n))
     seed = draw(st.integers(0, 2**31 - 1))
     sym = draw(st.booleans()) if symmetric is None else symmetric
+    kind = draw(st.sampled_from(kinds))
     rng = np.random.default_rng(seed)
-    C = rng.uniform(1.0, 100.0, (n, n))
-    if sym:
-        C = (C + C.T) / 2.0
-    np.fill_diagonal(C, 0.0)
+    C = make_matrix(rng, n, sym, kind)
     depot = draw(st.integers(0, n - 1))
     others = rng.permutation([v for v in range(n) if v != depot])
     tour = np.concatenate(([depot], others)).astype(np.int64)
-    inst = {"C": np.ascontiguousarray(C), "tour": tour, "n": n, "symmetric": sym, "depot": depot}
+    inst = {"C": C, "tour": tour, "n": n, "symmetric": sym, "depot": depot, "kind": kind}
     if with_time:
-        T = rng.uniform(0.5, 10.0, (n, n))
-        if sym:
-            T = (T + T.T) / 2.0
-        np.fill_diagonal(T, 0.0)
+        T = make_matrix(rng, n, sym, kind)
         round_trip = max(T[depot, v] + T[v, depot] for v in range(n) if v != depot)
-        inst["T"] = np.ascontiguousarray(T)
+        inst["T"] = T
         inst["max_time"] = round_trip * draw(st.floats(1.0, 3.0))
         inst["fixed_cost"] = draw(st.floats(0.0, 50.0))
     return inst
@@ -225,8 +259,8 @@ def test_two_opt_delta_is_exact_on_symmetric(args):
     inst, i, j = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.two_opt_delta_by_recompute(C, tour, i, j)
-    assert core.two_opt_delta_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
-    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
+    assert core.two_opt_delta_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
+    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -235,7 +269,7 @@ def test_two_opt_delta_asym_is_exact_on_asymmetric(args):
     inst, i, j = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.two_opt_delta_by_recompute(C, tour, i, j)
-    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
+    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -244,7 +278,7 @@ def test_or_opt_delta_forward_is_exact_on_asymmetric(args):
     inst, i, L, j, _ = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.or_opt_delta_by_recompute(C, tour, i, L, j, reverse=False)
-    assert core.or_opt_delta_py(C, tour, i, L, j, False) == pytest.approx(expected, abs=1e-9)
+    assert core.or_opt_delta_py(C, tour, i, L, j, False) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -253,7 +287,7 @@ def test_or_opt_delta_both_orientations_are_exact_on_symmetric(args):
     inst, i, L, j, reverse = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.or_opt_delta_by_recompute(C, tour, i, L, j, reverse=reverse)
-    assert core.or_opt_delta_py(C, tour, i, L, j, reverse) == pytest.approx(expected, abs=1e-9)
+    assert core.or_opt_delta_py(C, tour, i, L, j, reverse) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -262,7 +296,7 @@ def test_swap_delta_is_exact_on_asymmetric(args):
     inst, i, j = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.swap_delta_by_recompute(C, tour, i, j)
-    assert core.swap_delta_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
+    assert core.swap_delta_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 # ----------------------------------------------------------------------------- applying moves
@@ -405,13 +439,19 @@ def test_descents_with_max_passes_zero_change_nothing(inst):
 
 
 @FEW
-@given(instances(symmetric=True, min_n=5, max_n=9))
-def test_two_opt_descent_with_full_lists_reaches_a_two_opt_local_optimum(inst):
-    """Best-improvement 2-opt over the complete neighbourhood ends where no reversal improves."""
+@given(instances(symmetric=True, min_n=5, max_n=9), st.booleans())
+def test_two_opt_descent_with_full_lists_and_cleared_bits_reaches_a_two_opt_local_optimum(inst, first):
+    """With the complete neighbourhood and the don't-look bits cleared before every pass, the descent
+    ends where no reversal improves: an improving reversal has a new edge shorter than the removed edge
+    at one of its endpoints, and that endpoint's scan finds it. (A single call with persistent bits is
+    only 2-opt-optimal up to the don't-look-bit approximation — see the kernel's Notes.)"""
     C, n = inst["C"], inst["n"]
     inst["cand"] = neighbours(C, n - 1)
     t, pos, dlb = descent_buffers(inst)
-    core.two_opt_descent(C, t, pos, inst["cand"], dlb, False, 10_000)
+    for _ in range(10_000):
+        dlb[:] = 0
+        if core.two_opt_descent(C, t, pos, inst["cand"], dlb, first, 1) == 0.0:
+            break
     cur = reference.tour_cost(C, t)
     for i, j in two_opt_pairs(n):
         assert reference.tour_cost(C, reference.two_opt_apply(t, i, j)) >= cur - 1e-9 * max(1.0, cur) - 1e-12
