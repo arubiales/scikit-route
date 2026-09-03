@@ -4,7 +4,7 @@
 
 scikit-route was started in 2020 by Alberto Rubiales as a route-optimisation library with the spirit of
 scikit-learn: estimators you configure in `__init__`, fit on your data and read results from. It grew out of
-a concrete routing problem at Secoex — planning the daily rounds of a sales team around Spanish cities,
+a concrete routing problem — planning the daily rounds of a sales team around Spanish cities,
 where a working day must not exceed eight hours and every extra day has a price — which is why the library
 has always carried, next to the plain travelling salesman problem, a multi-trip objective with a per-trip
 working-time budget and a fixed charge per additional trip. The bundled cost datasets (Alicante–Murcia,
