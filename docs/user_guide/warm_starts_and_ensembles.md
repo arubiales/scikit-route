@@ -329,7 +329,8 @@ handler shows only `WARNING` and above, so enable the records once with
 
 ```python
 import skroute
-skroute.set_log_level("INFO")            # attaches a stderr handler if none is configured
+
+skroute.set_log_level("INFO")  # attaches a stderr handler if none is configured
 IteratedLocalSearch(verbose=1, random_state=0).fit(C_wi, labels=wi.labels)
 ```
 

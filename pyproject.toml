@@ -51,7 +51,7 @@ test = [
 ]
 dev = [
   "scikit-route[test]",
-  "ruff>=0.6",
+  "ruff>=0.16",
   "mypy>=1.10",
   "cython-lint>=0.16",
   "pre-commit>=3.7",
