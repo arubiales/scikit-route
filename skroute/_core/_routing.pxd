@@ -12,13 +12,20 @@
 # the successor of position n-1 is position 0; the diagonal is never read.
 #
 # ``noexcept nogil`` applies to every function except ``problem_cost_py`` and ``trip_starts``:
-# those two hold the GIL and malloc/free their own dp/pred scratch for the optimal split
-# (MemoryError on failure).
+# those two validate their arguments and malloc/free their own dp/pred scratch for the optimal
+# split with the GIL held (MemoryError on failure), then release the GIL around the kernel call
+# (amendment of 2026-09-03), so concurrent callers do not serialise on them.
 from libc.math cimport INFINITY
 from libc.stdint cimport int64_t, uint8_t
 
 
 cpdef enum SplitRule:          # Python: _routing.SplitRule.SPLIT_GREEDY / .SPLIT_OPTIMAL (IntEnum)
+    """Decoder of a giant tour into trips (SPEC D1): ``SPLIT_GREEDY`` (0) or ``SPLIT_OPTIMAL`` (1).
+
+    Reached from Python as the ``IntEnum`` class ``_routing.SplitRule``; its members are not
+    module attributes. C code compares an ``int split`` argument against the two values
+    (``problem_cost`` dispatches on ``split == SPLIT_GREEDY``, anything else is the optimal split).
+    """
     SPLIT_GREEDY = 0
     SPLIT_OPTIMAL = 1
 

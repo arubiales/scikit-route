@@ -19,9 +19,10 @@ Calling conventions
 * ``max_time == inf`` means plain TSP (``T`` is then never read); ``fixed_cost`` is
   ``people * extra_cost`` and is charged once per trip beyond the first.
 * Every function is ``noexcept nogil`` except :func:`problem_cost_py`, :func:`trip_starts`
-  and the ``*_py`` wrappers, which hold the GIL, validate their arguments and may raise. The
-  ``noexcept nogil`` kernels **cannot** validate: an ill-shaped buffer or an out-of-domain
-  position is undefined behaviour there — respect the documented domains.
+  and the ``*_py`` wrappers, which are called with the GIL, validate their arguments and may
+  raise (:func:`problem_cost_py` and :func:`trip_starts` release the GIL around their kernel
+  call). The ``noexcept nogil`` kernels **cannot** validate: an ill-shaped buffer or an
+  out-of-domain position is undefined behaviour there — respect the documented domains.
 * Scratch memory is ``malloc``/``free``'d from ``libc.stdlib``; a kernel that cannot raise
   falls back to a documented safe result when allocation fails (see
   :func:`nearest_neighbour_tour`).
@@ -224,8 +225,8 @@ cpdef Py_ssize_t trip_starts(const double[:, ::1] T, const int64_t[::1] tour, do
     number of trips; trip ``t`` is ``tour[out[t]:out[t + 1]]``. Plain TSP (``max_time ==
     inf``) writes ``[1, n]`` and returns 1. The greedy decoder starts a trip at every
     position where the D1 rule closed the previous one; the optimal decoder follows the
-    ``pred`` chain of the Prins DAG, for which this function allocates its own scratch
-    while holding the GIL.
+    ``pred`` chain of the Prins DAG, for which this function allocates its own scratch with
+    the GIL held and releases the GIL around the DP.
 
     Parameters
     ----------
@@ -376,8 +377,19 @@ cpdef void trip_times(const double[:, ::1] T, const int64_t[::1] tour, const int
                       double[::1] out) noexcept nogil:
     """Closed duration of every trip: ``out[t] = T[d, first] + ... + T[last, d]``.
 
-    Same contract as :func:`trip_costs` with the time matrix; under either decoder every
-    value is ``<= max_time`` (up to rounding) when every single-customer trip fits (D5).
+    The time-matrix twin of :func:`trip_costs`; under either decoder every value is
+    ``<= max_time`` (up to rounding) when every single-customer trip fits (D5).
+
+    Parameters
+    ----------
+    T : (n, n) float64, C-contiguous
+        Time matrix.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    starts : (k + 1,) int64, C-contiguous
+        Trip boundaries as written by :func:`trip_starts` (``starts[0] == 1``, ``starts[k] == n``).
+    out : (k,) float64, C-contiguous
+        Receives one closed-trip duration per trip (``RoutingProblem.trip_times``).
 
     Notes
     -----
@@ -897,15 +909,8 @@ cpdef double or_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[:
 
 
 # ====================================================================== generic descent (full evaluation)
-cdef inline double _eval_scratch(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
-                                 int64_t[::1] scratch, double max_time, double fixed_cost, int split,
-                                 double[::1] dp, int64_t[::1] pred) noexcept nogil:
-    # Copy tour into scratch (the caller then applies a move on scratch) -- kept separate so the
-    # three move kinds share one evaluation path.
-    memcpy(&scratch[0], &tour[0], tour.shape[0] * sizeof(int64_t))
-    return problem_cost(C, T, scratch, max_time, fixed_cost, split, dp, pred)
-
-
+# Each _generic_* helper copies the tour into the caller's scratch, applies its move there, prices the
+# scratch with the full objective and commits the move to tour/pos when it improves.
 cdef bint _generic_reverse(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
                            int64_t[::1] pos, Py_ssize_t lo, Py_ssize_t hi, double max_time, double fixed_cost,
                            int split, int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred,

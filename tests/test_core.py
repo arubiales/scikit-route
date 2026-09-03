@@ -845,8 +845,27 @@ def test_stub_declares_exactly_the_python_surface():
     public = {name for name in dir(core) if not name.startswith("_")}
     assert declared == public
     assert set(core.__all__) == public
+    # the stub's __all__ mirrors the module's (mypy resolves ``core.__all__`` through the stub)
+    stub_all = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in node.targets)
+    )
+    assert ast.literal_eval(stub_all.value) == list(core.__all__)
     enum_cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "SplitRule")
     assert [b.id for b in enum_cls.bases] == ["IntEnum"]  # type: ignore[attr-defined]
+
+
+def test_every_public_name_is_documented_in_numpydoc():
+    """mkdocstrings/help() show every public name: the enum has a docstring and every function a
+    ``Parameters`` section (``embedsignature`` gives the signature, not the parameters' meaning)."""
+    for name in core.__all__:
+        doc = getattr(core, name).__doc__
+        assert doc and doc.strip(), name
+        if name != "SplitRule":
+            assert "Parameters\n" in doc, name
+    enum_doc = core.SplitRule.__doc__ or ""
+    assert "SPLIT_GREEDY" in enum_doc and "SPLIT_OPTIMAL" in enum_doc
 
 
 def test_docstring_examples_of_the_compiled_module_run():
