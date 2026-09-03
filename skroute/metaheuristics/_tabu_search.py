@@ -20,6 +20,9 @@ __all__ = ["TabuSearch"]
 
 log = logging.getLogger("skroute")
 
+_TENURE_CHUNK = 1024  # "auto" tenures are drawn lazily in chunks (stream-identical to one draw of n_iter)
+_INT32_MAX = 2**31 - 1
+
 
 class TabuSearch(BaseRouter):
     """Tabu search over the giant tour: 2-opt and Or-opt candidate moves, edge tabus, aspiration.
@@ -35,9 +38,11 @@ class TabuSearch(BaseRouter):
     n_iter : int >= 1, default 1000
         Maximum number of iterations (``"max_iter"``).
     tenure : int >= 1 or "auto", default "auto"
-        Tabu tenure of a removed edge, in iterations. ``"auto"`` draws one tenure per iteration
-        uniformly from ``[ceil(sqrt(n)), 2 * ceil(sqrt(n))]`` (both ends inclusive, pre-drawn
-        from ``random_state``: the robust tabu search of Taillard); an int is a fixed tenure.
+        Tabu tenure of a removed edge, in iterations: an edge removed at iteration ``k`` is tabu
+        at exactly the iterations ``k + 1 .. k + tenure``. ``"auto"`` draws one tenure per
+        iteration uniformly from ``[ceil(sqrt(n)), 2 * ceil(sqrt(n))]`` (both ends inclusive,
+        pre-drawn from ``random_state``: the robust tabu search of Taillard); an int is a fixed
+        tenure (a tenure of ``n_iter`` or more keeps every removed edge tabu until the end).
     n_candidates : int >= 1 or None, default 10
         Size of the candidate lists (the ``k`` nearest nodes of every node by cost);
         ``None`` uses the full neighbourhood (``n - 1``).
@@ -61,7 +66,8 @@ class TabuSearch(BaseRouter):
     Attributes
     ----------
     history_ : ndarray of shape (n_iter_,), float64
-        Best-so-far cost after each iteration (monotone non-increasing).
+        Best-so-far cost after each iteration (monotone non-increasing); ``history_[-1]`` equals
+        ``cost_`` exactly.
     n_iter_ : int
         Iterations run.
     stop_reason_ : {"max_iter", "patience", "time_limit"}
@@ -85,9 +91,12 @@ class TabuSearch(BaseRouter):
 
     **Tabu attributes.** The edges a move removes (arcs when the matrix is asymmetric) are
     stored in an ``int32`` ``(n, n)`` matrix ``tabu_until``; a move is tabu when any edge it
-    adds is still tabu, unless it improves on the best cost so far (aspiration). When every
-    move is tabu the best move overall is applied, so the search never stalls. The practical
-    ceiling of the matrix is about 5 000 nodes (100 MB).
+    adds is still tabu, unless it improves on the best cost so far (aspiration). On an
+    asymmetric matrix a 2-opt reversal removes every arc of the reversed span (the inner arcs
+    change direction), so all of them are marked and a reversal is tabu when any arc it adds is
+    tabu; on a symmetric matrix only the two boundary edges change. When every move is tabu the
+    best move overall is applied, so the search never stalls. The practical ceiling of the matrix
+    is about 5 000 nodes (100 MB).
 
     **Complexity.** O(n * n_candidates) O(1) delta evaluations per iteration on the symmetric
     plain path (about 14 moves per candidate pair); O(n^2 * n_candidates) on the generic path
@@ -194,20 +203,29 @@ class TabuSearch(BaseRouter):
         cost0 = float(problem.evaluate(tour))
         state = np.array([cost0, cost0], dtype=np.float64)
 
-        # robust tabu search: one tenure per iteration, pre-drawn (D10); an int is a fixed tenure
-        if self.tenure == "auto":
-            base = math.ceil(math.sqrt(n))
-            tenures = rng.integers(base, 2 * base + 1, size=n_iter).astype(np.int32)
-        else:
-            tenures = np.full(n_iter, int(self.tenure), dtype=np.int32)
+        # robust tabu search: one tenure per iteration, pre-drawn (D10) in chunks so that a huge
+        # n_iter stopped by patience/time_limit costs no memory; an int is a fixed tenure, clamped
+        # to n_iter (any longer tenure is "until the end" anyway) and to the kernel's int32.
+        base = math.ceil(math.sqrt(n))
+        fixed = None if self.tenure == "auto" else min(int(self.tenure), n_iter, _INT32_MAX)
+        tenures = np.empty(0, dtype=np.int32)
+        chunk_start = 0
         until = np.zeros((n, n), dtype=np.int32)  # int32 on purpose: 100 MB at the ~5 000-node ceiling
         every = max(1, n_iter // 10) if self.verbose == 1 else 1
 
-        history = np.empty(n_iter, dtype=np.float64)
+        history: list[float] = []
         since = 0
         reason = "max_iter"
         done = 0
         for it in range(n_iter):
+            if fixed is not None:
+                tenure = fixed
+            else:
+                if it - chunk_start >= tenures.shape[0]:
+                    chunk_start = it
+                    size = min(_TENURE_CHUNK, n_iter - it)
+                    tenures = rng.integers(base, 2 * base + 1, size=size).astype(np.int32)
+                tenure = int(tenures[it - chunk_start])
             before = float(state[1])
             _tabu.tabu_step(
                 C,
@@ -217,7 +235,7 @@ class TabuSearch(BaseRouter):
                 cand,
                 until,
                 it,
-                int(tenures[it]),
+                tenure,
                 max_time,
                 fixed_cost,
                 split,
@@ -230,7 +248,7 @@ class TabuSearch(BaseRouter):
                 best,
                 state,
             )
-            history[it] = state[1]
+            history.append(float(state[1]))
             done = it + 1
             since = 0 if state[1] < before - 1e-9 * max(1.0, abs(before)) else since + 1
             if self.verbose and (self.verbose >= 2 or done % every == 0):
@@ -239,7 +257,7 @@ class TabuSearch(BaseRouter):
                     done,
                     state[0],
                     state[1],
-                    int(tenures[it]),
+                    tenure,
                 )
             if self.time_limit is not None and perf_counter() - started > self.time_limit:
                 reason = "time_limit"
@@ -249,7 +267,7 @@ class TabuSearch(BaseRouter):
                 break
         if self.verbose:
             log.info("TabuSearch stopped by %s after %d iterations: best=%.6f", reason, done, state[1])
-        self.history_ = np.asarray(history[:done], dtype=np.float64)
+        self.history_ = np.asarray(history, dtype=np.float64)
         self.n_iter_ = done
         self.stop_reason_ = reason
         return best
