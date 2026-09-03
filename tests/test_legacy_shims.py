@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import importlib
 import re
+import subprocess
 import sys
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -145,13 +147,17 @@ def test_a_second_import_does_not_warn_again(recwarn):
     assert not [w for w in recwarn if issubclass(w.category, DeprecationWarning)]
 
 
-def test_importing_skroute_itself_never_warns(recwarn):
-    for name in list(sys.modules):
-        if name == "skroute" or name.startswith("skroute."):
-            sys.modules.pop(name)
-    recwarn.clear()
-    fresh = importlib.import_module("skroute")
-    fresh.all_solvers()
-    assert not [w for w in recwarn if issubclass(w.category, DeprecationWarning)]
-    # re-establish the modules the rest of the session imported (identity of the classes is per import)
-    importlib.reload(fresh)
+def test_importing_skroute_itself_never_warns():
+    """In a fresh interpreter (evicting ``skroute`` from ``sys.modules`` in-process would hand every later
+    test new class objects): importing the package and building the roster must not touch a shim."""
+    root = Path(skroute.__file__).resolve().parents[1]  # the tree the session imports skroute from
+    code = "import skroute, skroute.ensemble; skroute.all_solvers(); print(len(skroute.all_solvers()))"
+    result = subprocess.run(
+        [sys.executable, "-W", "error::DeprecationWarning", "-c", code],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout) == len(skroute.all_solvers())
