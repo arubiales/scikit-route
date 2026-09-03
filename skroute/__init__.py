@@ -42,6 +42,10 @@ _EXPORTS: dict[str, str] = {
     # exact (D18)
     # construction
     # local search
+    "TwoOpt": "skroute.local_search",
+    "OrOpt": "skroute.local_search",
+    "LocalSearch": "skroute.local_search",
+    "IteratedLocalSearch": "skroute.local_search",
     # metaheuristics
     # ensemble
 }
@@ -72,7 +76,13 @@ if TYPE_CHECKING:
     from .base import is_router as is_router
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
+
     # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    # isort: split
+    from .local_search import IteratedLocalSearch as IteratedLocalSearch
+    from .local_search import LocalSearch as LocalSearch
+    from .local_search import OrOpt as OrOpt
+    from .local_search import TwoOpt as TwoOpt
 
 
 def __getattr__(name: str) -> Any:
