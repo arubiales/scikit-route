@@ -3,7 +3,6 @@ top-level surface of ``skroute`` (lazy exports, ``all_solvers``, ``set_log_level
 
 from __future__ import annotations
 
-import importlib.util
 import logging
 import re
 
@@ -229,9 +228,11 @@ def test_lazy_exports_and_dir():
     assert skroute.__version__ == "2.0.0"
     with pytest.raises(AttributeError, match="module 'skroute' has no attribute 'NoSuchSolver'"):
         _ = skroute.NoSuchSolver
-    if importlib.util.find_spec("skroute.exact") is None:  # while the solver packages are not in this tree
-        with pytest.raises(ImportError):
+    if "BruteForce" not in skroute._EXPORTS:  # while the exact package has not registered itself (D29)
+        with pytest.raises(AttributeError, match="no attribute 'BruteForce'"):
             _ = skroute.BruteForce
+    else:
+        assert isinstance(skroute.BruteForce, type)
 
 
 def test_all_solvers_from_a_monkeypatched_registry(monkeypatch):
