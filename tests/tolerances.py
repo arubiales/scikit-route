@@ -101,7 +101,15 @@ SLOW: dict[str, dict[str, float] | None] = {
 }
 
 # classes that must reach the tiny/alicante optimum at seeds 0, 1 and 2
-SEEDS_TO_OPTIMUM = {"IteratedLocalSearch", "SimulatedAnnealing", "TabuSearch", "Genetic", "AntColony"}
+SEEDS_TO_OPTIMUM = {
+    "IteratedLocalSearch",
+    "SimulatedAnnealing",
+    "TabuSearch",
+    "Genetic",
+    "AntColony",
+    "EnsembleGenetic",
+    "EnsembleSimulatedAnnealing",
+}
 
 # measured baselines quoted in SPEC §4 (gap = cost_/optimum - 1, defaults, random_state=0), rendered
 # into docs/benchmarks.md so a regression is distinguishable from a tie-break difference
