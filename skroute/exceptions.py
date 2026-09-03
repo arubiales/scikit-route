@@ -4,8 +4,8 @@ __all__ = ["InfeasibleProblemError", "NotFittedError"]
 
 
 class NotFittedError(ValueError, AttributeError):
-    """Raised by :func:`skroute.utils.check_is_fitted` when a fitted attribute is
-    accessed before :meth:`fit` was called."""
+    """Raised by [`check_is_fitted`][skroute.utils.check_is_fitted] when a fitted attribute is
+    accessed before [`fit`][skroute.base.BaseRouter.fit] was called."""
 
 
 class InfeasibleProblemError(ValueError):
