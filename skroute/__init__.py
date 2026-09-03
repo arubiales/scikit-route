@@ -44,6 +44,10 @@ _EXPORTS: dict[str, str] = {
     "HeldKarp": "skroute.exact",
     "MILP": "skroute.exact",
     # construction
+    "NearestNeighbour": "skroute.construction",
+    "Insertion": "skroute.construction",
+    "ClarkeWright": "skroute.construction",
+    "NRBS": "skroute.construction",
     # local search
     "TwoOpt": "skroute.local_search",
     "OrOpt": "skroute.local_search",
@@ -78,6 +82,12 @@ if TYPE_CHECKING:
     from .base import RouterTags as RouterTags
     from .base import clone as clone
     from .base import is_router as is_router
+
+    # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    from .construction import NRBS as NRBS
+    from .construction import ClarkeWright as ClarkeWright
+    from .construction import Insertion as Insertion
+    from .construction import NearestNeighbour as NearestNeighbour
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
 
