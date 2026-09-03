@@ -43,6 +43,8 @@ _EXPORTS: dict[str, str] = {
     # construction
     # local search
     # metaheuristics
+    "SimulatedAnnealing": "skroute.metaheuristics",
+    "TabuSearch": "skroute.metaheuristics",
     # ensemble
 }
 
@@ -72,7 +74,11 @@ if TYPE_CHECKING:
     from .base import is_router as is_router
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
+
     # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    # isort: split
+    from .metaheuristics import SimulatedAnnealing as SimulatedAnnealing
+    from .metaheuristics import TabuSearch as TabuSearch
 
 
 def __getattr__(name: str) -> Any:
