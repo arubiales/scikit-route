@@ -232,9 +232,9 @@ def render(results: dict[str, dict[str, dict[str, Any]]], instances: Sequence[st
         HEADER,
         *table_rows(results, instances),
         "",
-        "Regenerate with `python benchmarks/waterloo.py` (about a quarter of an hour: the memetic",
-        "`Genetic` and `MILP` rows dominate). Tightening a tolerance is a release-notes item; loosening",
-        "one requires the lead's approval and a CHANGELOG line.",
+        "Regenerate with `python benchmarks/waterloo.py` (a few minutes on a laptop: the `MILP` proof",
+        "of qa194 dominates). Tightening a tolerance is a release-notes item; loosening one requires",
+        "the lead's approval and a CHANGELOG line.",
         "",
     ]
     return "\n".join(lines)
