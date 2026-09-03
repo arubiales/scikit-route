@@ -8,8 +8,7 @@ the import list and of ``__all__``, one line each (D29).
 """
 
 from ._simulated_annealing import SimulatedAnnealing
-
-# from ._tabu_search import TabuSearch
+from ._tabu_search import TabuSearch
 
 __all__ = [
     "SimulatedAnnealing",
