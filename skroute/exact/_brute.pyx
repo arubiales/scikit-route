@@ -13,7 +13,7 @@ tour and for the multi-trip objective under either split rule.
 from libc.math cimport INFINITY, fabs
 from libc.stdint cimport int64_t
 
-from skroute._core._routing cimport problem_cost
+from skroute._core._routing cimport SplitRule, problem_cost
 
 
 cdef inline void _reverse(int64_t[::1] a, Py_ssize_t lo, Py_ssize_t hi) noexcept nogil:
@@ -30,18 +30,18 @@ cdef inline void _reverse(int64_t[::1] a, Py_ssize_t lo, Py_ssize_t hi) noexcept
 cdef inline bint _next_permutation(int64_t[::1] a, Py_ssize_t lo, Py_ssize_t hi) noexcept nogil:
     # Rearrange a[lo..hi] (inclusive) into the lexicographically next permutation (Algorithm L).
     # Returns 0 when the segment was the last permutation; it is then left in ascending order.
-    cdef Py_ssize_t j = hi - 1, l = hi
+    cdef Py_ssize_t j = hi - 1, ell = hi
     cdef int64_t tmp
     while j >= lo and a[j] >= a[j + 1]:      # L2: largest j with a[j] < a[j+1]
         j -= 1
     if j < lo:
         _reverse(a, lo, hi)
         return 0
-    while a[j] >= a[l]:                      # L3: largest l with a[j] < a[l]
-        l -= 1
+    while a[j] >= a[ell]:                    # L3: largest ell with a[j] < a[ell]
+        ell -= 1
     tmp = a[j]
-    a[j] = a[l]
-    a[l] = tmp
+    a[j] = a[ell]
+    a[ell] = tmp
     _reverse(a, j + 1, hi)                   # L4
     return 1
 
@@ -141,22 +141,49 @@ def brute_force_search(const double[:, ::1] C, const double[:, ::1] T, int64_t[:
         Skip permutations with ``tour[1] > tour[n-1]``; valid only when the matrix is
         symmetric and there is no budget (a reversal changes the split).
     dp, pred : float64[n], int64[n]
-        Scratch for the optimal split; zero-length views otherwise.
+        Scratch for the optimal split (``max_time`` finite and ``split == SPLIT_OPTIMAL``);
+        zero-length views otherwise.
 
     Returns
     -------
     best_cost : float
         Objective of ``best``.
     n_evaluated : int
-        Number of tours priced (``(n-1)!``, or half of it under ``halve``).
+        Number of tours priced: ``(n-1)!`` without ``halve``; with it at least
+        ``(n-1)!/2`` — the kept orientation of every pair, plus the reversal whenever the
+        kept one is within 1e-9 of the incumbent (see :func:`_search`).
+
+    Raises
+    ------
+    ValueError
+        If ``n < 3``, ``C`` or ``T`` is not ``(n, n)``, ``best`` is not ``(n,)``, ``tour`` is
+        not a permutation of ``0..n-1`` with positions ``1..n-1`` ascending, or the optimal
+        split is requested with scratch buffers shorter than ``n``. The checks are O(n) and
+        run before the ``nogil`` loop: the kernel is compiled with ``boundscheck=False``, so a
+        wrong buffer would otherwise be read or written out of bounds in silence.
     """
-    cdef Py_ssize_t n = tour.shape[0]
+    cdef Py_ssize_t n = tour.shape[0], k
     cdef int64_t n_evaluated = 0
     cdef double best_cost
     if n < 3:
         raise ValueError("brute_force_search needs at least 3 nodes")
+    if C.shape[0] != n or C.shape[1] != n:
+        raise ValueError(f"C must be an ({n}, {n}) matrix, got ({C.shape[0]}, {C.shape[1]})")
+    if T.shape[0] != n or T.shape[1] != n:
+        raise ValueError(f"T must be an ({n}, {n}) matrix, got ({T.shape[0]}, {T.shape[1]})")
     if best.shape[0] != n:
-        raise ValueError("best must have the same length as tour")
+        raise ValueError(f"best must have the same length as tour ({n}), got {best.shape[0]}")
+    for k in range(n):
+        if tour[k] < 0 or tour[k] >= n:
+            raise ValueError(f"tour must hold node indices in [0, {n}), got {tour[k]} at position {k}")
+        if k >= 2 and tour[k] <= tour[k - 1]:
+            raise ValueError("tour positions 1..n-1 must be in strictly ascending order (the first "
+                             "permutation): the enumeration starts from the buffer as given")
+        if k >= 1 and tour[k] == tour[0]:
+            raise ValueError(f"tour repeats the depot {tour[0]} at position {k}")
+    if max_time != INFINITY and split != SplitRule.SPLIT_GREEDY and (dp.shape[0] < n or pred.shape[0] < n):
+        raise ValueError(f"dp and pred must have length >= {n} for the optimal split, got "
+                         f"{dp.shape[0]} and {pred.shape[0]}")
     with nogil:
         best_cost = _search(C, T, tour, best, max_time, fixed_cost, split, halve, dp, pred,
                             &n_evaluated)
