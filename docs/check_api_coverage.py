@@ -41,7 +41,12 @@ def public_names() -> dict[str, list[str]]:
 
     names = {"skroute": list(getattr(skroute, "__all__", []))}
     for info in pkgutil.walk_packages(skroute.__path__, prefix="skroute."):
-        if info.name.split(".")[-1].startswith("_") or any(info.name.startswith(s) for s in SKIP_PACKAGES):
+        # Public surface = the top-level names plus the __all__ of every sub-PACKAGE (skroute.exact,
+        # skroute.datasets, ...); plain modules (skroute.base, skroute.utils.validation) are reached
+        # through the names their package re-exports.
+        if not info.ispkg or info.name.split(".")[-1].startswith("_"):
+            continue
+        if any(info.name.startswith(s) for s in SKIP_PACKAGES):
             continue
         module = importlib.import_module(info.name)
         exported = list(getattr(module, "__all__", []))
