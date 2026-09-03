@@ -51,7 +51,7 @@ jobs:
       - name: Install (builds the Cython extensions)
         run: python -m pip install -e ".[test]"
       - name: Test
-        run: pytest tests -m "not slow" --cov=skroute --cov-report=xml --cov-report=term
+        run: pytest tests --cov=skroute --cov-report=xml --cov-report=term
       - name: Doctests (docstring examples must run)
         if: matrix.os == 'ubuntu-latest'
         run: pytest --doctest-modules skroute -q -p no:cacheprovider
@@ -60,6 +60,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
   test-prerelease:
@@ -75,7 +76,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[test]"
       - name: Test
-        run: pytest tests -m "not slow"
+        run: pytest tests
 
   sdist:
     name: Source distribution installs and works
@@ -93,5 +94,5 @@ jobs:
         run: |
           python -m venv /tmp/sdist-venv
           /tmp/sdist-venv/bin/python -m pip install dist/*.tar.gz pytest hypothesis pandas
-          /tmp/sdist-venv/bin/python -c "import skroute; print(skroute.__version__); skroute.IteratedLocalSearch"
-          cd /tmp && /tmp/sdist-venv/bin/python -m pytest "$GITHUB_WORKSPACE/tests" -m "not slow" -x -q -p no:cacheprovider
+          /tmp/sdist-venv/bin/python -c "import skroute, sys; assert 'site-packages' in skroute.__file__, skroute.__file__; print(skroute.__version__); skroute.IteratedLocalSearch"
+          cd /tmp && SKROUTE_EXPECT_WHEEL=1 /tmp/sdist-venv/bin/pytest "$GITHUB_WORKSPACE/tests" -x -q -p no:cacheprovider

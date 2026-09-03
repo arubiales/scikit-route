@@ -56,14 +56,13 @@ dev = [
   "cython-lint>=0.16",
   "pre-commit>=3.7",
   "build>=1.2",
-  "cibuildwheel>=2.20",
+  "cibuildwheel>=3.0",
   "Cython>=3.1",
 ]
 docs = [
   "mkdocs-material>=9.5",
   "mkdocstrings[python]>=0.25",
   "mkdocs-gen-files>=0.5",
-  "mkdocs-literate-nav>=0.6",
   "mkdocs-include-markdown-plugin>=6.0",
 ]
 
@@ -85,7 +84,7 @@ include = ["skroute*"]
 exclude = ["tests*", "benchmarks*", "docs*"]
 
 [tool.setuptools.package-data]
-"skroute" = ["py.typed", "**/*.pyi", "**/*.pxd", "**/*.pyx"]
+"skroute" = ["py.typed", "**/*.pyi", "**/*.pxd"]
 "skroute.datasets" = ["_data/tsplib/*.tsp", "_data/costs/*.csv", "_descr/*.md"]
 
 [tool.pytest.ini_options]
@@ -93,6 +92,7 @@ minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["tests"]
 addopts = "-m 'not slow' --strict-markers -ra"
+doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS NUMBER"
 markers = [
   "slow: Waterloo instances with n >= 194, MILP on qa194, anything above 10 s (deselected by default)",
   "benchmark: alias marker on the slow benchmark tests, for tooling",
@@ -144,7 +144,8 @@ build = "cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_* pp*"
 build-verbosity = 1
 test-requires = ["pytest>=8.0", "hypothesis>=6.100", "pandas>=2.2"]
-test-command = "pytest {project}/tests -m 'not slow' -x -q"
+test-command = "pytest {project}/tests -x -q"
+test-environment = { SKROUTE_EXPECT_WHEEL = "1" }
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
