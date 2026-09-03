@@ -1,0 +1,92 @@
+name: Bug report
+description: A solver, loader or helper does not behave as documented.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A bug we can reproduce in one copy-paste is usually fixed in the next patch release;
+        please fill in every field. Check the [changelog](https://github.com/arubiales/scikit-route/blob/main/CHANGELOG.md)
+        and the [migration guide](https://arubiales.github.io/scikit-route/migration/) first if you are coming from 1.0.
+  - type: input
+    id: version
+    attributes:
+      label: scikit-route version
+      description: Output of `python -c "import skroute; print(skroute.__version__)"`.
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: Name, version and architecture.
+      placeholder: "Ubuntu 24.04 x86_64 / macOS 15 arm64 / Windows 11 AMD64"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`. Also say whether you installed a wheel or built from source.
+      placeholder: "3.13.3, wheel from PyPI"
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Minimal matrix or dataset name
+      description: >-
+        The smallest cost matrix (and time matrix, if any) that shows the problem, as a Python literal or a numpy
+        expression, or the name of a bundled dataset (`load_tsp("wi29")`, `load_barcelona()`, ...). Please do not
+        attach large files; subsample with `load_tsp(name, n_nodes=...)` if you can.
+      render: python
+      placeholder: |
+        import numpy as np
+        C = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Solver and parameters
+      description: The exact estimator, its parameters and the `fit(...)` call, including `random_state` and every keyword.
+      render: python
+      placeholder: |
+        from skroute import SimulatedAnnealing
+        sa = SimulatedAnnealing(random_state=0).fit(C, time_matrix=T, max_time_work=8.0, extra_cost=12.83, people=2)
+        print(sa.route_, sa.cost_)
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What the documentation led you to expect (quote it if you can).
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened instead. Paste the printed values, not a description of them.
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback
+      description: The full traceback, if any. Leave empty when the result is wrong without an error.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I ran the reproducer against the latest 2.x release.
+          required: true
+        - label: I searched the open issues and this is not a duplicate.
+          required: true

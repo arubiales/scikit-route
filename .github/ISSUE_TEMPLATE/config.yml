@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://arubiales.github.io/scikit-route/
+    about: User guide, API reference, benchmarks and the migration guide from 1.0.
+  - name: Questions and discussions
+    url: https://github.com/arubiales/scikit-route/discussions
+    about: Ask how to model a problem, choose a solver or tune it. Bugs and feature requests go to the forms above.
+  - name: Security vulnerabilities
+    url: https://github.com/arubiales/scikit-route/security/advisories/new
+    about: Report privately; never open a public issue for a vulnerability (see SECURITY.md).
