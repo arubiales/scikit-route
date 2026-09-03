@@ -32,7 +32,14 @@ pip install scikit-route
 ```
 
 Wheels are published for CPython 3.11–3.14 on Linux (x86_64, aarch64), macOS
-(x86_64, arm64) and Windows (AMD64). Optional extras:
+(x86_64, arm64) and Windows (AMD64) with every `v*` tag. Until the 2.0.0 release is on
+PyPI, install the development version from GitHub (a C compiler is needed):
+
+```bash
+pip install "git+https://github.com/arubiales/scikit-route.git@modernization/v2"
+```
+
+Optional extras:
 
 | extra    | adds                                                      |
 |----------|-----------------------------------------------------------|

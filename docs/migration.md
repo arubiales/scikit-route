@@ -101,7 +101,8 @@ or the `tour_`/`route_` of another solver.
    than `greedy` for the same tour.
 
 Because of 1 and 2, costs reported by 2.0 differ from 1.0 on the same route; the
-[problem model](user_guide/problem_model.md) page works the Barcelona example through.
+[problem model](user_guide/problem_model.md#from-10-to-20-the-barcelona-example) page works
+the Barcelona example through.
 
 ## 6. Hyper-parameters renamed and defaults that changed
 
