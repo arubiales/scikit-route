@@ -14,18 +14,20 @@ from __future__ import annotations
 import importlib
 import logging
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ._version import __version__
 
 # ---------------------------------------------------------------------------------------------
-# Registry of the public surface (SPEC §3.4 "Top-level surface", D18, D27).
+# REGISTRY of the public surface (SPEC §3.4 "Top-level surface", D18, D27): the ONE place where
+# a public name is mapped to the module that defines it.
 #
-# MAINTAINED BY THE LEAD: one line per public name, mapping it to the module that defines it.
-# Solver work packages ask the lead to add their line when their package lands. all_solvers()
-# imports every registered solver module EAGERLY and must fail loudly (ImportError) when a
-# registered module is missing or broken — never swallow the error: a silently shorter roster
-# would hide a packaging bug from the test battery that is parametrised over all_solvers().
+# MAINTAINED BY THE LEAD: one line per public name. Solver work packages ask the lead to add
+# their line when their package lands; a P1 deferral PR (D26) removes it. all_solvers()
+# derives its roster from this dict and imports every solver module EAGERLY: a registered
+# module that is missing or broken raises ImportError. Never swallow that error — a silently
+# shorter roster would hide a packaging bug from the test battery, which is parametrised over
+# all_solvers().
 # ---------------------------------------------------------------------------------------------
 _EXPORTS: dict[str, str] = {
     # spine
@@ -61,48 +63,54 @@ _EXPORTS: dict[str, str] = {
     "EnsembleSimulatedAnnealing": "skroute.ensemble",
 }
 
-# Solver classes that all_solvers() returns (D27): every no-argument-constructible solver of D18
-# including the two Ensemble wrappers; MultiStart needs an estimator and is never returned.
-_SOLVERS: tuple[str, ...] = (
-    "BruteForce",
-    "HeldKarp",
-    "MILP",
-    "NearestNeighbour",
-    "Insertion",
-    "ClarkeWright",
-    "NRBS",
-    "TwoOpt",
-    "OrOpt",
-    "LocalSearch",
-    "IteratedLocalSearch",
-    "SimulatedAnnealing",
-    "TabuSearch",
-    "Genetic",
-    "AntColony",
-    "SOM",
-    "EnsembleGenetic",
-    "EnsembleSimulatedAnnealing",
+# The five solver subpackages of D18: a registered name defined in one of them is a solver.
+_SOLVER_MODULES: frozenset[str] = frozenset(
+    {
+        "skroute.exact",
+        "skroute.construction",
+        "skroute.local_search",
+        "skroute.metaheuristics",
+        "skroute.ensemble",
+    }
 )
+# Solvers that cannot be instantiated without arguments, hence never returned by all_solvers()
+# (D27): MultiStart wraps another estimator and is covered by tests/test_ensemble.py.
+_NEEDS_ARGUMENTS: frozenset[str] = frozenset({"MultiStart"})
 
-__all__ = [
-    "__version__",
-    "all_solvers",
-    "set_log_level",
-    *sorted(_EXPORTS),
-]
+__all__ = ["__version__", "all_solvers", "set_log_level", *sorted(_EXPORTS)]
 
-if TYPE_CHECKING:  # eager imports so mypy and mkdocstrings see real types (they do not see __getattr__)
-    from .base import BaseRouter, RouterTags, clone, is_router
-    from .construction import NRBS, ClarkeWright, Insertion, NearestNeighbour
-    from .ensemble import EnsembleGenetic, EnsembleSimulatedAnnealing, MultiStart
-    from .exact import MILP, BruteForce, HeldKarp
-    from .local_search import IteratedLocalSearch, LocalSearch, OrOpt, TwoOpt
-    from .metaheuristics import SOM, AntColony, Genetic, SimulatedAnnealing, TabuSearch
-    from .problem import RoutingProblem
-    from .utils.estimator_checks import check_router
+if TYPE_CHECKING:
+    # Eager imports so mypy and mkdocstrings see real types (neither sees __getattr__). The
+    # redundant ``X as X`` spelling marks an explicit re-export (PEP 484), so linters and type
+    # checkers do not report the names as unused.
+    from .base import BaseRouter as BaseRouter
+    from .base import RouterTags as RouterTags
+    from .base import clone as clone
+    from .base import is_router as is_router
+    from .construction import NRBS as NRBS
+    from .construction import ClarkeWright as ClarkeWright
+    from .construction import Insertion as Insertion
+    from .construction import NearestNeighbour as NearestNeighbour
+    from .ensemble import EnsembleGenetic as EnsembleGenetic
+    from .ensemble import EnsembleSimulatedAnnealing as EnsembleSimulatedAnnealing
+    from .ensemble import MultiStart as MultiStart
+    from .exact import MILP as MILP
+    from .exact import BruteForce as BruteForce
+    from .exact import HeldKarp as HeldKarp
+    from .local_search import IteratedLocalSearch as IteratedLocalSearch
+    from .local_search import LocalSearch as LocalSearch
+    from .local_search import OrOpt as OrOpt
+    from .local_search import TwoOpt as TwoOpt
+    from .metaheuristics import SOM as SOM
+    from .metaheuristics import AntColony as AntColony
+    from .metaheuristics import Genetic as Genetic
+    from .metaheuristics import SimulatedAnnealing as SimulatedAnnealing
+    from .metaheuristics import TabuSearch as TabuSearch
+    from .problem import RoutingProblem as RoutingProblem
+    from .utils.estimator_checks import check_router as check_router
 
 
-def __getattr__(name: str) -> object:
+def __getattr__(name: str) -> Any:
     """PEP 562: resolve a public name on first access and cache it on the module."""
     try:
         module_path = _EXPORTS[name]
@@ -117,18 +125,25 @@ def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
 
 
-def all_solvers() -> list[type]:
+def all_solvers() -> list[type[BaseRouter]]:
     """Every solver class that can be instantiated with no arguments, sorted by name (D27).
 
-    Returns the solvers of D18 plus ``EnsembleGenetic`` and ``EnsembleSimulatedAnnealing``;
-    ``MultiStart`` is never returned (it needs an estimator). Imports are eager and a
-    registered module that is missing raises ``ImportError`` — the roster is the
+    The roster is derived from the registry at the top of ``skroute/__init__.py``: every
+    registered name defined in one of the five solver subpackages (``exact``,
+    ``construction``, ``local_search``, ``metaheuristics``, ``ensemble``) except
+    ``MultiStart``, which needs an estimator. Imports are eager: a registered module that
+    is missing or does not define its name raises ``ImportError`` — the roster is the
     parametrisation of the whole test battery and must never shrink silently.
 
     Returns
     -------
     solvers : list of type
         Subclasses of :class:`~skroute.base.BaseRouter`, sorted by ``__name__``.
+
+    Raises
+    ------
+    ImportError
+        When a registered solver module cannot be imported or lacks the registered name.
 
     Examples
     --------
@@ -137,7 +152,17 @@ def all_solvers() -> list[type]:
     >>> [s.__name__ for s in solvers][:3]  # doctest: +SKIP
     ['AntColony', 'BruteForce', 'ClarkeWright']
     """
-    classes = [getattr(importlib.import_module(_EXPORTS[name]), name) for name in _SOLVERS]
+    classes: list[type[BaseRouter]] = []
+    for name, module_path in _EXPORTS.items():
+        if module_path not in _SOLVER_MODULES or name in _NEEDS_ARGUMENTS:
+            continue
+        module = importlib.import_module(module_path)  # ImportError propagates on purpose
+        try:
+            classes.append(getattr(module, name))
+        except AttributeError:
+            raise ImportError(
+                f"{module_path} does not define {name!r}: fix the registry in skroute/__init__.py"
+            ) from None
     return sorted(classes, key=lambda cls: cls.__name__)
 
 

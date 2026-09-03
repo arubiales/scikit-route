@@ -141,7 +141,9 @@ class RoutingProblem:
         self.time: np.ndarray | None
         if max_time_work is None:
             if time_matrix is not None:
-                raise ValueError("time_matrix given but no max_time_work; pass max_time_work=<hours per trip>")
+                raise ValueError(
+                    "time_matrix given but no max_time_work; pass max_time_work=<hours per trip>"
+                )
             if extra_cost != 0.0 or people != 1 or split != "greedy":
                 raise ValueError("extra_cost, people and split have no effect without max_time_work")  # D3
             self.time = None
@@ -149,7 +151,8 @@ class RoutingProblem:
         else:
             if time_matrix is None:
                 raise ValueError(
-                    "max_time_work given but no time_matrix; pass time_matrix=X to use the cost matrix as durations"
+                    "max_time_work given but no time_matrix; "
+                    "pass time_matrix=X to use the cost matrix as durations"
                 )
             if not (np.isfinite(max_time_work) and float(max_time_work) > 0):  # inf would store T for nothing
                 raise ValueError(f"max_time_work must be a finite number > 0, got {max_time_work!r}")
@@ -198,7 +201,11 @@ class RoutingProblem:
 
     @property
     def time_or_cost(self) -> np.ndarray:
-        """What kernels receive as T: the time matrix, or the cost matrix when there is no budget (never read then)."""
+        """The matrix kernels receive as ``T``: the time matrix, or the cost matrix when there is no budget.
+
+        Without a budget (``max_time_work == inf``) the kernels never read ``T``; passing the cost matrix
+        keeps every call signature uniform.
+        """
         return self.cost if self.time is None else self.time
 
     @property
@@ -249,14 +256,29 @@ class RoutingProblem:
     def evaluate(self, tour: Any) -> float:
         """Objective of an index tour (D1). O(n) greedy / plain, O(n*L) optimal."""
         return core.problem_cost_py(
-            self.cost, self.time_or_cost, self._as_index(tour), self.max_time_work, self.fixed_cost, self.split_code
+            self.cost,
+            self.time_or_cost,
+            self._as_index(tour),
+            self.max_time_work,
+            self.fixed_cost,
+            self.split_code,
         )
 
     def trip_starts(self, tour: Any) -> np.ndarray:
-        """Trip start positions of an index tour: int64 ``(n_trips + 1,)`` with ``[0] == 1``, ``[-1] == n``."""
+        """Trip start positions of an index tour.
+
+        Returns an int64 array of shape ``(n_trips + 1,)`` with ``starts[0] == 1`` and ``starts[-1] == n``;
+        trip ``k`` is ``tour[starts[k]:starts[k + 1]]``. Plain TSP gives ``[1, n]``.
+        """
         out = np.empty(self.n + 1, dtype=np.int64)
         k = core.trip_starts(
-            self.time_or_cost, self._as_index(tour), self.max_time_work, self.split_code, self.cost, self.fixed_cost, out
+            self.time_or_cost,
+            self._as_index(tour),
+            self.max_time_work,
+            self.split_code,
+            self.cost,
+            self.fixed_cost,
+            out,
         )
         return out[: k + 1]
 
@@ -282,15 +304,32 @@ class RoutingProblem:
         (lu980: 346 duplicate rows, ho14473: 7 370), so zero off-diagonal distances are normal input.
         """
         k = min(int(k), self.n - 1)
+        if k < 1:
+            raise ValueError(f"k must be >= 1, got {k}")
         if k not in self._neigh:
-            D = self.cost.copy()  # one transient (n, n) copy; accepted
-            np.fill_diagonal(D, np.inf)
-            idx = np.argpartition(D, k - 1, axis=1)[:, :k]
-            order = np.argsort(np.take_along_axis(D, idx, 1), axis=1, kind="stable")
-            self._neigh[k] = np.ascontiguousarray(np.take_along_axis(idx, order, 1), dtype=np.int64)
+            dm = self.cost.copy()  # one transient (n, n) copy; accepted
+            np.fill_diagonal(dm, np.inf)
+            # index order first, then a stable sort by distance: ties inside the selection -> lowest index
+            idx = np.sort(np.argpartition(dm, k - 1, axis=1)[:, :k], axis=1)
+            dist = np.take_along_axis(dm, idx, 1)
+            out = np.take_along_axis(idx, np.argsort(dist, axis=1, kind="stable"), 1)
+            # argpartition chooses arbitrarily among nodes tied AT the k-th distance (coincident points,
+            # integer TSPLIB distances); redo exactly the rows where a tie straddles the boundary: every
+            # node strictly closer first, then the lowest indices among the tied ones.
+            thr = dist.max(axis=1)
+            for r in np.flatnonzero((dm <= thr[:, None]).sum(axis=1) > k):
+                row = dm[r]
+                strict = np.flatnonzero(row < thr[r])
+                tied = np.flatnonzero(row == thr[r])
+                chosen = np.concatenate((strict, tied[: k - strict.size]))
+                out[r] = chosen[np.argsort(row[chosen], kind="stable")]
+            self._neigh[k] = np.ascontiguousarray(out, dtype=np.int64)
         return self._neigh[k]
 
     def __repr__(self) -> str:
         kind = "multi-trip" if self.multi_trip else "TSP"
         sym = "symmetric" if self.symmetric else "asymmetric"
-        return f"RoutingProblem(n={self.n}, {kind}, {sym}, depot={self.depot_label!r})"
+        label = self.depot_label
+        if isinstance(label, np.generic):  # numpy 2 would print np.int64(0); show the plain label
+            label = label.item()
+        return f"RoutingProblem(n={self.n}, {kind}, {sym}, depot={label!r})"

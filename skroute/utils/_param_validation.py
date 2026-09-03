@@ -23,7 +23,7 @@ int); ``bool`` is never an int.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from numbers import Integral, Real
 from typing import Any
 
@@ -292,10 +292,10 @@ def validate_parameter_constraints(
     >>> from skroute.utils._param_validation import Interval, validate_parameter_constraints
     >>> constraints = {"alpha": [Interval(float, 0.0, 1.0, closed="neither")]}
     >>> validate_parameter_constraints(constraints, {"alpha": 0.5}, "SimulatedAnnealing")
-    >>> validate_parameter_constraints(constraints, {"alpha": 1.5}, "SimulatedAnnealing")
+    >>> validate_parameter_constraints(constraints, {"alpha": 1.5}, "SA")
     Traceback (most recent call last):
         ...
-    ValueError: The 'alpha' parameter of SimulatedAnnealing must be a float in the range (0.0, 1.0). Got 1.5 instead.
+    ValueError: The 'alpha' parameter of SA must be a float in the range (0.0, 1.0). Got 1.5 instead.
     """
     for name, spec in constraints.items():
         if name not in params:

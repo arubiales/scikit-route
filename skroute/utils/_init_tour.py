@@ -1,4 +1,4 @@
-"""``initial_tour``: the one warm-start helper shared by every solver with an ``init`` parameter (SPEC §3.4)."""
+"""``initial_tour``: the warm-start helper shared by every solver with an ``init`` parameter (SPEC §3.4)."""
 
 from __future__ import annotations
 

@@ -25,7 +25,8 @@ Duties inside ``_solve``: iterative solvers (``tags.iterative``) set ``self.hist
 (``tags.exact``) set ``self.is_optimal_``. Everything else — the label-space ``tour_``,
 ``route_``, ``trips_``, the recomputed ``cost_`` (D2), ``trip_costs_``, ``trip_times_``,
 ``fit_time_`` — is set by the base class, which also validates the returned tour and
-raises ``RuntimeError`` on a solver bug.
+raises ``RuntimeError`` on a solver bug. Assign ``history_`` as an array
+(``np.asarray(history)``): ``fit`` converts a list, but the attribute is typed as an ndarray.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ import inspect
 import logging
 import warnings
 from dataclasses import dataclass
+from itertools import pairwise
 from time import perf_counter
 from typing import Any
 
@@ -91,7 +93,9 @@ class RouterTags:
     False
     """
 
-    kind: str = "metaheuristic"  # "exact" | "construction" | "local_search" | "metaheuristic" | "ensemble" (D28)
+    kind: str = (
+        "metaheuristic"  # "exact" | "construction" | "local_search" | "metaheuristic" | "ensemble" (D28)
+    )
     exact: bool = False  # provably optimal for the objective it accepts; sets is_optimal_
     stochastic: bool = False  # consumes random_state; MultiStart-able
     iterative: bool = False  # sets history_, n_iter_, stop_reason_
@@ -158,10 +162,13 @@ class BaseRouter:
     >>> from skroute.base import BaseRouter, RouterTags
     >>> class Identity(BaseRouter):
     ...     '''Returns the nodes in matrix order.'''
+    ...
     ...     def __init__(self, verbose=0):
     ...         self.verbose = verbose
+    ...
     ...     def _get_tags(self):
     ...         return RouterTags(kind="construction")
+    ...
     ...     def _solve(self, problem, rng):
     ...         return np.arange(problem.n)
     >>> C = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
@@ -174,7 +181,26 @@ class BaseRouter:
     Identity(verbose=1)
     """
 
-    _parameter_constraints: dict = {}
+    _parameter_constraints: dict[str, Any] = {}
+
+    # Fitted attributes (the table of SPEC §3.4), declared for type-checkers and the docs. They
+    # exist on an instance only after ``fit``; ``_reset_fitted`` deletes them before a refit.
+    problem_: RoutingProblem
+    n_nodes_: int
+    labels_: np.ndarray
+    depot_: Any
+    tour_: np.ndarray
+    route_: np.ndarray
+    trips_: list[np.ndarray]
+    n_trips_: int
+    trip_costs_: np.ndarray
+    trip_times_: np.ndarray
+    cost_: float
+    fit_time_: float
+    history_: np.ndarray
+    n_iter_: int
+    stop_reason_: str
+    is_optimal_: bool
 
     # ---------- scikit-learn parameter protocol ----------
     @classmethod
@@ -238,15 +264,19 @@ class BaseRouter:
         parts = []
         for k, v in self.get_params(deep=False).items():
             default = sig[k].default
-            same = (v is default) or (isinstance(v, type(default)) and not isinstance(v, np.ndarray) and v == default)
+            same = (v is default) or (
+                isinstance(v, type(default)) and not isinstance(v, np.ndarray) and v == default
+            )
             if not same:
                 parts.append(f"{k}={v!r}")
         return f"{type(self).__name__}({', '.join(parts)})"
 
-    def __eq__(self, other: object) -> bool:  # equality of type and parameters; used by tests and clone checks
+    def __eq__(
+        self, other: object
+    ) -> bool:  # equality of type and parameters; used by tests and clone checks
         if type(self) is not type(other):
             return False
-        a, b = self.get_params(deep=False), other.get_params(deep=False)  # type: ignore[attr-defined]
+        a, b = self.get_params(deep=False), other.get_params(deep=False)
         return all(_param_equal(a[k], b[k]) for k in a)  # dict == would raise on an ndarray init=
 
     __hash__ = None  # type: ignore[assignment]
@@ -389,7 +419,7 @@ class BaseRouter:
         self.labels_ = lab.copy()
         self.depot_ = lab[problem.depot]
         self.tour_ = lab[tour]
-        self.trips_ = [np.concatenate((d, lab[tour[a:b]], d)) for a, b in zip(starts[:-1], starts[1:], strict=True)]
+        self.trips_ = [np.concatenate((d, lab[tour[a:b]], d)) for a, b in pairwise(starts)]
         self.route_ = np.concatenate([self.trips_[0]] + [t[1:] for t in self.trips_[1:]])
         self.n_trips_ = len(self.trips_)
         self.trip_costs_ = problem.trip_costs(tour, starts)
@@ -426,6 +456,7 @@ def clone(estimator: BaseRouter) -> BaseRouter:
     >>> class Identity(BaseRouter):
     ...     def __init__(self, verbose=0):
     ...         self.verbose = verbose
+    ...
     ...     def _solve(self, problem, rng):
     ...         return problem.to_index_tour(problem.labels)
     >>> est = Identity(verbose=2).fit([[0, 1, 2], [1, 0, 1], [2, 1, 0]])

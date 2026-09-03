@@ -155,7 +155,7 @@ def check_random_state(seed: Any) -> np.random.Generator:
     if isinstance(seed, np.random.Generator):
         return seed
     if seed is None or (isinstance(seed, Integral) and not isinstance(seed, (bool, np.bool_))):
-        return np.random.default_rng(seed)
+        return np.random.default_rng(None if seed is None else int(seed))
     raise TypeError("random_state must be None, an int or a numpy.random.Generator")
 
 
