@@ -43,6 +43,7 @@ _EXPORTS: dict[str, str] = {
     # construction
     # local search
     # metaheuristics
+    "SOM": "skroute.metaheuristics",
     # ensemble
 }
 
@@ -72,7 +73,10 @@ if TYPE_CHECKING:
     from .base import is_router as is_router
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
+
+    # isort: split
     # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    from .metaheuristics import SOM as SOM
 
 
 def __getattr__(name: str) -> Any:
