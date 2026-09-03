@@ -18,3 +18,11 @@ repos:
     rev: v0.16.6
     hooks:
       - id: cython-lint
+  - repo: local
+    hooks:
+      - id: readme-capability-table
+        name: README capability table is up to date
+        entry: python docs/gen_pages.py --readme --check
+        language: system
+        pass_filenames: false
+        files: ^(README\.md|docs/gen_pages\.py|skroute/.*\.py)$
