@@ -25,7 +25,7 @@ import paths still work for the 2.x series and emit a `DeprecationWarning`:
 | 1.0.0a2 | 2.0 | notes |
 |---|---|---|
 | `skroute.heuristics.brute.BruteForce` | `skroute.exact.BruteForce` | shim re-exports with `DeprecationWarning` |
-| `skroute.heuristics.NRBS.NRBS` | `skroute.construction.NRBS` | the five exponents now default to `1.0`; `distance_weigth` → `distance_weight`; `fit(start, ids, cost)` → `fit(cost, depot=start)` |
+| `skroute.heuristics.NRBS.NRBS` | `skroute.construction.NRBS` | the five exponents now default to `1.0` and must be >= 0 (1.0 validated only the type); `distance_weigth` → `distance_weight`; `fit(start, ids, cost)` → `fit(cost, depot=start)` |
 | `skroute.metaheuristics.genetics.Genetic` | `skroute.metaheuristics.Genetic` | `p_c→p_crossover`, `p_m→p_mutation`, `pop→pop_size`, `gen→n_generations`, `k→tournament_size`, `early_stopping→patience` |
 | `skroute.metaheuristics.genetics.EnsembleGenetic` | `skroute.ensemble.EnsembleGenetic` | `n_genetics` kept; or use `MultiStart(Genetic(...))` |
 | `skroute.metaheuristics.simulated_annealing.SimulatedAnnealing` | `skroute.metaheuristics.SimulatedAnnealing` | `temp→t0`, `delta→alpha` (1.0 silently rescaled it into 0.9–1), `tol→t_min`, `neighbours→n_moves` |
@@ -117,7 +117,7 @@ differ from 1.0** because the defaults changed:
 | `EnsembleSimulatedAnnealing` | `n_simulateds=20` | `n_simulateds=10` |
 | `TabuSearch` | `searchs=1250, p_m=0.6, tabu_length=45, tabu_var=10` | `n_iter=1000, tenure="auto"` (`p_m` dropped) |
 | `SOM` | `radius_decay=0.9991, lr_decay=0.9991, fit(..., epochs=10_000)` | `radius_decay=0.9997, lr_decay=0.99997, n_iter=100_000` |
-| `NRBS` | no defaults (`distance_weigth`) | all five `1.0` (`distance_weight`) |
+| `NRBS` | no defaults (`distance_weigth`), negative exponents accepted | all five `1.0` (`distance_weight`), exponents >= 0 |
 
 ## 7. Every public name of 1.0.0a2
 

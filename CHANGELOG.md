@@ -35,9 +35,14 @@ for a symbol-by-symbol map.
   multiplies only `extra_cost`.
 - Default hyper-parameters changed for every solver; results with defaults differ
   from 1.0 (table in the migration guide).
+- `NRBS`: the five exponents must be >= 0 (1.0 validated only the type and accepted
+  negative values). `Insertion(strategy="cheapest")` honours a first-edge tie rule.
+  `ClarkeWright` checks a merge on the trip as it will be driven and may flip a trip when
+  only the reverse orientation fits the budget.
 - `Genetic`: real OX/PMX crossover. `SimulatedAnnealing`: the route/cost aliasing bug
   is fixed, three move types, automatic temperature. `TabuSearch`: rewritten with edge
-  tabu attributes. `NRBS`: union-find cycle check, the hard-coded route length is
+  tabu attributes (a tenure lasts exactly `tenure` iterations; on asymmetric matrices a
+  reversal marks every reversed arc). `NRBS`: union-find cycle check, the hard-coded route length is
   gone, `distance_weigth` → `distance_weight`. `SOM`: numpy only.
 - Datasets: pickled DataFrames replaced by CSV; `frame`/`as_frame=True` instead of
   `"DataFrame"`; `feature_names` dropped.
