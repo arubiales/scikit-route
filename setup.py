@@ -48,6 +48,7 @@ setup(
     ext_modules=cythonize(
         extensions,
         compiler_directives=DIRECTIVES,
+        include_path=[str(ROOT)],
         annotate=False,
     ),
 )
