@@ -10,6 +10,7 @@ validation and the ``.pyi`` stub surface.
 from __future__ import annotations
 
 import ast
+import doctest
 import enum
 import itertools
 import math
@@ -639,3 +640,11 @@ def test_stub_declares_exactly_the_python_surface():
     assert set(core.__all__) == public
     enum_cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "SplitRule")
     assert [b.id for b in enum_cls.bases] == ["IntEnum"]  # type: ignore[attr-defined]
+
+
+def test_docstring_examples_of_the_compiled_module_run():
+    """``pytest --doctest-modules`` collects ``.py`` files only, so the examples embedded in the
+    extension's docstrings are executed here."""
+    result = doctest.testmod(core, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+    assert result.attempted > 0
+    assert result.failed == 0

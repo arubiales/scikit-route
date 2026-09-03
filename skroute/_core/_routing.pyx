@@ -1135,11 +1135,31 @@ def tour_cost_py(const double[:, ::1] C, const int64_t[::1] tour):
 
 def greedy_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                          double max_time, double fixed_cost):
-    """Greedy decoder cost of D1 (wraps ``greedy_split_cost``; see :func:`problem_cost_py`).
+    """Greedy decoder cost of D1 (wraps the inline ``greedy_split_cost``).
+
+    Leg ``a -> b`` joins the open trip iff ``t + T[a, b] + T[b, depot] <= max_time``; otherwise
+    the trip closes at ``a`` and a new one opens ``depot -> b``. O(n).
+
+    Parameters
+    ----------
+    C, T : (n, n) float64, C-contiguous
+        Cost and time matrices.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    max_time : float
+        Per-trip budget in the units of ``T`` (a finite value; ``inf`` degenerates to one trip).
+    fixed_cost : float
+        ``people * extra_cost``, charged per trip beyond the first.
 
     Returns
     -------
     float
+        Travel cost of the decoded trips plus ``fixed_cost * (n_trips - 1)``.
+
+    Raises
+    ------
+    ValueError
+        If ``C`` or ``T`` is not ``(n, n)`` or ``tour`` is empty.
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1149,12 +1169,40 @@ def greedy_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const i
 
 def optimal_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                           double max_time, double fixed_cost):
-    """Optimal (Prins) decoder cost of D1 (wraps ``optimal_split_cost`` with its own scratch).
+    """Optimal (Prins 2004) decoder cost of D1 (wraps ``optimal_split_cost`` with its own scratch).
+
+    The minimum-cost partition of the giant tour into consecutive trips that each fit
+    ``max_time`` including the return leg: a shortest path on the DAG of feasible trips, O(n * L)
+    with ``L`` the longest span whose outbound path fits. No triangle inequality is assumed.
+
+    Parameters
+    ----------
+    C, T : (n, n) float64, C-contiguous
+        Cost and time matrices.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    max_time : float
+        Per-trip budget in the units of ``T``.
+    fixed_cost : float
+        ``people * extra_cost``, charged per trip beyond the first.
 
     Returns
     -------
     float
-        ``inf`` when no feasible partition exists.
+        The optimal decoded cost, never above :func:`greedy_split_cost_py` for the same tour;
+        ``inf`` when no feasible partition exists (a customer's round trip exceeds the budget).
+
+    Raises
+    ------
+    ValueError
+        If ``C`` or ``T`` is not ``(n, n)`` or ``tour`` is empty.
+    MemoryError
+        If the ``dp``/``pred`` scratch allocation fails.
+
+    References
+    ----------
+    C. Prins, "A simple and effective evolutionary algorithm for the vehicle routing problem",
+    Computers & Operations Research 31(12), 2004.
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1165,10 +1213,36 @@ def optimal_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const 
 def two_opt_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
     """Delta of reversing ``tour[i..j]`` (inclusive), exact for symmetric ``C`` (wraps ``two_opt_delta``).
 
+    O(1): ``C[a, c] + C[b, d] - C[a, b] - C[c, d]`` with ``a = tour[i-1]``, ``b = tour[i]``,
+    ``c = tour[j]`` and ``d = tour[j+1]`` (the depot when ``j == n - 1``).
+
+    Parameters
+    ----------
+    C : (n, n) float64, C-contiguous
+        Cost matrix; the value is exact only when ``C`` is symmetric.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    i, j : int
+        Segment bounds, ``1 <= i < j <= n - 1``.
+
     Returns
     -------
     float
-        ``cost(after) - cost(before)``.
+        ``cost(after) - cost(before)`` of the plain closed tour.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain or ``C`` is not ``(n, n)``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skroute._core import _routing as core
+    >>> C = np.array([[0, 2, 9, 1], [2, 0, 1, 9], [9, 1, 0, 2], [1, 9, 2, 0]], dtype=np.float64)
+    >>> tour = np.array([0, 2, 1, 3], dtype=np.int64)   # cost 9 + 1 + 9 + 1 = 20
+    >>> core.two_opt_delta_py(C, tour, 1, 2)             # -> [0, 1, 2, 3], cost 2 + 1 + 2 + 1 = 6
+    -14.0
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1179,9 +1253,27 @@ def two_opt_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t
 def two_opt_delta_asym_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
     """Delta of reversing ``tour[i..j]``, exact for asymmetric ``C`` (wraps ``two_opt_delta_asym``).
 
+    Same move as :func:`two_opt_delta_py`, plus the direction change of every inner arc of the
+    reversed segment; O(j - i).
+
+    Parameters
+    ----------
+    C : (n, n) float64, C-contiguous
+        Cost matrix, read directionally.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    i, j : int
+        Segment bounds, ``1 <= i < j <= n - 1``.
+
     Returns
     -------
     float
+        ``cost(after) - cost(before)`` of the plain closed tour.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain or ``C`` is not ``(n, n)``.
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1193,11 +1285,37 @@ def or_opt_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t 
                     Py_ssize_t j, bint reverse=False):
     """Delta of moving ``tour[i..i+L-1]`` after position ``j`` (wraps ``or_opt_delta``).
 
-    ``reverse=False`` is exact for asymmetric matrices; ``reverse=True`` only for symmetric ones.
+    The segment ends up right after the node at position ``j`` (``j == 0``: right after the
+    depot; ``j == n - 1``: at the end of the tour), optionally reversed. O(1): three edges are
+    removed and three added. ``reverse=False`` is exact for asymmetric matrices;
+    ``reverse=True`` only for symmetric ones (the inner arcs change direction).
+
+    Parameters
+    ----------
+    C : (n, n) float64, C-contiguous
+        Cost matrix.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    i : int
+        First position of the segment, ``i >= 1``.
+    L : int
+        Segment length, ``1 <= L`` and ``i + L - 1 <= n - 1`` (Or-opt proper uses ``L <= 3``).
+    j : int
+        Insertion anchor, ``0 <= j <= n - 1`` and ``j`` not in ``[i - 1, i + L - 1]`` (those
+        values would leave the tour unchanged).
+    reverse : bool, default False
+        Insert the segment reversed.
 
     Returns
     -------
     float
+        ``cost(after) - cost(before)`` of the plain closed tour; the move itself is
+        :func:`move_segment_py` with the same arguments.
+
+    Raises
+    ------
+    ValueError
+        If ``(i, L, j)`` leaves the domain above or ``C`` is not ``(n, n)``.
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1208,9 +1326,26 @@ def or_opt_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t 
 def swap_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
     """Delta of exchanging the nodes at positions ``i < j``, exact on ATSP (wraps ``swap_delta``).
 
+    O(1); the adjacent case ``j == i + 1`` (three edges instead of four) is handled.
+
+    Parameters
+    ----------
+    C : (n, n) float64, C-contiguous
+        Cost matrix, read directionally.
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0.
+    i, j : int
+        Positions, ``1 <= i < j <= n - 1``.
+
     Returns
     -------
     float
+        ``cost(after) - cost(before)`` of the plain closed tour.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain or ``C`` is not ``(n, n)``.
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1219,35 +1354,120 @@ def swap_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t i,
 
 
 def reverse_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
-    """Reverse ``tour[i..j]`` (inclusive, ``1 <= i < j <= n - 1``) in place (wraps ``reverse_segment``)."""
+    """Reverse ``tour[i..j]`` (inclusive) in place: the move priced by :func:`two_opt_delta_py`.
+
+    Wraps the inline ``reverse_segment``; ``pos`` is not touched. O(j - i).
+
+    Parameters
+    ----------
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0; modified in place.
+    i, j : int
+        Segment bounds, ``1 <= i < j <= n - 1``.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skroute._core import _routing as core
+    >>> tour = np.arange(6, dtype=np.int64)
+    >>> core.reverse_segment_py(tour, 2, 4)
+    >>> tour.tolist()
+    [0, 1, 4, 3, 2, 5]
+    """
     _check_two_opt(tour.shape[0], i, j)
     reverse_segment(tour, i, j)
 
 
 def reverse_segment_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t j):
-    """:func:`reverse_segment_py` keeping ``pos`` consistent (wraps ``reverse_segment_pos``)."""
+    """:func:`reverse_segment_py` keeping ``pos[node] == position`` (wraps ``reverse_segment_pos``).
+
+    Parameters
+    ----------
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0; modified in place.
+    pos : (n,) int64, C-contiguous
+        Inverse permutation (see :func:`rebuild_pos`); updated in place.
+    i, j : int
+        Segment bounds, ``1 <= i < j <= n - 1``.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain or ``pos`` has not the tour's length.
+    """
     _check_two_opt(tour.shape[0], i, j)
     _check_pos(tour, pos)
     reverse_segment_pos(tour, pos, i, j)
 
 
 def swap_positions_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
-    """Exchange the nodes at positions ``1 <= i < j <= n - 1`` in place (wraps ``swap_positions``)."""
+    """Exchange the nodes at positions ``i`` and ``j`` in place: the move priced by :func:`swap_delta_py`.
+
+    Wraps the inline ``swap_positions``; ``pos`` is not touched. O(1).
+
+    Parameters
+    ----------
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0; modified in place.
+    i, j : int
+        Positions, ``1 <= i < j <= n - 1``.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain.
+    """
     _check_two_opt(tour.shape[0], i, j)
     swap_positions(tour, i, j)
 
 
 def swap_positions_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t j):
-    """:func:`swap_positions_py` keeping ``pos`` consistent (wraps ``swap_positions_pos``)."""
+    """:func:`swap_positions_py` keeping ``pos[node] == position`` (wraps ``swap_positions_pos``).
+
+    Parameters
+    ----------
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0; modified in place.
+    pos : (n,) int64, C-contiguous
+        Inverse permutation; updated in place.
+    i, j : int
+        Positions, ``1 <= i < j <= n - 1``.
+
+    Raises
+    ------
+    ValueError
+        If the positions leave their domain or ``pos`` has not the tour's length.
+    """
     _check_two_opt(tour.shape[0], i, j)
     _check_pos(tour, pos)
     swap_positions_pos(tour, pos, i, j)
 
 
 def move_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j, bint reverse=False):
-    """Move ``tour[i..i+L-1]`` so that it follows position ``j`` (wraps ``move_segment``).
+    """Move ``tour[i..i+L-1]`` so that it follows the node at position ``j`` (wraps ``move_segment``).
 
-    The move priced by :func:`or_opt_delta_py`; matches ``reference.or_opt_apply``.
+    The move priced by :func:`or_opt_delta_py` with the same arguments (positions after the
+    segment shift by ``L`` when ``j > i``). Implemented as a rotation of the affected span by three
+    reversals, O(|i - j| + L), no scratch memory; ``pos`` is not touched.
+
+    Parameters
+    ----------
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0; modified in place.
+    i, L, j : int
+        Segment start, length and insertion anchor, in the domain of :func:`or_opt_delta_py`.
+    reverse : bool, default False
+        Insert the segment reversed.
+
+    Raises
+    ------
+    ValueError
+        If ``(i, L, j)`` leaves its domain.
 
     Examples
     --------
@@ -1267,7 +1487,24 @@ def move_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
 
 def move_segment_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
                         bint reverse=False):
-    """:func:`move_segment_py` keeping ``pos`` consistent (wraps ``move_segment_pos``)."""
+    """:func:`move_segment_py` keeping ``pos[node] == position`` (wraps ``move_segment_pos``).
+
+    Parameters
+    ----------
+    tour : (n,) int64, C-contiguous
+        Permutation with the depot at position 0; modified in place.
+    pos : (n,) int64, C-contiguous
+        Inverse permutation; updated in place.
+    i, L, j : int
+        Segment start, length and insertion anchor, in the domain of :func:`or_opt_delta_py`.
+    reverse : bool, default False
+        Insert the segment reversed.
+
+    Raises
+    ------
+    ValueError
+        If ``(i, L, j)`` leaves its domain or ``pos`` has not the tour's length.
+    """
     _check_or_opt(tour.shape[0], i, L, j)
     _check_pos(tour, pos)
     move_segment_pos(tour, pos, i, L, j, reverse)
