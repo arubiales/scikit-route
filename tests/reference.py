@@ -188,7 +188,7 @@ def brute_force(C, T=None, *, depot=0, max_time_work=None, extra_cost=0.0, peopl
     return float(best_cost), np.asarray(best_tour, dtype=np.int64)
 
 
-# --------------------------------------------------------------------------- moves (positions 1 <= i, j <= n-1)
+# ------------------------------------------------------------ moves (positions 1 <= i, j <= n-1)
 def two_opt_apply(tour, i, j):
     """Reverse ``tour[i..j]`` (inclusive, ``i < j``); returns a new list."""
     tour = list(tour)
@@ -239,7 +239,7 @@ def double_bridge(tour, p1, p2, p3):
     return tour[:p1] + tour[p2:p3] + tour[p1:p2] + tour[p3:]
 
 
-# --------------------------------------------------------------------------- crossovers (chromosome = tour[1:])
+# ------------------------------------------------------------ crossovers (chromosome = tour[1:])
 def ox(p1, p2, a, b):
     """Order crossover: keep ``p1[a..b]`` (inclusive) in place, fill the remaining
     positions, starting after ``b`` and wrapping, with the genes of ``p2`` in
