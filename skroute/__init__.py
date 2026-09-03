@@ -44,10 +44,29 @@ _EXPORTS: dict[str, str] = {
     # SOLVER ENTRIES — appended by each solver work package when it lands (D29), one line per
     # public name, grouped under its package comment, at the END of its group:
     # exact (D18)
+    "BruteForce": "skroute.exact",
+    "HeldKarp": "skroute.exact",
+    "MILP": "skroute.exact",
     # construction
+    "NearestNeighbour": "skroute.construction",
+    "Insertion": "skroute.construction",
+    "ClarkeWright": "skroute.construction",
+    "NRBS": "skroute.construction",
     # local search
+    "TwoOpt": "skroute.local_search",
+    "OrOpt": "skroute.local_search",
+    "LocalSearch": "skroute.local_search",
+    "IteratedLocalSearch": "skroute.local_search",
     # metaheuristics
+    "SimulatedAnnealing": "skroute.metaheuristics",
+    "TabuSearch": "skroute.metaheuristics",
+    "Genetic": "skroute.metaheuristics",
+    "AntColony": "skroute.metaheuristics",
+    "SOM": "skroute.metaheuristics",
     # ensemble
+    "MultiStart": "skroute.ensemble",
+    "EnsembleGenetic": "skroute.ensemble",
+    "EnsembleSimulatedAnnealing": "skroute.ensemble",
 }
 
 # The five solver subpackages of D18: a registered name defined in one of them is a solver.
@@ -88,7 +107,28 @@ if TYPE_CHECKING:
     from .base import is_router as is_router
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
+
     # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    # isort: split
+    from .construction import NRBS as NRBS
+    from .construction import ClarkeWright as ClarkeWright
+    from .construction import Insertion as Insertion
+    from .construction import NearestNeighbour as NearestNeighbour
+    from .ensemble import EnsembleGenetic as EnsembleGenetic
+    from .ensemble import EnsembleSimulatedAnnealing as EnsembleSimulatedAnnealing
+    from .ensemble import MultiStart as MultiStart
+    from .exact import MILP as MILP
+    from .exact import BruteForce as BruteForce
+    from .exact import HeldKarp as HeldKarp
+    from .local_search import IteratedLocalSearch as IteratedLocalSearch
+    from .local_search import LocalSearch as LocalSearch
+    from .local_search import OrOpt as OrOpt
+    from .local_search import TwoOpt as TwoOpt
+    from .metaheuristics import SOM as SOM
+    from .metaheuristics import AntColony as AntColony
+    from .metaheuristics import Genetic as Genetic
+    from .metaheuristics import SimulatedAnnealing as SimulatedAnnealing
+    from .metaheuristics import TabuSearch as TabuSearch
 
 
 def __getattr__(name: str) -> Any:

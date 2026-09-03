@@ -848,8 +848,25 @@ def check_stochastic_reproducibility(estimator: BaseRouter) -> None:
         a40 = _fit(_fresh(estimator, random_state=0), C40, coords=xy40)
         c40 = _fit(_fresh(estimator, random_state=1), C40, coords=xy40)
         differs = not np.array_equal(a40.tour_, c40.tour_)
+    if not differs:
+        # Strong solvers (IteratedLocalSearch, AntColony) reach the same optimum with every seed
+        # at n <= 40, so their trajectories coincide; escalate to instances where seeds can show.
+        for n, asym in ((80, True), (150, False)):
+            if asym and (tags.requires_symmetric or tags.requires_coords):
+                continue
+            Cn, xyn = _euclid(n, seed=n, asymmetric=asym)
+            an = _fit(_fresh(estimator, random_state=0), Cn, coords=xyn)
+            cn = _fit(_fresh(estimator, random_state=1), Cn, coords=xyn)
+            differs = not np.array_equal(an.tour_, cn.tour_) or (
+                tags.iterative and not np.array_equal(an.history_, cn.history_)
+            )
+            if differs:
+                break
     _assert(
-        differs, 11, "seeds 0 and 1 must give different history_/n_iter_ (n=12) or different tour_ (n=40)"
+        differs,
+        11,
+        "seeds 0 and 1 must give different history_/n_iter_ (n=12) or a different tour_ "
+        "(n=40, then n=80 asymmetric and n=150)",
     )
     rng = np.random.default_rng(0)
     before = rng.bit_generator.state
