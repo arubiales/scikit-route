@@ -91,6 +91,7 @@ exclude = ["tests*", "benchmarks*", "docs*"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+pythonpath = ["tests"]
 addopts = "-m 'not slow' --strict-markers -ra"
 markers = [
   "slow: Waterloo instances with n >= 194, MILP on qa194, anything above 10 s (deselected by default)",
@@ -147,8 +148,6 @@ test-command = "pytest {project}/tests -m 'not slow' -x -q"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
-manylinux-x86_64-image = "manylinux2014"
-manylinux-aarch64-image = "manylinux2014"
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
