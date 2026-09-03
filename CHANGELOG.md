@@ -43,6 +43,11 @@ for a symbol-by-symbol map.
   `"DataFrame"`; `feature_names` dropped.
 - Dependencies: numpy, scipy and joblib only; pandas and googlemaps are optional
   extras; tensorflow, scikit-learn and tqdm are gone. Python >= 3.11, numpy 2 ready.
+- `EnsembleGenetic` and `EnsembleSimulatedAnnealing` remain as explicit-parameter
+  wrappers over `MultiStart` (threads by default; results independent of `n_jobs`).
+- Every solver is checked by the public `check_router` battery and by tolerance tests
+  against the published optima of the bundled instances (`tests/tolerances.py`,
+  `docs/benchmarks.md`).
 
 ### Removed
 - `skroute.cluster` (use scikit-learn directly), `preprocessing.df_to_tuple`,
