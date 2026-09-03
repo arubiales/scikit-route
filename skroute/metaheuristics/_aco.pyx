@@ -9,20 +9,8 @@ pre-drawn uniform per construction step (D10), so a fit is bit-identical for a g
 from libc.stdint cimport int64_t, uint8_t
 from libc.string cimport memset
 
-from skroute._core._routing cimport (
-    local_search_generic,
-    or_opt_descent,
-    problem_cost,
-    rebuild_pos,
-    two_opt_descent,
-)
-
-cdef int MOVE_TWO_OPT = 1
-cdef int MOVE_OR_OPT = 2
-cdef int LS_NONE = 0
-cdef int LS_SYMMETRIC = 1
-cdef int LS_GENERIC = 2
-cdef int MAX_PASSES = 1000000
+from skroute._core._routing cimport problem_cost
+from skroute.metaheuristics._memetic cimport memetic_polish
 
 
 # ------------------------------------------------------------------ construction
@@ -94,35 +82,6 @@ cpdef void construct_tours(const double[:, ::1] choice, const int64_t[:, ::1] ca
 
 
 # ------------------------------------------------------------------ polish and evaluation
-cdef void _polish(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour, int64_t[::1] pos,
-                  const int64_t[:, ::1] cand, uint8_t[::1] dont_look, double max_time, double fixed_cost,
-                  int split, int ls_mode, int ls_moves, int64_t[::1] scratch_tour, double[::1] dp,
-                  int64_t[::1] pred) noexcept nogil:
-    # The listed descents run to convergence, alternating until none improves; don't-look bits are
-    # reset before every call because a finished descent leaves them all set.
-    cdef Py_ssize_t n = tour.shape[0]
-    cdef bint improved
-    if ls_mode == LS_NONE or ls_moves == 0:
-        return
-    rebuild_pos(tour, pos)
-    if ls_mode == LS_GENERIC:
-        local_search_generic(C, T, tour, pos, cand, max_time, fixed_cost, split, ls_moves, 3, MAX_PASSES,
-                             scratch_tour, dp, pred)
-        return
-    while True:
-        improved = False
-        if ls_moves & MOVE_TWO_OPT:
-            memset(&dont_look[0], 0, n)
-            if two_opt_descent(C, tour, pos, cand, dont_look, True, MAX_PASSES) < 0.0:
-                improved = True
-        if ls_moves & MOVE_OR_OPT:
-            memset(&dont_look[0], 0, n)
-            if or_opt_descent(C, tour, pos, cand, dont_look, 3, True, MAX_PASSES) < 0.0:
-                improved = True
-        if not improved or ls_moves == MOVE_TWO_OPT or ls_moves == MOVE_OR_OPT:
-            break
-
-
 cpdef void polish_and_evaluate(const double[:, ::1] C, const double[:, ::1] T, int64_t[:, ::1] tours,
                                double max_time, double fixed_cost, int split, int ls_mode, int ls_moves,
                                const int64_t[:, ::1] cand, int64_t[::1] tour, int64_t[::1] pos,
@@ -131,14 +90,15 @@ cpdef void polish_and_evaluate(const double[:, ::1] C, const double[:, ::1] T, i
     """Polish every ant's tour in place (``ls_mode`` 0 none, 1 symmetric plain, 2 generic; ``ls_moves``
     bit mask 1 = two_opt, 2 = or_opt) and write its problem objective to ``costs``.
 
-    ``tour``, ``pos``, ``dont_look``, ``scratch_tour``, ``dp`` and ``pred`` are caller-owned scratch.
+    The polish is ``_memetic.pxd``'s ``memetic_polish``, shared with the Genetic kernel. ``tour``,
+    ``pos``, ``dont_look``, ``scratch_tour``, ``dp`` and ``pred`` are caller-owned scratch.
     """
     cdef Py_ssize_t A = tours.shape[0], n = tours.shape[1], a, k
     for a in range(A):
         for k in range(n):
             tour[k] = tours[a, k]
-        _polish(C, T, tour, pos, cand, dont_look, max_time, fixed_cost, split, ls_mode, ls_moves,
-                scratch_tour, dp, pred)
+        memetic_polish(C, T, tour, pos, cand, dont_look, max_time, fixed_cost, split, ls_mode, ls_moves,
+                       scratch_tour, dp, pred)
         for k in range(n):
             tours[a, k] = tour[k]
         costs[a] = problem_cost(C, T, tour, max_time, fixed_cost, split, dp, pred)
