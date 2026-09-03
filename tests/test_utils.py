@@ -220,15 +220,7 @@ def test_lazy_exports_and_dir():
         and skroute.is_router is skroute.base.is_router
     )
     assert "RoutingProblem" in vars(skroute)  # cached after the first access
-    for name in (
-        "BruteForce",
-        "Insertion",
-        "IteratedLocalSearch",
-        "SimulatedAnnealing",
-        "SOM",
-        "MultiStart",
-        "EnsembleGenetic",
-    ):
+    for name in skroute._EXPORTS:  # every registered name (solvers register as their packages land, D29)
         assert name in skroute.__all__ and name in dir(skroute)
     assert (
         "CheapestInsertion" not in skroute.__all__ and "FarthestInsertion" not in skroute.__all__
