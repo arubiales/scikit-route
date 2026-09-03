@@ -15,3 +15,5 @@ _*.html
 /*.egg-info
 /scikit-route-venv
 /wheelhouse
+
+.venv/
