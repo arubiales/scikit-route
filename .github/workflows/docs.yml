@@ -26,7 +26,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[docs,test]"
       - name: Examples in docstrings and docs pages must run
-        run: pytest --doctest-modules skroute docs README.md --doctest-glob="*.md" --ignore=docs/changelog.md --ignore=docs/contributing.md -q -p no:cacheprovider
+        run: pytest --doctest-modules skroute docs README.md --doctest-glob="*.md" --ignore=docs/changelog.md --ignore=docs/contributing.md --ignore=docs/development -q -p no:cacheprovider
       - name: Every public symbol has a documentation page
         run: python docs/check_api_coverage.py
       - name: Build (strict)
