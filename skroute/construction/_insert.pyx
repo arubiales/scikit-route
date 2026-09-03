@@ -9,7 +9,11 @@
 #
 # Complexity: farthest/nearest O(n^2) (one incremental ``min_dist`` update and one O(n) edge scan
 # per insertion); cheapest O(n^2) in practice -- every unrouted node caches its best edge and only
-# the nodes whose cached edge was split are rescanned -- and O(n^3) in the adversarial worst case.
+# the nodes whose cached edge was split, or whose cached cost is exactly tied by one of the two new
+# edges (the walk decides which comes first), are rescanned -- and O(n^3) in the adversarial worst
+# case. The cache therefore holds, for every unrouted node, the first minimum-cost edge met in the
+# walk from the depot: inserting a node never reorders the surviving edges, a strictly cheaper new
+# edge wins outright, and an exact tie is resolved by a full walk.
 """Insertion construction kernel: :func:`insertion_tour` (see :class:`skroute.construction.Insertion`)."""
 
 from libc.math cimport INFINITY
@@ -137,15 +141,20 @@ cdef void _insertion(const double[:, ::1] C, int64_t depot, int strategy,
             if strategy == CHEAPEST:
                 if best_after[j] == after:  # its cached edge (after -> b) no longer exists
                     best_after[j] = _best_edge(C, succ, depot, j, &best_cost[j])
-                else:
-                    c = _ins_cost(C, after, j, chosen)
-                    if c < best_cost[j]:
-                        best_cost[j] = c
-                        best_after[j] = after
-                    c = _ins_cost(C, chosen, j, b)
-                    if c < best_cost[j]:
-                        best_cost[j] = c
-                        best_after[j] = chosen
+                    continue
+                c = _ins_cost(C, after, j, chosen)
+                if c < best_cost[j]:
+                    best_cost[j] = c
+                    best_after[j] = after
+                elif c == best_cost[j]:  # tied with the cached edge: the walk says which is first
+                    best_after[j] = _best_edge(C, succ, depot, j, &best_cost[j])
+                    continue
+                c = _ins_cost(C, chosen, j, b)
+                if c < best_cost[j]:
+                    best_cost[j] = c
+                    best_after[j] = chosen
+                elif c == best_cost[j] and best_after[j] != after:
+                    best_after[j] = _best_edge(C, succ, depot, j, &best_cost[j])
 
     # ---- read the linked list out as an index tour, depot first
     a = depot
@@ -180,7 +189,9 @@ def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy):
         raise ValueError(f"strategy must be 'farthest', 'cheapest' or 'nearest', got {strategy!r}")
     code = STRATEGIES[strategy]
     if n < 2 or C.shape[1] != n:
-        raise ValueError(f"C must be a square matrix with at least 2 nodes, got shape {tuple(C.shape)}")
+        raise ValueError(
+            f"C must be a square matrix with at least 2 nodes, got shape {(C.shape[0], C.shape[1])}"
+        )
     if depot < 0 or depot >= n:
         raise ValueError(f"depot must be in [0, {n}), got {depot}")
     out = np.empty(n, dtype=np.int64)

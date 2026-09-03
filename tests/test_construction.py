@@ -1,14 +1,16 @@
 """Acceptance tests of the construction heuristics (SPEC §4.2): ``NearestNeighbour``, ``Insertion``,
 ``ClarkeWright`` and ``NRBS``. The structural battery (checks 1-11, 13) and the tolerance tests run in
 ``tests/test_common.py``; here live the algorithm-specific facts: pure-Python restatements of every
-rule, the crafted instances whose answer is known by hand, the 1.0 NRBS regression pin and the
-multi-trip behaviour of ClarkeWright."""
+rule (exercised on tie-heavy integer matrices as well as on float ones, so the tie rules are pinned),
+the crafted instances whose answer is known by hand, the 1.0 NRBS regression pin and the multi-trip
+behaviour of ClarkeWright (savings trips checked as driven, with the decoder's arithmetic)."""
 
 from __future__ import annotations
 
 import json
 import math
 import warnings
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -18,14 +20,15 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from skroute import NRBS, ClarkeWright, Insertion, NearestNeighbour, RoutingProblem
-from skroute.construction._clarke_wright import savings_tour
+from skroute.construction._clarke_wright import _closed_duration, savings_tour, savings_trips
 from skroute.construction._insert import STRATEGIES, insertion_tour
-from skroute.construction._nrbs import join_endpoints, nrbs_tour, row_stats
+from skroute.construction._nrbs import nrbs_tour, row_stats
 from skroute.metrics import route_cost
 
 PIN = Path(__file__).parent / "data" / "nrbs_barcelona_1_0.json"
 STRATEGY_NAMES = sorted(STRATEGIES)
 BUDGET_UNAWARE = [NearestNeighbour, Insertion, NRBS]
+INSTANCES = {"float": None, "int": None}  # filled below: distinct distances vs. ties everywhere
 
 
 # --------------------------------------------------------------------------- helpers
@@ -50,9 +53,28 @@ def _integer_instance(n, seed, asymmetric=False):
     return np.ascontiguousarray(C)
 
 
+INSTANCES.update({"float": _random_instance, "int": _integer_instance})
+
+
+def _asymmetric_time(C, seed, spread=0.4):
+    """A time matrix proportional to ``C`` with every arc perturbed independently: asymmetric."""
+    rng = np.random.default_rng(seed)
+    T = C / 10.0 * rng.uniform(1 - spread, 1 + spread, C.shape)
+    np.fill_diagonal(T, 0.0)
+    return np.ascontiguousarray(T)
+
+
 def _is_tour(tour, n, depot):
     tour = np.asarray(tour)
     return tour.shape == (n,) and tour[0] == depot and sorted(tour.tolist()) == list(range(n))
+
+
+def _driving_duration(T, depot, trip):
+    """The greedy decoder's sum for one trip (``reference.greedy_split``): legs accumulated from the depot."""
+    t = T[depot, trip[0]]
+    for a, b in pairwise(trip):
+        t += T[a, b]
+    return t + T[trip[-1], depot]
 
 
 def _nearest_neighbour_reference(C, depot):
@@ -97,6 +119,48 @@ def _insertion_reference(C, depot, strategy):
         _, pos = best_edge(j)
         tour.insert(pos + 1, j)
     return tour
+
+
+def _savings_reference(C, depot, shape=1.0, T=None, max_time=math.inf):
+    """§4.2 restated with lists, O(n^3): savings ``C[d,i] + C[j,d] - shape*C[i,j]`` descending (ties by
+    ``(i, j)``); merge two trips at their endpoints when the merged trip — oriented with the endpoint
+    nearer to the depot first (ties: lower index) and summed leg by leg from the depot — fits the
+    budget, else in the reverse orientation if only that one fits; the merged trip keeps the smaller
+    creation index; the trips are returned by creation index, as oriented."""
+    n = C.shape[0]
+    d = depot
+    nodes = [k for k in range(n) if k != d]
+
+    def orient(p):
+        first, last = p[0], p[-1]
+        return p[::-1] if C[d, last] < C[d, first] or (C[d, last] == C[d, first] and last < first) else p
+
+    pairs = sorted(
+        ((i, j) for x, i in enumerate(nodes) for j in nodes[x + 1 :]),
+        key=lambda ij: (-(C[d, ij[0]] + C[ij[1], d] - shape * C[ij[0], ij[1]]), ij),
+    )
+    trips = {k: [k] for k in nodes}
+    for i, j in pairs:
+        ti = next(k for k, p in trips.items() if i in p)
+        tj = next(k for k, p in trips.items() if j in p)
+        if ti == tj:
+            continue
+        A, B = trips[ti], trips[tj]
+        if i not in (A[0], A[-1]) or j not in (B[0], B[-1]):
+            continue  # an interior node
+        if A[-1] != i:
+            A = A[::-1]
+        if B[0] != j:
+            B = B[::-1]
+        merged = orient(A + B)
+        if math.isfinite(max_time) and _driving_duration(T, d, merged) > max_time:
+            merged = merged[::-1]
+            if _driving_duration(T, d, merged) > max_time:
+                continue
+        keep, drop = min(ti, tj), max(ti, tj)
+        trips[keep] = merged
+        del trips[drop]
+    return [trips[k] for k in sorted(trips)]
 
 
 def _row_stats_reference(C):
@@ -171,13 +235,30 @@ def test_insertion_matches_reference_on_tiny(tiny_instance, strategy):
 
 
 @pytest.mark.parametrize("strategy", STRATEGY_NAMES)
+@pytest.mark.parametrize("kind", sorted(INSTANCES))
 @pytest.mark.parametrize("asymmetric", [False, True], ids=["sym", "asym"])
 @pytest.mark.parametrize("depot", [0, 5, 19])
-def test_insertion_matches_reference_from_any_depot(strategy, asymmetric, depot):
-    C = _random_instance(20, seed=20 + depot, asymmetric=asymmetric)
+def test_insertion_matches_reference_from_any_depot(strategy, kind, asymmetric, depot):
+    C = INSTANCES[kind](20, seed=20 + depot, asymmetric=asymmetric)
     tour = insertion_tour(C, depot, strategy)
     assert tour.dtype == np.int64 and _is_tour(tour, 20, depot)
     assert tour.tolist() == _insertion_reference(C, depot, strategy)
+
+
+@pytest.mark.parametrize("strategy", STRATEGY_NAMES)
+@pytest.mark.parametrize("asymmetric", [False, True], ids=["sym", "asym"])
+def test_insertion_position_ties_go_to_the_first_edge_from_the_depot(strategy, asymmetric):
+    """Costs in 1..4: insertion costs tie constantly. The kernel's incremental cache (cheapest) must
+    still answer the first minimum-cost edge met walking from the depot, exactly like the O(n^3) rule.
+    Regression: the cache used to keep its cached edge on an exact tie with a newly created edge that
+    came earlier in the walk (n=15, seed=45, depot=14: a 24.0 tour instead of the rule's 23.0)."""
+    for n, seed, depot in ((15, 45, 14), (13, 0, 0), *((n, s, s % n) for n in (6, 9, 13) for s in range(30))):
+        C = _integer_instance(n, seed=seed, asymmetric=asymmetric)
+        assert insertion_tour(C, depot, strategy).tolist() == _insertion_reference(C, depot, strategy), (
+            n,
+            seed,
+            depot,
+        )
 
 
 def test_insertion_is_direction_aware():
@@ -210,6 +291,10 @@ def test_insertion_rejects_unknown_strategy():
         insertion_tour(C, 0, "both")
     with pytest.raises(ValueError, match="depot must be in"):
         insertion_tour(C, 5, "farthest")
+    with pytest.raises(ValueError, match=r"got shape \(3, 4\)$"):  # the real shape, not the memoryview's
+        insertion_tour(np.ones((3, 4)), 0, "farthest")
+    with pytest.raises(ValueError, match=r"at least 2 nodes, got shape \(1, 1\)$"):
+        insertion_tour(np.zeros((1, 1)), 0, "farthest")
 
 
 def test_insertion_default_and_repr():
@@ -222,11 +307,12 @@ def test_insertion_default_and_repr():
     n=st.integers(3, 12),
     seed=st.integers(0, 10_000),
     asymmetric=st.booleans(),
+    kind=st.sampled_from(sorted(INSTANCES)),
     strategy=st.sampled_from(STRATEGY_NAMES),
     depot_seed=st.integers(0, 100),
 )
-def test_insertion_kernel_always_returns_a_tour(n, seed, asymmetric, strategy, depot_seed):
-    C = _random_instance(n, seed, asymmetric)
+def test_insertion_kernel_always_returns_a_tour(n, seed, asymmetric, kind, strategy, depot_seed):
+    C = INSTANCES[kind](n, seed, asymmetric)
     depot = depot_seed % n
     tour = insertion_tour(C, depot, strategy)
     assert _is_tour(tour, n, depot)
@@ -322,17 +408,131 @@ def test_clarke_wright_alicante_under_greedy_split(alicante):
     assert p_opt.evaluate(est.problem_.to_index_tour(est.tour_)) <= est.cost_ + 1e-9
 
 
+@pytest.mark.parametrize("kind", sorted(INSTANCES))
+@pytest.mark.parametrize("time", ["none", "sym", "asym"])
+def test_clarke_wright_matches_reference(kind, time):
+    """savings_trips is the literal §4.2 rule (sorted savings, endpoint merges, smaller creation index,
+    orientation, budget as driven), on float and tie-heavy integer matrices, with no budget, a symmetric
+    and an asymmetric time matrix; savings_tour is the depot followed by the trips."""
+    for n, seed in ((4, 1), (7, 2), (12, 3), (20, 4), (25, 5)):
+        C = INSTANCES[kind](n, seed=seed)
+        depot = seed % n
+        if time == "none":
+            T, budgets = None, [math.inf]
+        else:
+            T = C / 10.0 if time == "sym" else _asymmetric_time(C, seed)
+            round_trip = float((T[depot, :] + T[:, depot]).max())
+            budgets = [factor * round_trip for factor in (1.0, 1.3, 2.0)]
+        for shape in (1.0, 0.5):
+            for budget in budgets:
+                trips = savings_trips(C, depot, shape, T=T, max_time=budget)
+                expected = _savings_reference(C, depot, shape, T=T, max_time=budget)
+                assert trips == expected, (n, seed, shape, budget)
+                tour = savings_tour(C, depot, shape, T=T, max_time=budget)
+                assert tour.tolist() == [depot, *(v for trip in trips for v in trip)]
+                assert _is_tour(tour, n, depot)
+
+
 def test_clarke_wright_budget_respected_by_savings_trips(alicante):
-    """Every savings trip fits the budget on its own (before the decoder), so the greedy decoder can
-    only merge them further: n_trips_ <= number of savings trips."""
+    """Every savings trip fits the budget on its own, in driving direction and with the decoder's own
+    sum; on a metric time matrix (alicante's is) the greedy decoder can then only merge them further,
+    so n_trips_ <= number of savings trips."""
     d, kw = alicante["bunch"], alicante["kwargs"]
     budget = kw["max_time_work"]
-    tour = savings_tour(d.cost, 0, 1.0, T=d.time, max_time=budget)
-    # rebuild the savings trips from the tour: consecutive nodes whose closed duration keeps fitting
-    # is exactly what the greedy decoder does, so the decoded trips fit; check them
-    p = RoutingProblem(d.cost, time_matrix=d.time, depot=0, max_time_work=budget)
-    starts = p.trip_starts(tour)
-    assert np.all(p.trip_times(tour, starts) <= budget + 1e-9)
+    trips = savings_trips(d.cost, 0, 1.0, T=d.time, max_time=budget)
+    assert len(trips) > 1 and sorted(v for trip in trips for v in trip) == list(range(1, d.cost.shape[0]))
+    assert all(_driving_duration(d.time, 0, trip) <= budget for trip in trips)
+    est = ClarkeWright().fit(d.cost, time_matrix=d.time, **kw)
+    assert est.problem_.to_index_tour(est.tour_).tolist() == [0, *(v for trip in trips for v in trip)]
+    assert est.n_trips_ <= len(trips)
+    # the same on random metric instances, at three budgets each
+    for seed in range(30):
+        C = _random_instance(10, seed=seed)
+        T = C / 10.0
+        for factor in (1.0, 1.3, 2.0):
+            budget = factor * float((T[0, :] + T[:, 0]).max())
+            trips = savings_trips(C, 0, 1.0, T=T, max_time=budget)
+            assert all(_driving_duration(T, 0, trip) <= budget for trip in trips)
+            est = ClarkeWright().fit(C, time_matrix=T, max_time_work=budget)
+            assert est.n_trips_ <= len(trips), (seed, factor)
+
+
+def test_clarke_wright_asymmetric_time_keeps_the_orientation_that_fits():
+    """Symmetric costs, asymmetric hours: the trip [1, 2, 3] lasts 4 h as built and 8 h reversed. The
+    orientation rule prefers 3 first (C[0, 3] = 5 < C[0, 1] = 7) but that direction breaks the 6 h
+    budget, so the trip is kept as built and driven as one trip. Regression: the merge used to be
+    checked in build orientation and the trip emitted reversed, which the decoder then split
+    (n_trips_ = 2, cost 124 with extra_cost=100, instead of one trip costing 14.5)."""
+    C = np.array([[0, 7, 6, 5], [7, 0, 1, 9], [6, 1, 0, 1.5], [5, 9, 1.5, 0]])
+    T = np.array([[0, 1, 1, 5], [1, 0, 1, 1], [1, 1, 0, 1], [1, 1, 1, 0]], dtype=float)
+    assert savings_trips(C, 0, 1.0, T=T, max_time=6.0) == [[1, 2, 3]]
+    est = ClarkeWright().fit(C, time_matrix=T, max_time_work=6.0, extra_cost=100.0)
+    assert est.n_trips_ == 1 and est.route_.tolist() == [0, 1, 2, 3, 0] and est.cost_ == 14.5
+    assert savings_trips(C, 0, 1.0) == [[3, 2, 1]]  # without a budget the nearer endpoint goes first
+    # a random instance where only the reverse of the preferred orientation fits (n=6, seed=2)
+    C = _random_instance(6, seed=2)
+    T = _asymmetric_time(C, 2)
+    budget = 1.6 * float((T[0, :] + T[:, 0]).max())
+    trips = savings_trips(C, 0, 1.0, T=T, max_time=budget)
+    (long_trip,) = [trip for trip in trips if len(trip) > 1]
+    assert _driving_duration(T, 0, long_trip) <= budget < _driving_duration(T, 0, long_trip[::-1])
+    assert C[0, long_trip[-1]] < C[0, long_trip[0]]  # the reverse would have been preferred by C[d, .]
+    # in general: every savings trip fits as driven, and the decoder never splits one (T stays metric
+    # enough at +-40 % for these instances: asserted, not assumed)
+    for seed in range(60):
+        C = _random_instance(8, seed=seed)
+        T = _asymmetric_time(C, seed)
+        budget = 1.6 * float((T[0, :] + T[:, 0]).max())
+        trips = savings_trips(C, 0, 1.0, T=T, max_time=budget)
+        assert all(_driving_duration(T, 0, trip) <= budget for trip in trips), seed
+        est = ClarkeWright().fit(C, time_matrix=T, max_time_work=budget)
+        assert np.all(est.trip_times_ <= budget)
+
+
+def test_clarke_wright_budget_equal_to_a_trip_duration_is_still_one_trip():
+    """The merge test uses the decoder's arithmetic (legs accumulated from the depot in driving
+    direction), so a budget copied from a trip's own duration keeps that trip whole. Regression: the
+    savings phase summed ``T[d, head] + path + T[a, b] + path + T[tail, d]`` in build orientation, one
+    ulp away from the decoder's sum of the reversed trip, and ``[1, 5]`` was split (6 trips, 548.87)."""
+    C = _random_instance(7, seed=2)
+    rng = np.random.default_rng(2)
+    T = rng.uniform(0.1, 1.0, (7, 7))
+    T = (T + T.T) / 2
+    np.fill_diagonal(T, 0.0)
+    budget = 1.3970773560739378
+    trips = savings_trips(C, 0, 1.0, T=T, max_time=budget)
+    assert trips == [[1, 5], [2], [3], [4], [6]]
+    est = ClarkeWright().fit(C, time_matrix=T, max_time_work=budget, extra_cost=10.0)
+    assert est.n_trips_ == 5 and est.route_.tolist() == [0, 1, 5, 0, 2, 0, 3, 0, 4, 0, 6, 0]
+    # in general: set the budget to the longest savings trip's duration, ulp for ulp
+    for seed in range(40):
+        C = _random_instance(9, seed=seed)
+        T = C / 10.0
+        loose = 1.5 * float((T[0, :] + T[:, 0]).max())
+        tight = max(_driving_duration(T, 0, trip) for trip in savings_trips(C, 0, 1.0, T=T, max_time=loose))
+        trips = savings_trips(C, 0, 1.0, T=T, max_time=tight)
+        assert all(_driving_duration(T, 0, trip) <= tight for trip in trips)
+        p = RoutingProblem(C, time_matrix=T, depot=0, max_time_work=tight)
+        tour = np.array([0, *(v for trip in trips for v in trip)])
+        assert len(p.trip_starts(tour)) - 1 <= len(trips), seed
+
+
+def test_clarke_wright_decoder_may_split_a_savings_trip_on_a_non_metric_time_matrix():
+    """When T violates the triangle inequality a prefix of a feasible trip may not be able to return
+    to the depot in time, and the greedy decoder splits it: n_trips_ can exceed the number of savings
+    trips (documented). Every reported trip still fits."""
+    C = _random_instance(7, seed=35)
+    rng = np.random.default_rng(35)
+    T = rng.uniform(0.5, 3.0, (7, 7))
+    T = (T + T.T) / 2
+    np.fill_diagonal(T, 0.0)
+    budget = 1.6 * float((T[0, :] + T[:, 0]).max())
+    trips = savings_trips(C, 0, 1.0, T=T, max_time=budget)
+    assert trips == [[5, 6, 1, 4], [3, 2]]
+    assert all(_driving_duration(T, 0, trip) <= budget for trip in trips)
+    est = ClarkeWright().fit(C, time_matrix=T, max_time_work=budget)
+    assert est.n_trips_ == 3 > len(trips)
+    assert np.all(est.trip_times_ <= budget + 1e-9)
 
 
 def test_clarke_wright_asymmetric_time_matrix_with_symmetric_cost(alicante):
@@ -375,7 +575,11 @@ def test_clarke_wright_kernel_always_returns_a_tour(n, seed, factor, depot_seed)
     assert _is_tour(savings_tour(C, depot, 1.0), n, depot)
     tour = savings_tour(C, depot, 1.0, T=T, max_time=budget)
     assert _is_tour(tour, n, depot)
+    trips = savings_trips(C, depot, 1.0, T=T, max_time=budget)
+    assert tour.tolist() == [depot, *(v for trip in trips for v in trip)]
+    assert all(_closed_duration(T, depot, trip) <= budget for trip in trips)
     p = RoutingProblem(C, time_matrix=T, depot=depot, max_time_work=budget)
+    assert len(p.trip_starts(tour)) - 1 <= len(trips)  # metric T: the decoder only merges further
     assert np.all(p.trip_times(tour, p.trip_starts(tour)) <= budget + 1e-9)
 
 
@@ -419,7 +623,7 @@ def test_nrbs_defaults_accept_ints_and_reject_negatives():
     with pytest.raises(
         ValueError, match="The 'std_connection' parameter of NRBS must be a float in the range"
     ):
-        NRBS(std_connection=-1.0).fit(C)
+        NRBS(std_connection=-1.0).fit(C)  # 1.0.0a2 validated only the type: negatives were accepted there
 
 
 def test_nrbs_depot_only_rotates_the_cycle():
@@ -444,22 +648,60 @@ def test_nrbs_coincident_points_are_linked_first():
     assert math.isfinite(est.cost_)
 
 
-def test_nrbs_join_endpoints_closes_a_degenerate_graph():
-    """Two open paths and an isolated node -> one Hamiltonian cycle, nearest endpoints first."""
-    C = _random_instance(6, seed=66)
-    nb = [[1], [0, 2], [1], [4], [3], []]  # paths 0-1-2 and 3-4, node 5 alone
-    deg = [len(x) for x in nb]
-    parent = [0, 0, 0, 3, 3, 5]
-    join_endpoints(C, nb, deg, parent)
-    assert deg == [2] * 6
-    # walk the cycle
-    prev, cur, seen = 0, nb[0][0], [0]
-    while cur != 0:
-        seen.append(cur)
-        nxt = nb[cur][0] if nb[cur][0] != prev else nb[cur][1]
-        prev, cur = cur, nxt
-    assert sorted(seen) == list(range(6))
-    assert frozenset((0, 1)) in _edges(seen) and frozenset((3, 4)) in _edges(seen)
+def test_nrbs_two_passes_always_close_the_cycle():
+    """Whatever the ties, two passes leave every node with two neighbours (a node with fewer always finds
+    an endpoint of another path, or the other end of the Hamiltonian path): all-zero matrices, costs in
+    0..2, a zero row and column, half the points coincident — sym and asym — all give a permutation."""
+    exponents = [(1.0,) * 5, (0.0,) * 5, (0.5,) * 5, (0.0, 0.0, 0.0, 0.0, 1.0)]
+    for n in (3, 4, 5, 7, 9, 12):
+        for seed in range(12):
+            rng = np.random.default_rng(seed)
+            cases = [np.zeros((n, n)), rng.integers(0, 3, (n, n)).astype(float)]
+            cases.append(np.triu(cases[1], 1) + np.triu(cases[1], 1).T)
+            zero_line = np.ones((n, n))
+            zero_line[rng.integers(0, n), :] = 0.0
+            zero_line[:, rng.integers(0, n)] = 0.0
+            cases.append(zero_line)
+            xy = rng.random((n, 2))
+            xy[: n // 2] = xy[0]
+            cases.append(np.sqrt(((xy[:, None, :] - xy[None, :, :]) ** 2).sum(-1)))
+            for C in cases:
+                np.fill_diagonal(C, 0.0)
+                C = np.ascontiguousarray(C)
+                for params in exponents:
+                    assert _is_tour(nrbs_tour(C, seed % n, *params), n, seed % n), (n, seed, params)
+
+
+def test_nrbs_rejects_nan_scores_and_accepts_infinite_ones():
+    """mu^a of a negative mean (negative costs, fractional exponent) and inf / inf (costs so large that
+    the powers overflow) are NaN: a ValueError, never a self-loop in the candidate lists. Negative
+    costs with integer exponents and overflow to plain inf are fine and give a valid tour, quietly."""
+    rng = np.random.default_rng(3)
+    C = rng.uniform(-5, 5, (8, 8))
+    C = (C + C.T) / 2
+    np.fill_diagonal(C, 0.0)
+    C = np.ascontiguousarray(C)
+    with pytest.raises(ValueError, match="well-defined node statistics"):
+        NRBS(0.5, 0.5, 0.5, 0.5, 0.5).fit(C)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        est = NRBS().fit(C)  # integer exponents: negative means are fine
+    assert _is_tour(est.problem_.to_index_tour(est.tour_), 8, 0)
+    huge = _random_instance(6, seed=0) * 1e160
+    with pytest.raises(ValueError, match="overflow to NaN"):
+        NRBS(1.0, 1.0, 2.0, 1.0, 2.0).fit(huge)
+    with pytest.raises(ValueError, match="overflow to NaN"):
+        nrbs_tour(_random_instance(6, seed=0) * 1e200, 0, 2.0, 2.0, 2.0, 2.0, 2.0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        for scale in (1e160, 1e300):  # inf scores sort first; no RuntimeWarning leaks
+            assert _is_tour(nrbs_tour(_random_instance(6, seed=0) * scale, 0), 6, 0)
+
+
+def test_nrbs_tour_below_three_nodes():
+    """Below the estimator's minimum the kernel returns the only tour there is (no two-node 'cycle')."""
+    assert nrbs_tour(np.array([[0.0, 1.0], [1.0, 0.0]]), 1).tolist() == [1, 0]
+    assert nrbs_tour(np.zeros((1, 1)), 0).tolist() == [0]
 
 
 def test_nrbs_asymmetric_and_smallest_sizes():

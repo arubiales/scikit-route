@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from numbers import Real
 
 import numpy as np
@@ -14,6 +15,8 @@ __all__ = ["NRBS"]
 
 _EXPONENTS = ("mean_priority", "std_priority", "mean_connection", "std_connection", "distance_weight")
 _ZERO_DISTANCE = 1e-12  # floor of C[i, j] in the connection score (coincident points, SPEC §4.2)
+_ROW_BLOCK = 256  # rows of C whose statistics are computed at once (bounds the n x n temporaries)
+_CAND_CHUNK = 64  # candidates converted to Python ints at a time (the passes read a short prefix)
 
 
 def _pow(x: np.ndarray, e: float) -> np.ndarray:
@@ -30,12 +33,20 @@ def row_stats(C: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Per-row mean and population standard deviation of ``C``, the zero diagonal included.
 
     Sums run left to right (``cumsum``), squares and the square root go through ``pow`` — the
-    operations of the 2020 Python loops — so the statistics are bit-identical to 1.0's.
+    operations of the 2020 Python loops — so the statistics are bit-identical to 1.0's. The rows
+    are processed in blocks, so the temporaries never hold a second copy of the matrix.
     """
     n = C.shape[0]
-    mean = np.cumsum(C, axis=1)[:, -1] / n
-    var = np.cumsum(_pow(C - mean[:, None], 2.0), axis=1)[:, -1] / n
-    return mean, _pow(var, 0.5)
+    mean = np.empty(n, dtype=np.float64)
+    std = np.empty(n, dtype=np.float64)
+    with np.errstate(over="ignore"):  # huge costs square to inf: a legitimate IEEE result (see NRBS)
+        for start in range(0, n, _ROW_BLOCK):
+            block = C[start : start + _ROW_BLOCK]
+            mu = np.cumsum(block, axis=1)[:, -1] / n
+            var = np.cumsum(_pow(block - mu[:, None], 2.0), axis=1)[:, -1] / n
+            mean[start : start + _ROW_BLOCK] = mu
+            std[start : start + _ROW_BLOCK] = _pow(var, 0.5)
+    return mean, std
 
 
 def _find(parent: list[int], x: int) -> int:
@@ -57,30 +68,10 @@ def _connect(nb: list[list[int]], deg: list[int], parent: list[int], k: int, c: 
     deg[c] += 1
 
 
-def join_endpoints(C: np.ndarray, nb: list[list[int]], deg: list[int], parent: list[int]) -> None:
-    """Close a degenerate partial graph (paths and isolated nodes) into one Hamiltonian cycle.
-
-    Repeatedly takes the lowest-index node with degree < 2 and links it to the nearest other node
-    with degree < 2 (``C[k, c]``, ties: lower index) that is not already its neighbour and does not
-    close a cycle before every node is covered. Used only when the two NRBS passes leave the graph
-    disconnected (degenerate ties); modifies ``nb``, ``deg`` and ``parent`` in place.
-    """
-    n = len(deg)
-    n_edges = sum(deg) // 2
-    while n_edges < n:
-        ends = [v for v in range(n) if deg[v] < 2]
-        k = ends[0]
-        rk = _find(parent, k)
-        best, chosen = np.inf, -1
-        for c in ends[1:]:
-            if c in nb[k] or (_find(parent, c) == rk and n_edges != n - 1):
-                continue
-            if C[k, c] < best:
-                best, chosen = C[k, c], c
-        if chosen < 0:  # pragma: no cover - impossible: another component always has an endpoint
-            raise RuntimeError("NRBS could not close the tour (bug in the solver)")
-        _connect(nb, deg, parent, k, chosen)
-        n_edges += 1
+def _lazy_ints(idx: np.ndarray) -> Iterator[int]:
+    """The entries of an index array as Python ints, converted a chunk at a time."""
+    for start in range(0, idx.size, _CAND_CHUNK):
+        yield from idx[start : start + _CAND_CHUNK].tolist()
 
 
 def nrbs_tour(
@@ -95,26 +86,45 @@ def nrbs_tour(
     """The NRBS construction in index space; see :class:`NRBS` for the algorithm.
 
     Returns an int64 permutation of ``range(n)`` starting at ``depot`` and continuing towards the
-    first neighbour the passes attached to the depot (the direction of the 2020 result).
+    first neighbour the passes attached to the depot (the direction of the 2020 result). Raises
+    ``ValueError`` when a priority or a connection score is NaN (negative costs with a fractional
+    exponent, or costs so large that the powers overflow to ``inf / inf``).
     """
     n = C.shape[0]
+    d = int(depot)
+    if n < 3:  # below the estimator's minimum: the only tour there is
+        return np.array([d, *(k for k in range(n) if k != d)], dtype=np.int64)
     a, b, c, e, f = (
         float(v) for v in (mean_priority, std_priority, mean_connection, std_connection, distance_weight)
     )
     mean, std = row_stats(C)
-    # priority mu_i^a * sigma_i^b, descending, ties by index (Python's stable reverse sort)
-    prio = _pow(mean, a) * _pow(std, b)
+    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
+        # priority mu_i^a * sigma_i^b, descending, ties by index (Python's stable reverse sort)
+        prio = _pow(mean, a) * _pow(std, b)
+        # numerator mu_j^c * sigma_j^e of the connection score of candidate j
+        num = _pow(mean, c) * _pow(std, e)
+    if np.isnan(prio).any() or np.isnan(num).any():
+        raise ValueError(
+            "NRBS needs well-defined node statistics: mu^a, sigma^b, mu^c or sigma^e is NaN for some "
+            "node (negative costs with a fractional exponent); use costs >= 0 or integer exponents"
+        )
     order = np.argsort(-prio, kind="stable")
-    # connection score of candidate j for node i: mu_j^c * sigma_j^e / max(C[i, j], 1e-12)^f, in PRIORITY
-    # space so that ties keep the priority order, as the 2020 dict comprehension did
-    num = _pow(mean, c) * _pow(std, e)
-    den = _pow(np.maximum(C, _ZERO_DISTANCE), f)
-    S = num[None, :] / den
-    Sp = S[np.ix_(order, order)]
-    np.fill_diagonal(Sp, -np.inf)  # a node never connects to itself: sorted last, then dropped
-    cand = order[np.argsort(-Sp, axis=1, kind="stable")[:, : n - 1]]
     order_list = order.tolist()
-    cand_lists = cand.tolist()
+    num_p = num[order]  # in PRIORITY space, so that score ties keep the priority order (2020 dict)
+
+    def candidates(p: int) -> np.ndarray:
+        """Positions (priority space) of the candidates of the node at position ``p``, best first."""
+        k = order_list[p]
+        with np.errstate(over="ignore", divide="ignore", invalid="ignore"):  # inf / inf is checked below
+            den = _pow(np.maximum(C[k], _ZERO_DISTANCE), f)
+            scores = num_p / den[order]
+        scores[p] = -np.inf  # a node never connects to itself (dropped explicitly below as well)
+        if np.isnan(scores).any():
+            raise ValueError(
+                f"NRBS connection scores of node {k} overflow to NaN (inf / inf): the costs are too "
+                "large for the exponents; scale the cost matrix down"
+            )
+        return np.argsort(-scores, kind="stable")
 
     nb: list[list[int]] = [[] for _ in range(n)]  # neighbours in insertion order
     deg = [0] * n
@@ -126,7 +136,10 @@ def nrbs_tour(
             if deg[k] >= 2:
                 continue
             nbk = nb[k]
-            for cnd in cand_lists[p]:
+            for q in _lazy_ints(candidates(p)):
+                if q == p:
+                    continue
+                cnd = order_list[q]
                 if deg[cnd] >= 2 or cnd in nbk:
                     continue
                 if _find(parent, k) == _find(parent, cnd) and n_edges != n - 1:
@@ -134,11 +147,10 @@ def nrbs_tour(
                 _connect(nb, deg, parent, k, cnd)
                 n_edges += 1
                 break
-    if n_edges < n:  # degenerate ties left paths open: close them greedily
-        join_endpoints(C, nb, deg, parent)
+    if n_edges < n:  # pragma: no cover - every visit of a node with degree < 2 adds an edge (Notes)
+        raise RuntimeError("NRBS left the graph open after two passes (bug in the solver)")
 
     # walk the Hamiltonian cycle from the depot towards its first-attached neighbour
-    d = int(depot)
     tour = np.empty(n, dtype=np.int64)
     tour[0] = d
     prev, cur = d, nb[d][0]
@@ -173,8 +185,10 @@ class NRBS(BaseRouter):
         Exponent ``f`` of the distance in the connection score; larger values make the score
         closer to plain nearest-neighbour linking.
 
-    All five must be ``>= 0``; ints are accepted (1.0 rejected them and had no defaults; 1.0's
-    misspelt ``distance_weigth`` is now ``distance_weight``).
+    All five must be ``>= 0`` — a restriction new in 2.0: 1.0.0a2 validated only the type, so a
+    negative exponent was accepted there and raises ``ValueError`` here. Ints are accepted (1.0
+    rejected them and had no defaults; 1.0's misspelt ``distance_weigth`` is now
+    ``distance_weight``).
 
     Attributes
     ----------
@@ -199,9 +213,20 @@ class NRBS(BaseRouter):
     candidate that has fewer than two neighbours, is not already its neighbour and does not close a
     cycle before all nodes are covered — cycle detection by union-find plus degree counters (the
     2020 code deep-copied the graph per candidate; the selection order is unchanged). The cycle is
-    read from the depot towards the neighbour attached to it first. If degenerate ties leave paths
-    open after the two passes, the remaining endpoints are joined greedily by nearest endpoint.
-    Complexity O(n² log n) time and O(n²) memory.
+    read from the depot towards the neighbour attached to it first.
+
+    Two passes always close the cycle. Before the last edge the graph is a forest of paths, so a
+    node with fewer than two neighbours is an endpoint (or isolated): if another path exists, any
+    of its endpoints is an eligible candidate (different component, not a neighbour); if the graph
+    is already one Hamiltonian path, its other endpoint is eligible because the cycle ban is lifted
+    at ``n - 1`` edges. Every visit of a node with degree below two therefore adds an edge, and
+    after the second pass every degree is two — one cycle through every node, whatever the ties.
+
+    The scores must be well defined: negative costs with a fractional exponent (``mu^a`` of a
+    negative mean) or costs so large that the powers overflow to ``inf / inf`` give NaN scores and
+    raise ``ValueError``; infinite scores (coincident points with a large ``distance_weight``) are
+    fine and sort first. Complexity O(n² log n) time; the candidate ranking is computed one node at
+    a time, so the memory beyond the cost matrix is O(n).
 
     On Barcelona with all five exponents ``= 0.5`` the tour and its cost reproduce the 1.0 result
     pinned in ``tests/data/nrbs_barcelona_1_0.json``.

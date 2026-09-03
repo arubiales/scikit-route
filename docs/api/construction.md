@@ -31,7 +31,16 @@ True
 
 Under a budget, `ClarkeWright` is the one construction heuristic whose *search* sees
 `max_time_work`: the others build a plain tour, warn once, and hand it to the decoder, which
-still splits it into feasible trips and prices it under the multi-trip objective.
+still splits it into feasible trips and prices it under the multi-trip objective. Every savings
+trip fits the budget as it is driven (checked with the decoder's own arithmetic, in the
+orientation that is emitted — with an asymmetric time matrix the direction that fits is kept),
+so on a time matrix that satisfies the triangle inequality the decoder can only merge savings
+trips further; on one that violates it, the decoder may also split a trip, and `n_trips_` can
+then exceed the number of savings trips.
+
+Migrating `NRBS` from 1.0: the five exponents must now be `>= 0` (1.0.0a2 validated only the type,
+so a negative exponent was accepted there and raises `ValueError` here); ints are accepted, the
+defaults are `1.0` and `distance_weigth` is spelt `distance_weight`.
 
 ::: skroute.construction.NearestNeighbour
 
