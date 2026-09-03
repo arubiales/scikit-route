@@ -28,6 +28,12 @@ log = logging.getLogger("skroute")
 
 _LR_FLOOR = 1e-3  # learning_rate below this at the end of an epoch -> "converged"
 _RADIUS_FLOOR = 1.0  # radius below one ring unit at the end of an epoch -> "converged"
+# Floor of the Gaussian's width (ring positions). At sigma = 1e-3 every neuron other than the winner
+# already gets exp(-1 / 2e-6) == 0.0 exactly in double precision, so no finite result changes; without
+# it a radius below ~1e-154 (legal: radius_decay=0.5, radius=1e-200, n_iter=1e6 with radius_decay=0.96)
+# makes `radius * radius` underflow to 0.0, the winner's Gaussian 0/0 = NaN, the weights NaN, and every
+# city then wins the first NaN neuron: the run returns the index-order tour with only numpy warnings.
+_SIGMA_MIN = 1e-3
 _DECODE_BLOCK = 1 << 22  # entries of the (cities, units) distance block built while decoding
 
 
@@ -135,6 +141,11 @@ class SOM(BaseRouter):
     ``g_j = exp(-d(j, winner)^2 / (2 radius^2))`` with ``d`` the wrapped ring distance, and
     ``w_j += learning_rate * g_j * (x - w_j)``. Decoding maps every city to its closest neuron,
     orders the cities by neuron index (ties by city index) and rotates the sequence to the depot.
+    The Gaussian's width is floored at ``1e-3`` ring positions (``radius`` itself keeps decaying
+    and drives the stop rule): below that every neuron but the winner already gets ``g_j == 0``
+    exactly in double precision, so the floor changes no finite result and only keeps extreme
+    ``radius``/``radius_decay`` values (``radius_decay=0.5``, ``radius=1e-200``) from underflowing
+    ``radius**2`` to ``0.0`` and turning the winner's update into ``0/0``.
 
     **Complexity.** Every sample is O(``n_units``) vectorised numpy work; decoding an epoch is
     O(``n * n_units``) in blocks of bounded memory, plus one O(n) evaluation. With the defaults
@@ -267,7 +278,8 @@ class SOM(BaseRouter):
                 winner = int(np.argmin(d2))
                 delta = np.abs(positions - winner)
                 ring = np.minimum(delta, m - delta)  # wrapped ring distance
-                g = np.exp(-(ring * ring) / (2.0 * radius * radius))
+                sigma = radius if radius > _SIGMA_MIN else _SIGMA_MIN  # radius itself keeps decaying
+                g = np.exp(-(ring * ring) / (2.0 * sigma * sigma))
                 weights -= (lr * g)[:, None] * diff  # w += lr * g * (city - w)
                 lr *= lr_decay
                 radius *= radius_decay
