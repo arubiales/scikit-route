@@ -240,7 +240,13 @@ class Genetic(BaseRouter):
             ls_mode = _LS_SYMMETRIC
         else:
             ls_mode = _LS_GENERIC
-        cand = problem.neighbours(min(_N_CANDIDATES, n - 1))
+        # candidate lists of the memetic descents; the plain GA never reads them, so it skips the
+        # transient (n, n) copy ``neighbours`` makes (an empty (n, 0) view satisfies the kernel signature)
+        cand = (
+            problem.neighbours(min(_N_CANDIDATES, n - 1))
+            if ls_mode != _LS_NONE
+            else np.empty((n, 0), np.int64)
+        )
         C, T = problem.cost, problem.time_or_cost
         max_time, fixed, split = problem.max_time_work, problem.fixed_cost, problem.split_code
         cx, mut_kind = _CROSSOVERS[self.crossover], _MUTATIONS[self.mutation]
