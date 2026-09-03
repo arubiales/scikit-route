@@ -54,13 +54,13 @@ _EXPORTS: dict[str, str] = {
     "LocalSearch": "skroute.local_search",
     "IteratedLocalSearch": "skroute.local_search",
     # metaheuristics
-    "SOM": "skroute.metaheuristics",
     "SimulatedAnnealing": "skroute.metaheuristics",
-    "TabuSearch": "skroute.metaheuristics",  # ensemble
-
+    "TabuSearch": "skroute.metaheuristics",
     "Genetic": "skroute.metaheuristics",
     "AntColony": "skroute.metaheuristics",
-    # ensemble}
+    "SOM": "skroute.metaheuristics",
+    # ensemble
+}
 
 # The five solver subpackages of D18: a registered name defined in one of them is a solver.
 _SOLVER_MODULES: frozenset[str] = frozenset(
@@ -86,17 +86,15 @@ if TYPE_CHECKING:
     from .base import RouterTags as RouterTags
     from .base import clone as clone
     from .base import is_router as is_router
-
-    # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
-    from .construction import NRBS as NRBS
-    from .construction import ClarkeWright as ClarkeWright
-    from .construction import Insertion as Insertion
-    from .construction import NearestNeighbour as NearestNeighbour
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
 
     # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
     # isort: split
+    from .construction import NRBS as NRBS
+    from .construction import ClarkeWright as ClarkeWright
+    from .construction import Insertion as Insertion
+    from .construction import NearestNeighbour as NearestNeighbour
     from .exact import MILP as MILP
     from .exact import BruteForce as BruteForce
     from .exact import HeldKarp as HeldKarp
@@ -105,11 +103,11 @@ if TYPE_CHECKING:
     from .local_search import OrOpt as OrOpt
     from .local_search import TwoOpt as TwoOpt
     from .metaheuristics import SOM as SOM
+    from .metaheuristics import AntColony as AntColony
+    from .metaheuristics import Genetic as Genetic
     from .metaheuristics import SimulatedAnnealing as SimulatedAnnealing
     from .metaheuristics import TabuSearch as TabuSearch
 
-    from .metaheuristics import AntColony as AntColony
-    from .metaheuristics import Genetic as Genetic
 
 def __getattr__(name: str) -> Any:
     """PEP 562: resolve a public name on first access and cache it on the module."""
