@@ -44,16 +44,16 @@ goes to `fit`**:
 
 ```python
 # 1.0.0a2
-ga = Genetic(p_m=0.3, pop=400, gen=2000, k=5, early_stopping=100,
-             max_time_work=6, extra_cost=12.83)
+ga = Genetic(p_m=0.3, pop=400, gen=2000, k=5, early_stopping=100, max_time_work=6, extra_cost=12.83)
 cost, route = ga.fit(route_example, time_matrix, cost_matrix)
 
 # 2.0
 from skroute import Genetic
-ga = Genetic(p_mutation=0.3, pop_size=400, n_generations=2000, tournament_size=5, patience=100,
-             random_state=0)
-ga.fit(cost_matrix, time_matrix=time_matrix, depot=route_example[0],
-       max_time_work=6.0, extra_cost=12.83)
+
+ga = Genetic(
+    p_mutation=0.3, pop_size=400, n_generations=2000, tournament_size=5, patience=100, random_state=0
+)
+ga.fit(cost_matrix, time_matrix=time_matrix, depot=route_example[0], max_time_work=6.0, extra_cost=12.83)
 ga.cost_, ga.route_
 ```
 
@@ -146,8 +146,9 @@ Loaders return a `Bunch` (a dict with attribute access) instead of a dict with a
 
 ```python
 from skroute.datasets import load_barcelona
-bcn = load_barcelona()            # cost (EUR), time (h), distance (m), coords, labels, depot, units, DESCR
-bcn.cost.shape, bcn.depot          # (19, 19), 10000007
+
+bcn = load_barcelona()  # cost (EUR), time (h), distance (m), coords, labels, depot, units, DESCR
+bcn.cost.shape, bcn.depot  # (19, 19), 10000007
 ```
 
 Loader matrices are plain arrays: pass `labels=bcn.labels` to `fit` so that
