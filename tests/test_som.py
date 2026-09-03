@@ -1,11 +1,15 @@
 """Acceptance tests of SPEC §4.4 for ``SOM`` (WP7): coordinates required, valid tours on the tiny tier,
-fast-tier gaps on wi29/dj38, best-so-far ``history_``, bit-identical reproducibility, seed sensitivity,
-the multi-trip ``UserWarning`` with the result still split into trips, the epoch accounting and the
-smallest legal sizes. Slow-tier gaps live in ``tests/benchmarks/test_waterloo.py`` (WP8)."""
+fast-tier gaps on wi29/dj38, best-so-far ``history_`` and the best epoch's tour (not the last one),
+bit-identical reproducibility, seed sensitivity, the multi-trip ``UserWarning`` with the result still
+split into trips, the epoch accounting, the smallest legal sizes, the update rule replayed by hand
+(wrapped ring distance, Gaussian of width ``radius``, both rates decayed per sample), degenerate
+coordinates (coincident, collinear, duplicated points) and extreme ``radius``/``radius_decay`` values.
+Slow-tier gaps live in ``tests/benchmarks/test_waterloo.py`` (WP8)."""
 
 from __future__ import annotations
 
 import logging
+import warnings
 
 import numpy as np
 import pytest
@@ -18,6 +22,7 @@ import skroute.metaheuristics._som as som_module
 from skroute import RoutingProblem, all_solvers
 from skroute.metaheuristics import SOM
 from skroute.metaheuristics._som import _ring_to_tour, _winners
+from skroute.preprocessing import normalize_coords
 
 # --------------------------------------------------------------------------- registration and contract
 
@@ -153,7 +158,41 @@ def test_converged_after_the_first_epoch(small_euclidean, params):
     assert est.n_samples_ == 1000
 
 
-def test_returned_tour_is_the_best_epoch(small_euclidean):
+def _spy_decoded_tours(monkeypatch) -> list[np.ndarray]:
+    """Record the tour decoded at the end of every epoch (``_ring_to_tour`` is called once per epoch)."""
+    decoded: list[np.ndarray] = []
+    orig = som_module._ring_to_tour
+
+    def spy(winners, depot):
+        tour = orig(winners, depot)
+        decoded.append(tour.copy())
+        return tour
+
+    monkeypatch.setattr(som_module, "_ring_to_tour", spy)
+    return decoded
+
+
+def test_returned_tour_is_the_best_epoch_not_the_last(small_euclidean, monkeypatch):
+    # n_iter=2000 (epochs of 20 samples) stops by max_iter while the ring is still hot: the trace of
+    # per-epoch costs is NOT monotone and the last epoch (321.10) is worse than the best one (316.95,
+    # epoch 5), so an implementation returning the last ring, or recording the current cost, fails here
+    C, xy = small_euclidean["C"], small_euclidean["coords"]
+    decoded = _spy_decoded_tours(monkeypatch)
+    est = SOM(n_iter=2000, random_state=0).fit(C, coords=xy)
+    problem = est.problem_
+    costs = np.array([float(problem.evaluate(t)) for t in decoded])
+    assert len(decoded) == est.n_iter_ == 100 and est.stop_reason_ == "max_iter"
+    assert np.any(np.diff(costs) > 0)  # the natural trace goes up and down (R8)
+    best = int(np.argmin(costs))
+    assert 0 < best < len(costs) - 1 and costs[-1] > costs[best] + 1e-9
+    returned = problem.to_index_tour(est.tour_)
+    assert np.array_equal(returned, decoded[best])
+    assert not np.array_equal(returned, decoded[-1])
+    assert est.cost_ == pytest.approx(costs[best], rel=1e-12)
+    assert np.array_equal(est.history_, np.minimum.accumulate(costs))  # best-so-far, never the current
+
+
+def test_returned_tour_is_the_best_epoch_when_the_run_converges(small_euclidean):
     # history_ is monotone and ends at cost_: the tour of the best epoch is what the base class priced
     est = SOM(random_state=3).fit(small_euclidean["C"], coords=small_euclidean["coords"])
     problem = est.problem_
@@ -249,6 +288,180 @@ def test_winners_match_a_full_argmin_in_blocks(monkeypatch):
     assert np.array_equal(_winners(xy, weights), expected)
     monkeypatch.setattr(som_module, "_DECODE_BLOCK", 1)  # one city per block
     assert np.array_equal(_winners(xy, weights), expected)
+
+
+# --------------------------------------------------------------------------- update rule (§4.4), by hand
+
+
+def _euclid_of(coords):
+    diff = coords[:, None, :] - coords[None, :, :]
+    return np.ascontiguousarray(np.sqrt((diff**2).sum(axis=-1)))
+
+
+def _spy_epoch_weights(monkeypatch) -> list[np.ndarray]:
+    """Record the ring at the end of every epoch (``_winners`` is called once per epoch to decode it)."""
+    seen: list[np.ndarray] = []
+    orig = som_module._winners
+
+    def spy(xy, weights):
+        seen.append(weights.copy())
+        return orig(xy, weights)
+
+    monkeypatch.setattr(som_module, "_winners", spy)
+    return seen
+
+
+def _replay(xy, weights, cities, *, lr, lr_decay, radius, radius_decay):
+    """The §4.4 update written from the SPEC: one ring per presented city, rates decayed after each."""
+    w, m, rings = np.array(weights, dtype=np.float64), len(weights), []
+    for i in cities:
+        x = xy[i]
+        winner = int(np.argmin(((w - x) ** 2).sum(axis=1)))
+        delta = np.abs(np.arange(m) - winner)
+        ring = np.minimum(delta, m - delta)  # wrapped ring distance
+        g = np.exp(-(ring**2) / (2.0 * radius**2))
+        w = w + lr * g[:, None] * (x - w)
+        lr, radius = lr * lr_decay, radius * radius_decay
+        rings.append(w.copy())
+    return rings
+
+
+class _ScriptedRng:
+    """Stands in for the Generator handed by ``fit``: a chosen initial ring and a scripted city sequence."""
+
+    def __init__(self, unit_square_weights, cities):
+        self.weights = np.asarray(unit_square_weights, dtype=np.float64)  # what rng.random((m, 2)) returns
+        self.cities = list(cities)
+
+    def random(self, size):
+        assert tuple(size) == self.weights.shape
+        return self.weights.copy()
+
+    def integers(self, low, high, size):
+        assert (low, high) == (0, 5) and size == 1  # one epoch of one sample at a time (n_iter < 200)
+        return np.asarray([self.cities.pop(0)], dtype=np.int64)
+
+
+@pytest.mark.parametrize(
+    ("n_iter", "decays"),
+    [(1, {}), (2, {"lr_decay": 0.5, "radius_decay": 0.5})],
+    ids=["one-sample", "two-samples-decayed"],
+)
+def test_samples_replayed_by_hand(small_euclidean, monkeypatch, n_iter, decays):
+    # n_iter < 200 -> epochs of ONE sample, decoded after each. D10 draw order: the initial ring
+    # (rng.random((m, 2)) * xy.max(0)), then one index vector per epoch (rng.integers(0, n, size=1)).
+    C, coords = small_euclidean["C"], small_euclidean["coords"]
+    n, m = C.shape[0], 40
+    xy = normalize_coords(coords)
+    rng = np.random.default_rng(11)
+    w0 = rng.random((m, 2)) * xy.max(axis=0)
+    cities = [int(rng.integers(0, n, size=1)[0]) for _ in range(n_iter)]
+    expected = _replay(
+        xy,
+        w0,
+        cities,
+        lr=0.8,
+        lr_decay=decays.get("lr_decay", 0.99997),
+        radius=m / 10,  # radius=None -> n_units / 10
+        radius_decay=decays.get("radius_decay", 0.9997),
+    )
+    seen = _spy_epoch_weights(monkeypatch)
+    est = SOM(n_units=m, n_iter=n_iter, random_state=11, **decays).fit(C, coords=coords)
+    assert len(seen) == n_iter and all(np.array_equal(a, b) for a, b in zip(seen, expected, strict=True))
+    tours = [_ring_to_tour(_winners(xy, w), 0) for w in expected]
+    costs = [float(est.problem_.evaluate(t)) for t in tours]
+    assert np.array_equal(est.tour_, tours[int(np.argmin(costs))])
+    assert np.array_equal(est.history_, np.minimum.accumulate(costs))
+    assert est.n_samples_ == est.n_iter_ == n_iter and est.stop_reason_ == "max_iter"
+    if n_iter == 2:  # the second sample really used the decayed rates: replaying it undecayed disagrees
+        undecayed = _replay(xy, w0, cities, lr=0.8, lr_decay=1.0, radius=m / 10, radius_decay=1.0)
+        assert not np.array_equal(seen[1], undecayed[1])
+
+
+def test_neighbourhood_wraps_around_the_ring(monkeypatch):
+    # Unit 0 sits next to city 0 and wins; with radius=2 on 8 units the wrapped distances are
+    # [0, 1, 2, 3, 4, 3, 2, 1], so units 1 and 7 (2 and 6, 3 and 5) must move by the same fraction
+    # lr * exp(-d^2 / 8) of their gap to the city, and unit 4 (opposite) by the smallest one.
+    coords = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [5.0, 5.0]])
+    xy = normalize_coords(coords)  # the unit square itself: xy.max(0) == (1, 1)
+    problem = RoutingProblem(_euclid_of(coords), coords=coords)
+    m, lr, radius = 8, 0.5, 2.0
+    w0 = np.full((m, 2), 0.9)
+    w0[0] = 0.1
+    est = SOM(n_units=m, learning_rate=lr, lr_decay=1.0, radius=radius, radius_decay=1.0, n_iter=1)
+    seen = _spy_epoch_weights(monkeypatch)
+    tour = est._solve(problem, _ScriptedRng(w0, cities=[0]))
+    assert len(seen) == 1 and sorted(tour.tolist()) == list(range(5))
+    frac = (seen[0] - w0) / (xy[0] - w0)  # lr * g_j, per unit and per coordinate
+    d = np.array([0, 1, 2, 3, 4, 3, 2, 1])
+    assert np.allclose(frac[:, 0], frac[:, 1]) and np.allclose(frac[:, 0], lr * np.exp(-(d**2) / 8.0))
+    assert frac[1, 0] == frac[7, 0] and frac[2, 0] == frac[6, 0] and frac[3, 0] == frac[5, 0]
+    assert frac[4, 0] == frac[:, 0].min() < frac[3, 0] < frac[1, 0] < frac[0, 0] == pytest.approx(lr)
+
+
+# --------------------------------------------------------------------------- degenerate geometry, extremes
+
+
+_LINE = np.array([0.0, 4.0, 1.0, 9.0, 4.0, 6.0, 9.0])  # collinear, with the points 4 and 9 duplicated
+
+
+@pytest.mark.parametrize(
+    ("coords", "depot"),
+    [
+        (np.full((6, 2), 3.0), 2),
+        (np.c_[_LINE, np.zeros(7)], 0),
+        (np.c_[np.zeros(7), _LINE], 3),
+        (np.c_[_LINE, _LINE], 1),
+    ],
+    ids=["coincident", "horizontal", "vertical", "diagonal"],
+)
+def test_degenerate_coordinates(coords, depot):
+    # coincident points: normalize_coords returns zeros, the ring collapses onto them and every city wins
+    # neuron 0 -> index order rotated to the depot; collinear points with duplicates: the ring lies on
+    # the line and the decoded tour is the line optimum 2 * length. No numpy warning anywhere.
+    C = _euclid_of(coords)
+    n = C.shape[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        est = SOM(random_state=0).fit(C, coords=coords, depot=depot)
+    _assert_valid(est, C)
+    assert est.stop_reason_ == "converged"
+    if np.ptp(coords) == 0.0:
+        assert est.tour_.tolist() == [(depot + k) % n for k in range(n)] and est.cost_ == 0.0
+    else:
+        assert est.cost_ == pytest.approx(2.0 * np.linalg.norm(coords.max(axis=0) - coords.min(axis=0)))
+
+
+def test_duplicated_points_in_the_plane():
+    rng = np.random.default_rng(0)
+    base = rng.random((8, 2)) * 100
+    coords = np.vstack([base, base[:2]])  # two duplicated points
+    C = _euclid_of(coords)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        est = SOM(random_state=0).fit(C, coords=coords, depot=9)
+    _assert_valid(est, C)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"radius_decay": 0.5}, {"radius": 1e-200}, {"n_iter": 1_000_000, "radius_decay": 0.96}],
+    ids=["radius_decay=0.5", "radius=1e-200", "n_iter=1e6,radius_decay=0.96"],
+)
+def test_tiny_radius_never_underflows_the_gaussian(small_euclidean, monkeypatch, params):
+    # Legal values drive the radius below ~1e-154 inside an epoch, where radius**2 underflows to 0.0:
+    # the winner's Gaussian was 0/0 = NaN, the weights went NaN, every city won the first NaN neuron
+    # and fit returned the index-order tour with nothing but numpy RuntimeWarnings. The width of the
+    # Gaussian is floored (_SIGMA_MIN); the ring stays finite and the tour is a real one.
+    C, xy = small_euclidean["C"], small_euclidean["coords"]
+    seen = _spy_epoch_weights(monkeypatch)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        est = SOM(random_state=0, **params).fit(C, coords=xy)
+    _assert_valid(est, C)
+    assert seen and all(np.all(np.isfinite(w)) for w in seen)
+    assert est.tour_.tolist() != list(range(C.shape[0]))
+    assert est.stop_reason_ == "converged"  # radius < 1 at the end of the first epoch
 
 
 # --------------------------------------------------------------------------- labels, depot, logging (D24)
