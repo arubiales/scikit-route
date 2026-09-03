@@ -1,0 +1,10 @@
+NAME : geo_small
+COMMENT : the first four cities of ulysses16 (TSPLIB GEO, DDD.MM notation)
+TYPE : TSP
+DIMENSION : 4
+EDGE_WEIGHT_TYPE : GEO
+NODE_COORD_SECTION
+1 38.24 20.42
+2 39.57 26.15
+3 40.56 25.32
+4 36.26 23.12
