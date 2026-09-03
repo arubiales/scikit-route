@@ -60,6 +60,9 @@ _EXPORTS: dict[str, str] = {
     "AntColony": "skroute.metaheuristics",
     "SOM": "skroute.metaheuristics",
     # ensemble
+    "MultiStart": "skroute.ensemble",
+    "EnsembleGenetic": "skroute.ensemble",
+    "EnsembleSimulatedAnnealing": "skroute.ensemble",
 }
 
 # The five solver subpackages of D18: a registered name defined in one of them is a solver.
@@ -95,6 +98,9 @@ if TYPE_CHECKING:
     from .construction import ClarkeWright as ClarkeWright
     from .construction import Insertion as Insertion
     from .construction import NearestNeighbour as NearestNeighbour
+    from .ensemble import EnsembleGenetic as EnsembleGenetic
+    from .ensemble import EnsembleSimulatedAnnealing as EnsembleSimulatedAnnealing
+    from .ensemble import MultiStart as MultiStart
     from .exact import MILP as MILP
     from .exact import BruteForce as BruteForce
     from .exact import HeldKarp as HeldKarp
