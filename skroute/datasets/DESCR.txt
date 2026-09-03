@@ -1,1 +1,0 @@
-This dataset have different places to visit. It's used to connect algorithms that connect the points in the best possible way

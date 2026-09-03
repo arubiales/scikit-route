@@ -16,4 +16,4 @@ _*.html
 /scikit-route-venv
 /wheelhouse
 
-.venv/
+.venv*/
