@@ -54,8 +54,15 @@ def missing() -> list[str]:
         for name in exported:
             candidates = {f"{module}.{name}", module}
             if module == "skroute":
-                obj = getattr(importlib.import_module("skroute"), name, None)
-                if obj is not None and hasattr(obj, "__module__"):
+                if name.startswith("__"):
+                    continue  # dunders such as __version__ are not API pages
+                skroute = importlib.import_module("skroute")
+                registered = getattr(skroute, "_EXPORTS", {}).get(name)
+                if registered:  # the public home of a re-exported name, e.g. skroute.exact.BruteForce
+                    candidates.add(f"{registered}.{name}")
+                    candidates.add(registered)
+                obj = getattr(skroute, name, None)
+                if obj is not None and hasattr(obj, "__module__") and isinstance(obj.__module__, str):
                     candidates.add(f"{obj.__module__}.{name}")
                     candidates.add(obj.__module__)
             if not candidates & targets:
