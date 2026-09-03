@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+import os
 import warnings
 from collections.abc import Callable
 
@@ -24,6 +26,11 @@ _TSPLIB_RRR = 6378.388
 
 #: Above this many nodes a dense ``float64`` matrix exceeds ~3.2 GB and a warning is emitted.
 _LARGE_N = 20_000
+
+#: The ``skroute`` package directory, with a trailing separator: frames inside it are skipped
+#: when a warning is attributed (see :func:`_warn_outside_skroute`).
+_SKROUTE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+
 
 METRICS = (
     "euclidean",
@@ -71,7 +78,29 @@ def tsplib_nint(x: ArrayLike) -> NDArray[np.float64] | float:
     return out
 
 
+def _inside_skroute(filename: str) -> bool:
+    return not filename.startswith("<") and os.path.abspath(filename).startswith(_SKROUTE_DIR)
+
+
+def _warn_outside_skroute(message: str, category: type[Warning]) -> None:
+    """Emit ``message`` attributed to the first frame outside the ``skroute`` package.
+
+    ``stacklevel=2`` names the caller of :func:`distance_matrix` only for a direct
+    call; through :func:`euclidean_matrix`, :func:`haversine_matrix` or
+    ``TSPBunch.distance_matrix`` it would point inside scikit-route, not at the
+    user's line. (``warnings.warn`` grew ``skip_file_prefixes`` in Python 3.12; this
+    walk does the same on 3.11.)
+    """
+    level = 1
+    frame = inspect.currentframe()
+    while frame is not None and _inside_skroute(frame.f_code.co_filename):
+        frame = frame.f_back
+        level += 1
+    warnings.warn(message, category, stacklevel=level)
+
+
 def _check_coords(coords: ArrayLike) -> NDArray[np.float64]:
+    """``(n, 2)`` finite, non-empty, C-contiguous ``float64`` coordinates; ``normalize_coords`` shares it."""
     xy = np.asarray(coords, dtype=np.float64)
     if xy.ndim != 2 or xy.shape[1] != 2:
         raise ValueError(f"coords must have shape (n, 2); got {xy.shape}")
@@ -188,7 +217,9 @@ def distance_matrix(
     Warns
     -----
     UserWarning
-        When ``n > 20_000``: the dense matrix alone needs more than 3.2 GB.
+        When ``n > 20_000``: the dense matrix alone needs more than 3.2 GB. The
+        warning is attributed to the caller outside scikit-route, also through the
+        shorthands and ``TSPBunch.distance_matrix``.
 
     Notes
     -----
@@ -239,12 +270,11 @@ def distance_matrix(
     xy = _check_coords(coords)
     n = xy.shape[0]
     if n > _LARGE_N:
-        gib = n * n * 8 / 1024**3
-        warnings.warn(
-            f"building a dense {n} x {n} float64 matrix ({gib:.1f} GiB); scikit-route 2.0 solves "
+        gb = n * n * 8 / 1e9  # decimal GB, the unit of every size quoted in scikit-route (ch71009: 40 GB)
+        _warn_outside_skroute(
+            f"building a dense {n} x {n} float64 matrix ({gb:.1f} GB); scikit-route 2.0 solves "
             "only dense matrices, consider subsampling (e.g. load_tsp(name, n_nodes=...))",
             UserWarning,
-            stacklevel=2,
         )
 
     if metric == "tsplib_geo":

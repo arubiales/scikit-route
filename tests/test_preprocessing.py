@@ -113,12 +113,26 @@ def test_distance_matrix_rejects_unknown_metric_and_bad_block_size():
 def test_warns_above_the_dense_ceiling(monkeypatch):
     monkeypatch.setattr(_distances, "_LARGE_N", 5)
     xy = _coords_for("euclidean", 6, seed=3)
-    with pytest.warns(UserWarning, match=r"dense 6 x 6 float64 matrix") as record:
+    with pytest.warns(UserWarning, match=r"dense 6 x 6 float64 matrix \(0\.0 GB\)") as record:
         D = distance_matrix(xy)
     assert D.shape == (6, 6)
     assert record[0].filename == __file__, "attributed to the caller"
-    with pytest.warns(UserWarning):
+    # through the shorthands the warning must still name the caller, not skroute/preprocessing/_distances.py
+    with pytest.warns(UserWarning) as record:
+        euclidean_matrix(xy)
+    assert record[0].filename == __file__
+    with pytest.warns(UserWarning) as record:
         haversine_matrix(_coords_for("haversine", 6, seed=3))
+    assert record[0].filename == __file__
+
+
+def test_size_warning_quotes_decimal_gigabytes(monkeypatch):
+    # 20 001 nodes: 20001**2 * 8 bytes = 3.2 GB (decimal), the unit of every size quoted in the package
+    monkeypatch.setattr(_distances, "_LARGE_N", 100)
+    xy = _coords_for("euclidean", 101, seed=5)
+    with pytest.warns(UserWarning, match=r"\(0\.0 GB\)"):
+        distance_matrix(xy)
+    assert f"{20001 * 20001 * 8 / 1e9:.1f}" == "3.2"
 
 
 def test_no_warning_below_the_ceiling(recwarn):
@@ -343,8 +357,49 @@ def test_pairs_to_matrix_accepts_dataframe_columns():
     pd = pytest.importorskip("pandas")
     df = pd.DataFrame({"o": [1, 1, 2], "d": [2, 3, 3], "v": [5.0, 9.0, 4.0]})
     M, labels = pairs_to_matrix(df["o"], df["d"], df["v"])
-    assert labels.tolist() == [1, 2, 3]
+    assert labels.tolist() == [1, 2, 3] and labels.dtype == np.int64
     assert M.tolist() == [[0.0, 5.0, 9.0], [5.0, 0.0, 4.0], [9.0, 4.0, 0.0]]
+    mixed = pd.DataFrame({"o": [1, "a"], "d": ["a", 1], "v": [1.0, 2.0]})
+    _, labels = pairs_to_matrix(mixed["o"], mixed["d"], mixed["v"])
+    assert labels.dtype == object and labels.tolist() == [1, "a"]
+
+
+def test_pairs_to_matrix_mixed_labels_keep_their_python_types():
+    # np.asarray([1, "a"]) gives ['1', 'a']: a user passing depot=1 afterwards would never find it.
+    M, labels = pairs_to_matrix([1, "a"], ["a", 1], [1.0, 2.0])
+    assert labels.dtype == object and labels.tolist() == [1, "a"]
+    assert isinstance(labels[0], int) and labels[0] == 1
+    assert M.tolist() == [[0.0, 1.0], [2.0, 0.0]]
+    # one column mixed and the other not: the 1 of both columns must be the same label
+    M, labels = pairs_to_matrix(["depot", "depot", 1], [1, 2, 2], [1.0, 2.0, 3.0])
+    assert labels.tolist() == ["depot", 1, 2] and M.shape == (3, 3)
+    assert M.tolist() == [[0.0, 1.0, 2.0], [1.0, 0.0, 3.0], [2.0, 3.0, 0.0]]
+    # ints next to a float are not promoted to float either
+    _, labels = pairs_to_matrix([1, 2.5], [2.5, 1], [1.0, 2.0])
+    assert labels.dtype == object and labels.tolist() == [1, 2.5] and isinstance(labels[0], int)
+    # tuple labels stay one element each (never expanded into a 2-D array)
+    _, labels = pairs_to_matrix([(0, 0), (0, 0)], [(1, 1), (2, 2)], [1.0, 2.0], fill=0.0)
+    assert labels.shape == (3,) and labels.tolist() == [(0, 0), (1, 1), (2, 2)]
+    # explicit labels= follow the same rule
+    _, labels = pairs_to_matrix([1, 2], [2, 1], [1.0, 2.0], labels=[2, 1, "x"], fill=0.0)
+    assert labels.dtype == object and labels.tolist() == [2, 1, "x"]
+
+
+def test_pairs_to_matrix_label_dtype_is_int64_or_object_like_coerce_labels():
+    from skroute.utils.validation import coerce_labels
+
+    _, labels = pairs_to_matrix(["a", "b", "a"], ["b", "c", "c"], [1.0, 2.0, 3.0])
+    assert labels.dtype == object, "strings are object, never '<U1'"
+    np.testing.assert_array_equal(labels, coerce_labels(["a", "b", "c"], 3))
+    i32 = np.array([1, 2], dtype=np.int32)
+    _, labels = pairs_to_matrix(i32, i32[::-1], [1.0, 2.0])
+    assert labels.dtype == np.int64, "int64 whatever the platform's default integer"
+    _, labels = pairs_to_matrix([np.int32(7), np.int64(8)], [8, 7], [1.0, 2.0])
+    assert labels.dtype == np.int64 and labels.tolist() == [7, 8]
+    _, labels = pairs_to_matrix([True], [False], [1.0])
+    assert labels.dtype == object, "bools are not integer labels"
+    with pytest.raises(ValueError, match="one-dimensional"):
+        pairs_to_matrix(1, 2, 3.0)
 
 
 # --------------------------------------------------------------------------- dict of dicts
@@ -386,6 +441,20 @@ def test_to_dict_of_dicts_errors():
         to_dict_of_dicts([[0.0, 1.0]])
     with pytest.raises(ValueError, match="labels has 1 entries but the matrix has 2 rows"):
         to_dict_of_dicts([[0.0, 1.0], [1.0, 0.0]], labels=["a"])
+    with pytest.raises(ValueError, match="labels must be unique"):
+        to_dict_of_dicts([[0.0, 1.0], [1.0, 0.0]], labels=["a", "a"])  # would silently collapse to one row
+
+
+def test_from_dict_of_dicts_labels_follow_the_label_rule():
+    M, labels = from_dict_of_dicts({1: {"a": 2.0}, "a": {1: 3.0}})
+    assert labels.dtype == object and labels.tolist() == [1, "a"] and isinstance(labels[0], int)
+    assert M.tolist() == [[0.0, 2.0], [3.0, 0.0]]
+    _, labels = from_dict_of_dicts({(1, 2): {(3, 4): 1.0}, (3, 4): {(1, 2): 2.0}})
+    assert labels.shape == (2,) and labels.tolist() == [(1, 2), (3, 4)], "tuple keys are one label each"
+    _, labels = from_dict_of_dicts({"a": {"b": 1.0}, "b": {"a": 1.0}})
+    assert labels.dtype == object
+    _, labels = from_dict_of_dicts({np.int32(1): {2: 1.0}, 2: {np.int32(1): 1.0}})
+    assert labels.dtype == np.int64 and labels.tolist() == [1, 2]
 
 
 @settings(derandomize=True, deadline=None, max_examples=50)
@@ -421,6 +490,8 @@ def test_normalize_coords_edge_cases():
         normalize_coords([[1.0, 2.0, 3.0]])
     with pytest.raises(ValueError, match="finite"):
         normalize_coords([[1.0, np.nan], [0.0, 0.0]])
+    with pytest.raises(ValueError, match="coords is empty"):
+        normalize_coords(np.empty((0, 2)))  # the same message as distance_matrix, not numpy's
 
 
 def test_public_names_are_exported():
@@ -442,9 +513,14 @@ def test_public_names_are_exported():
 # --------------------------------------------------------------------------- Google client (mocked)
 
 
-def _fake_googlemaps(monkeypatch, *, fail_pairs=(), bad_status=False):
-    """Install a fake ``googlemaps`` module whose Client answers with deterministic distances."""
+def _fake_googlemaps(monkeypatch, *, fail_pairs=(), bad_status=False, missing_fields=None):
+    """Install a fake ``googlemaps`` module whose Client answers with deterministic distances.
+
+    ``missing_fields`` maps an ``(origin, destination)`` pair to the element fields to
+    drop from an otherwise ``"OK"`` element (a malformed response).
+    """
     calls: list[dict] = []
+    missing_fields = missing_fields or {}
 
     class FakeClient:
         def __init__(self, key):
@@ -465,9 +541,10 @@ def _fake_googlemaps(monkeypatch, *, fail_pairs=(), bad_status=False):
                         1000.0 * (abs(o[0] - d[0]) + 2.0 * abs(o[1] - d[1]))
                     )  # asymmetric on purpose
                     seconds = metres / 10.0 + (36.0 if o[0] < d[0] else 0.0)
-                    elements.append(
-                        {"status": "OK", "distance": {"value": metres}, "duration": {"value": seconds}}
-                    )
+                    element = {"status": "OK", "distance": {"value": metres}, "duration": {"value": seconds}}
+                    for field in missing_fields.get((o, d), ()):
+                        del element[field]
+                    elements.append(element)
                 rows.append({"elements": elements})
             return {
                 "status": "OK",
@@ -552,6 +629,45 @@ def test_google_unroutable_elements_become_nan_and_are_logged(monkeypatch, caplo
     assert np.isnan(res.distance[0, 3]) and np.isnan(res.time[0, 3])
     assert np.isnan(res.distance).sum() == 1 and np.isfinite(res.distance[3, 0])
     assert any("1 of 16 elements could not be routed" in r.getMessage() for r in caplog.records)
+
+
+def test_google_ok_element_without_a_value_is_unroutable_not_a_crash(monkeypatch, caplog):
+    from skroute.preprocessing.google import GoogleDistanceMatrix, _element_value
+
+    pts = _points(3)
+    _fake_googlemaps(
+        monkeypatch, missing_fields={(pts[0], pts[2]): ("duration",), (pts[1], pts[0]): ("distance",)}
+    )
+    with caplog.at_level(logging.WARNING, logger="skroute"):
+        res = GoogleDistanceMatrix("KEY").fetch(pts)  # a KeyError here would waste the quota already spent
+    assert np.isnan(res.distance[0, 2]) and np.isnan(res.time[0, 2])
+    assert np.isnan(res.distance[1, 0]) and np.isnan(res.time[1, 0])
+    assert np.isnan(res.distance).sum() == 2 and np.isnan(res.time).sum() == 2
+    dist, _ = _expected(pts)
+    ok = ~np.isnan(res.distance)
+    np.testing.assert_array_equal(res.distance[ok], dist[ok])
+    assert sum("status OK but no distance/duration value" in r.getMessage() for r in caplog.records) == 2
+    assert any("2 of 9 elements could not be routed" in r.getMessage() for r in caplog.records)
+    assert _element_value({"distance": {"value": 5}}, "distance") == 5.0
+    assert _element_value({"distance": 5}, "distance") is None, "a non-dict field is malformed"
+    assert _element_value({"distance": {"value": "5"}}, "distance") is None
+    assert _element_value({"distance": {"value": True}}, "distance") is None
+    assert _element_value({}, "duration") is None
+
+
+def test_google_fetch_labels_follow_the_label_rule(monkeypatch):
+    from skroute.preprocessing.google import GoogleDistanceMatrix
+
+    _fake_googlemaps(monkeypatch)
+    pts = _points(3)
+    gdm = GoogleDistanceMatrix("KEY")
+    assert gdm.fetch(pts).labels.dtype == np.int64, "the default 0..n-1 is int64 on every platform"
+    assert gdm.fetch(pts, labels=np.array([5, 6, 7], dtype=np.int32)).labels.dtype == np.int64
+    mixed = gdm.fetch(pts, labels=[1, "a", (2, 3)]).labels
+    assert mixed.dtype == object and mixed.tolist() == [1, "a", (2, 3)] and isinstance(mixed[0], int)
+    assert gdm.fetch(pts, labels=["a", "b", "c"]).labels.dtype == object
+    with pytest.raises(ValueError, match="unique"):
+        gdm.fetch(pts, labels=[1, 1, 2])
 
 
 def test_google_bad_response_status_leaves_the_block_nan(monkeypatch, caplog):
