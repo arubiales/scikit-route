@@ -26,6 +26,34 @@ def _improves(new: float, ref: float) -> bool:
     return new < ref - 1e-9 * max(1.0, abs(ref))
 
 
+def _default_temperature(init_cost: float) -> float:
+    """The Metropolis temperature of ``temperature=None``: 0.5 % of the init tour's cost scale.
+
+    The scale is ``abs(init_cost)`` so a matrix with negative entries (legal: only finiteness is
+    required) never yields a negative temperature, under which ``exp(-delta / T) > 1`` for every worse
+    candidate and the rule silently accepts everything. A zero scale (an all-zero matrix, a zero-cost
+    init tour) falls back to ``1.0``, the same fallback ``SimulatedAnnealing`` uses when no proposal
+    goes uphill, so the rule is always defined.
+    """
+    scale = abs(init_cost)
+    return 0.005 * scale if scale > 0.0 else 1.0
+
+
+def _reversal_pairs(n: int, symmetric: bool) -> np.ndarray:
+    """The segment reversals ``(i, j)`` a kick may draw below 8 nodes, as an ``(m, 2)`` int64 array.
+
+    Every pair ``1 <= i < j <= n - 1``, except that on a symmetric matrix the reversal of the whole
+    body ``(1, n - 1)`` is left out whenever another pair exists: it is the same closed tour driven
+    backwards, changes no edge, and the descent that follows would find nothing while the iteration
+    still counted towards ``patience``. At ``n = 3`` the swap ``(1, 2)`` is the only kick (and every
+    tour is optimal anyway); on an asymmetric matrix the whole-body reversal is a genuine change.
+    """
+    pairs = [(i, j) for i in range(1, n - 1) for j in range(i + 1, n)]
+    if symmetric and n > 3:
+        pairs.remove((1, n - 1))
+    return np.asarray(pairs, dtype=np.int64)
+
+
 class IteratedLocalSearch(BaseRouter):
     """Iterated local search: double-bridge kicks over a 2-opt / Or-opt local optimum.
 
@@ -45,11 +73,12 @@ class IteratedLocalSearch(BaseRouter):
         Number of kicks applied per iteration.
     acceptance : {"better", "metropolis"}, default "better"
         ``"better"`` moves to the new local optimum only when it is strictly better;
-        ``"metropolis"`` also accepts a worse one with probability
+        ``"metropolis"`` also accepts one that is not worse, and a worse one with probability
         ``exp(-(new - current) / temperature)``.
     temperature : float or None, default None
-        Fixed temperature of the Metropolis rule; ``None`` uses 0.5 % of the cost of the
-        ``init`` tour. Ignored under ``acceptance="better"``.
+        Fixed temperature of the Metropolis rule; ``None`` uses 0.5 % of the absolute cost of the
+        ``init`` tour, or ``1.0`` when that cost is zero (an all-zero matrix), so the rule is
+        always defined. Ignored under ``acceptance="better"``.
     local_search : tuple of {"two_opt", "or_opt"}, str or None, default ("two_opt", "or_opt")
         Descents run in every iteration, in this order (a single name is accepted as a string);
         ``None`` disables the descent, leaving a random walk of kicks.
@@ -84,15 +113,24 @@ class IteratedLocalSearch(BaseRouter):
     Supports: symmetric and asymmetric matrices, multi-trip objective; stochastic.
 
     The descent is the alternating scheme of :class:`~skroute.local_search.LocalSearch`, run to
-    convergence: on a symmetric plain TSP with O(1) deltas and don't-look bits (only the nodes a
-    kick touched are re-activated, so an iteration costs O(k) delta evaluations per touched node
-    plus the O(n) copies); asymmetric matrices and the multi-trip objective use the
-    full-evaluation kernel, O(n) per candidate move, fine up to a few thousand nodes. For
-    ``n >= 8`` the kick is a double bridge with cut positions ``1 <= p1 < p2 < p3 <= n - 1`` drawn
-    without replacement; below 8 nodes it is the reversal of a random segment (the swap of
-    positions 1 and 2 at ``n = 3``). All randomness is drawn in Python from ``random_state``
-    before each iteration, so results are reproducible and independent of the platform's
-    kernels.
+    convergence after every kick. On a symmetric plain TSP it uses O(1) move deltas, candidate
+    lists and don't-look bits: only the nodes a kick touched start active, so the re-descent from
+    the kick's endpoints is cheap, but convergence is declared only when a sweep that started with
+    every node active changed nothing, so every iteration costs at least one full O(n k) sweep
+    per listed move plus the O(n) copies — a fraction of a millisecond per iteration at
+    ``n = 1000`` with the default ``k = 10``. Asymmetric matrices and the multi-trip objective use
+    the full-evaluation kernel, O(n) per candidate move, so that confirming sweep is O(n² k) and
+    is repeated after every kick: one descent is fine up to a few thousand nodes, but at the
+    default ``n_iter``/``patience`` the iterated search is comfortable up to a few hundred nodes
+    on those problems; above that, lower ``n_iter`` or set ``time_limit``.
+
+    For ``n >= 8`` the kick is a double bridge with cut positions ``1 <= p1 < p2 < p3 <= n - 1``
+    drawn without replacement. Below 8 nodes it is the reversal of a random segment
+    ``tour[i..j]`` with ``(i, j)`` uniform over the pairs ``1 <= i < j <= n - 1``; on a symmetric
+    matrix the whole-body reversal ``(1, n - 1)`` is left out, because it is the same closed tour
+    driven backwards and changes no edge (at ``n = 3`` the swap of positions 1 and 2 is the only
+    kick). All randomness is drawn in Python from ``random_state`` before each iteration, so
+    results are reproducible and independent of the platform's kernels.
 
     References
     ----------
@@ -175,7 +213,7 @@ class IteratedLocalSearch(BaseRouter):
         # ---- initial local optimum
         cur = initial_tour(problem, self.init, rng)
         cur_cost = float(problem.evaluate(cur))
-        temperature = 0.005 * cur_cost if self.temperature is None else float(self.temperature)
+        temperature = _default_temperature(cur_cost) if self.temperature is None else float(self.temperature)
         if engine is not None:
             engine.load(cur, cur_cost)
             engine.converge()
@@ -183,8 +221,9 @@ class IteratedLocalSearch(BaseRouter):
         best, best_cost = cur.copy(), cur_cost
 
         # ---- kick / descend / accept
-        positions = np.arange(1, n)
-        n_cuts = 3 if n >= 8 else 2
+        double_bridge = n >= 8
+        positions = np.arange(1, n)  # cut positions of the double bridge
+        pairs = _reversal_pairs(n, problem.symmetric)  # the reversals drawn below 8 nodes
         kicked, tmp = np.empty(n, dtype=np.int64), np.empty(n, dtype=np.int64)
         metropolis = self.acceptance == "metropolis"
         every = max(1, self.n_iter // 10)
@@ -192,15 +231,18 @@ class IteratedLocalSearch(BaseRouter):
         since, reason = 0, "max_iter"
         for k in range(self.n_iter):
             # every random number of the iteration is drawn here, before any kernel runs (D10)
-            cuts = [
-                np.sort(rng.choice(positions, size=n_cuts, replace=False))
-                for _ in range(self.perturbation_strength)
-            ]
+            if double_bridge:
+                cuts = [
+                    np.sort(rng.choice(positions, size=3, replace=False))
+                    for _ in range(self.perturbation_strength)
+                ]
+            else:
+                cuts = list(pairs[rng.integers(len(pairs), size=self.perturbation_strength)])
             u = float(rng.random()) if metropolis else 0.0
 
             kicked[:] = cur
             for c in cuts:
-                if n_cuts == 3:
+                if double_bridge:
                     core.double_bridge(kicked, int(c[0]), int(c[1]), int(c[2]), tmp)
                     kicked, tmp = tmp, kicked
                 else:  # n < 8: reversal of tour[c0..c1], the swap (1, 2) at n = 3
@@ -219,8 +261,12 @@ class IteratedLocalSearch(BaseRouter):
             else:
                 new, new_cost = kicked, float(problem.evaluate(kicked))
 
+            # The Metropolis rule is total: a candidate that is not worse is accepted outright (it
+            # never reaches exp), and a worse one gives a non-positive exponent, which cannot
+            # overflow — exp underflows to 0.0 and the draw is rejected.
+            delta = new_cost - cur_cost
             if _improves(new_cost, cur_cost) or (
-                metropolis and u < math.exp(-(new_cost - cur_cost) / temperature)
+                metropolis and (delta <= 0.0 or u < math.exp(-delta / temperature))
             ):
                 cur[:] = new
                 cur_cost = new_cost
