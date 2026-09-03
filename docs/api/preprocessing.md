@@ -72,6 +72,11 @@ evaluates to 6859 this way, 6917 with `nint`), then
 
 ## Long tables and dicts
 
+The `labels` array these functions return follows the rule of every label array
+in scikit-route: `int64` when every label is an integer, `object` otherwise, so
+mixed labels such as `[1, "a"]` keep their Python types (`numpy.asarray` alone
+would turn the `1` into `"1"` and `depot=1` would never match).
+
 ::: skroute.preprocessing.pairs_to_matrix
     options:
       show_root_heading: true

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import inspect
 import io
 import sys
 from collections.abc import Callable
@@ -158,7 +159,7 @@ def test_euc_2d_round_trip_tolerates_keyword_spelling_crlf_and_missing_eof(tmp_p
 
 @pytest.mark.parametrize("fmt", ["FULL_MATRIX", "UPPER_ROW", "LOWER_ROW", "UPPER_DIAG_ROW", "LOWER_DIAG_ROW"])
 def test_explicit_formats_round_trip(tmp_path, fmt):
-    C = _symmetric_int_matrix(6, seed=hash(fmt) % 1000)
+    C = _symmetric_int_matrix(6, seed=sum(map(ord, fmt)))  # a stable seed per format (hash() is per-process)
     path = tmp_path / f"{fmt}.tsp"
     path.write_text(_explicit_text(C, fmt), encoding="latin-1")
     b = read_tsplib(path)
@@ -199,6 +200,41 @@ def test_reader_tolerates_lowercase_keys_indentation_and_section_colon():
     b = read_tsplib(io.StringIO(text))
     assert (b.name, b.type, b.dimension) == ("lower", "TSP", 2)
     np.testing.assert_array_equal(b.coords, [[0.0, 0.0], [3.0, 4.0]])
+
+
+def test_reader_drops_a_utf8_bom_and_decodes_utf8_or_latin1(tmp_path):
+    text = "NAME: bom\nCOMMENT: Cádiz\nEDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION\n1 0 0\nEOF\n"
+    for source in (io.BytesIO(("﻿" + text).encode("utf-8")), io.StringIO("﻿" + text)):
+        b = read_tsplib(source)
+        assert b.name == "bom" and b.comment == "Cádiz", "the BOM used to swallow NAME as 'ï»¿NAME'"
+    path = tmp_path / "bom.tsp"
+    path.write_bytes(("﻿" + text).encode("utf-8"))
+    assert read_tsplib(path).name == "bom"
+    with path.open(encoding="utf-8") as fh:  # a text handle that yields the BOM as a character
+        assert read_tsplib(fh).name == "bom"
+    assert read_tsplib(io.BytesIO(text.encode("latin-1"))).comment == "Cádiz", "latin-1 files still decode"
+    first_line_ewt = "﻿EDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION\n1 0 0\n"
+    assert read_tsplib(io.BytesIO(first_line_ewt.encode("utf-8"))).edge_weight_type == "EUC_2D"
+
+
+def test_type_keeps_only_its_first_word():
+    text = "TYPE: TSP (M.~Hofmeister)\nEDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION\n1 0 0\nEOF\n"
+    assert read_tsplib(io.StringIO(text)).type == "TSP"
+    assert read_tsplib(io.StringIO(text.replace("TSP (M.~Hofmeister)", ""))).type == "TSP"
+
+
+def test_data_on_the_section_keyword_line_is_kept():
+    b = read_tsplib(io.StringIO("EDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION 1 0 0\n2 1 1\nEOF\n"))
+    assert b.dimension == 2 and b.coords.tolist() == [[0.0, 0.0], [1.0, 1.0]]
+    b = read_tsplib(io.StringIO("EDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION : 1 0 0\n2 1 1\nEOF\n"))
+    assert b.coords.tolist() == [[0.0, 0.0], [1.0, 1.0]]
+    assert read_tsplib_tour(io.StringIO("TYPE: TOUR\nTOUR_SECTION 1 2 3 -1\nEOF\n")).tolist() == [1, 2, 3]
+
+
+def test_a_keyword_line_inside_a_section_does_not_close_it():
+    text = "DIMENSION: 2\nEDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION\n"
+    text += "DISPLAY_DATA_TYPE: NO_DISPLAY\n1 0 0\n2 1 1\n"
+    assert read_tsplib(io.StringIO(text)).coords.tolist() == [[0.0, 0.0], [1.0, 1.0]]
 
 
 def test_reader_defaults_for_absent_optional_keywords():
@@ -248,6 +284,29 @@ def test_unsupported_edge_weight_type_message(ewt):
             "DIMENSION: 3\nEDGE_WEIGHT_TYPE: EUC_2D\nDISPLAY_DATA_SECTION\n1 0 0\nNODE_COORD_SECTION\n"
             "1 0 0\n2 1 1\n3 2 2\n",
             "DISPLAY_DATA_SECTION has 1 nodes but DIMENSION is 3",
+        ),
+        (
+            "EDGE_WEIGHT_TYPE: EUC_2D\nNODE_COORD_SECTION\n1 0 0\n1 3 4\n",
+            "NODE_COORD_SECTION repeats node id 1",
+        ),
+        (
+            "DIMENSION: 2\nEDGE_WEIGHT_TYPE: EXPLICIT\nEDGE_WEIGHT_FORMAT: FULL_MATRIX\n"
+            "DISPLAY_DATA_SECTION\n1 0 0\n1 1 1\nEDGE_WEIGHT_SECTION\n0 1 1 0\n",
+            "DISPLAY_DATA_SECTION repeats node id 1",
+        ),
+        (
+            "DIMENSION: 0\nEDGE_WEIGHT_TYPE: EXPLICIT\nEDGE_WEIGHT_FORMAT: FULL_MATRIX\n"
+            "EDGE_WEIGHT_SECTION\n",
+            "DIMENSION must be a positive integer; got 0",
+        ),
+        (
+            "DIMENSION: -1\nEDGE_WEIGHT_TYPE: EXPLICIT\nEDGE_WEIGHT_FORMAT: UPPER_ROW\n"
+            "EDGE_WEIGHT_SECTION\n1\n",
+            "DIMENSION must be a positive integer; got -1",
+        ),
+        (
+            "DIMENSION: 2\nEDGE_WEIGHT_TYPE: EXPLICIT\nEDGE_WEIGHT_SECTION\n0 1 1 0\n",
+            "EDGE_WEIGHT_FORMAT is required with EDGE_WEIGHT_TYPE EXPLICIT",
         ),
     ],
 )
@@ -321,7 +380,7 @@ WRAPPERS: list[tuple[Callable[..., TSPBunch], str, int, int]] = [
     (datasets.load_argentina, "ar9152", 9152, 837479),
     (datasets.load_japan, "ja9847", 9847, 491924),
     (datasets.load_greece, "gr9882", 9882, 300899),
-    (datasets.load_kazakhstan, "kz9976", 9976, 1061882),
+    (datasets.load_kazakhstan, "kz9976", 9976, 1061881),
     (datasets.load_finland, "fi10639", 10639, 520527),
     (datasets.load_morocco, "mo14185", 14185, 427377),
     (datasets.load_honduras, "ho14473", 14473, 177092),
@@ -329,7 +388,7 @@ WRAPPERS: list[tuple[Callable[..., TSPBunch], str, int, int]] = [
     (datasets.load_vietnam, "vm22775", 22775, 569288),
     (datasets.load_sweden, "sw24978", 24978, 855597),
     (datasets.load_burma, "bm33708", 33708, 959289),
-    (datasets.load_china, "ch71009", 71009, 4566563),
+    (datasets.load_china, "ch71009", 71009, 4566506),
 ]
 BIG_FOUR = {"vm22775", "sw24978", "bm33708", "ch71009"}
 TSP_FIELDS = {"name", "coords", "labels", "depot", "edge_weight_type", "optimal_tour_length", "DESCR"}
@@ -360,9 +419,24 @@ def test_list_tsp_has_the_27_names_smallest_first():
     assert names == [w[1] for w in WRAPPERS]
     sizes = [int("".join(ch for ch in nm if ch.isdigit())) for nm in names]
     assert sizes == sorted(sizes)
-    for name in names:
-        assert callable(getattr(datasets, f"load_{name[:2]}", load_tsp)) or True  # wrappers checked above
     assert list_tsp() is not names, "a fresh list every call"
+
+
+def test_optimal_tour_length_is_the_waterloo_status_table():
+    # https://www.math.uwaterloo.ca/tsp/world/summary.html (2022-07-31): 25 proven optima, two open.
+    assert load_tsp("kz9976").optimal_tour_length == 1061881, "the proven optimum, not the 2001 tour"
+    assert load_tsp("ch71009").optimal_tour_length == 4566506, "Waterloo's current best-known tour"
+    for name in ("bm33708", "ch71009"):
+        b = load_tsp(name)
+        assert "best-known" in b.DESCR and "not proven optimal" in b.DESCR
+        assert _loaders._INSTANCES[name].gap in b.DESCR
+    assert _loaders._INSTANCES["bm33708"].gap == "0.031 %"
+    assert _loaders._INSTANCES["ch71009"].gap == "0.024 %"
+    assert all(v.gap is None for k, v in _loaders._INSTANCES.items() if k not in ("bm33708", "ch71009"))
+    for name in ("wi29", "kz9976"):
+        b = load_tsp(name)
+        assert "proven optimal tour length" in b.DESCR and "not proven" not in b.DESCR
+    assert "published optima" not in load_tsp("wi29").DESCR
 
 
 def test_load_tsp_unknown_name():
@@ -430,6 +504,18 @@ def test_mode_deprecation_through_a_country_wrapper_points_at_the_caller():
     assert record[0].filename == __file__
 
 
+def test_mode_may_be_positional_as_in_1_0():
+    with pytest.warns(DeprecationWarning, match="mode= is deprecated since 2.0") as record:
+        b = datasets.load_qatar("small")  # 1.0: def load_qatar(mode="big")
+    assert b.coords.shape == (10, 2) and b.optimal_tour_length is None
+    assert record[0].filename == __file__
+    with pytest.warns(DeprecationWarning):
+        assert datasets.load_sahara("big").optimal_tour_length == 27603
+    for loader, *_ in WRAPPERS:
+        parameters = inspect.signature(loader).parameters
+        assert list(parameters) == ["mode", "kwargs"] and parameters["mode"].default is None
+
+
 def test_mode_errors():
     with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="mode must be"):
         load_tsp("wi29", mode="huge")
@@ -491,6 +577,42 @@ def test_distance_matrix_follows_the_edge_weight_type_of_the_bunch():
     geo = read_tsplib(DATA / "geo_small.tsp")
     b = TSPBunch(name="geo_small", coords=geo.coords, labels=geo.labels, depot=1, edge_weight_type="GEO")
     np.testing.assert_array_equal(b.distance_matrix(), distance_matrix(geo.coords, metric="tsplib_geo"))
+    xy = [[0.0, 0.0], [1.0, 1.0]]
+    lower = TSPBunch(name="x", coords=xy, labels=[1, 2], depot=1, edge_weight_type="ceil_2d")
+    assert lower.distance_matrix()[0, 1] == 2.0, "case-insensitive: ceil(sqrt(2))"
+
+
+def test_distance_matrix_rejects_an_unknown_edge_weight_type():
+    b = TSPBunch(name="x", coords=[[0.0, 0.0], [3.0, 4.0]], labels=[1, 2], depot=1, edge_weight_type="EUC_3D")
+    with pytest.raises(ValueError, match=r"edge_weight_type 'EUC_3D' has no tsplib_\* metric"):
+        b.distance_matrix()  # used to fall back silently to the planar EUC_2D metric
+    b = TSPBunch(
+        name="x", coords=[[0.0, 0.0], [3.0, 4.0]], labels=[1, 2], depot=1, edge_weight_type="EXPLICIT"
+    )
+    with pytest.raises(ValueError, match="has no tsplib_"):
+        b.distance_matrix()
+
+
+def test_large_instance_sizes_are_quoted_in_decimal_gigabytes(monkeypatch):
+    b = load_tsp("ch71009")
+    assert "about 40 GB" in b.DESCR, "71009**2 * 8 bytes = 40.3e9: the figure of the SPEC and the docs"
+    assert "GiB" not in b.DESCR
+    with pytest.raises(ValueError, match=r"needs 40\.3 GB"):
+        b.distance_matrix()
+    monkeypatch.setattr(_loaders, "_MAX_DENSE_N", 10)
+    with pytest.raises(ValueError, match=r"needs 0\.0 GB"):
+        load_tsp("wi29").distance_matrix()
+
+
+def test_size_warning_through_tspbunch_points_at_the_caller(monkeypatch):
+    from skroute.preprocessing import _distances
+
+    monkeypatch.setattr(_loaders, "_MAX_DENSE_N", 10)
+    monkeypatch.setattr(_distances, "_LARGE_N", 10)
+    b = load_tsp("wi29")
+    with pytest.warns(UserWarning, match="dense 29 x 29") as record:
+        b.distance_matrix(force=True)
+    assert record[0].filename == __file__, "not skroute/datasets/_loaders.py"
 
 
 def test_tspbunch_behaves_like_a_bunch():
@@ -599,6 +721,17 @@ def test_cost_loader_values_match_the_csv(loader, file, n, depot, cost_unit, row
         for (o, d), s in secs.items():
             if o != d:
                 assert b.time[index[o], index[d]] * 3600.0 - s == pytest.approx(420.0, abs=1e-6)
+
+
+def test_qatar_costs_document_their_one_zero_pair():
+    q = datasets.load_qatar_costs()
+    off = ~np.eye(192, dtype=bool)
+    i, j = int(np.flatnonzero(q.labels == 104)[0]), int(np.flatnonzero(q.labels == 111)[0])
+    for M in (q.cost, q.time, q.distance):
+        zeros = sorted(map(tuple, np.argwhere((M == 0) & off).tolist()))
+        assert zeros == sorted([(i, j), (j, i)]), "exactly the pair recorded as 0 m / 0 s in the table"
+    assert "(104, 111)" in q.DESCR and "4 km" in q.DESCR
+    assert "(104, 111)" in datasets.load_qatar_costs.__doc__
 
 
 def test_cost_loaders_are_independent_objects():
