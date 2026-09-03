@@ -12,6 +12,7 @@ from conftest import _euclid
 from skroute import RoutingProblem
 from skroute.metaheuristics import AntColony, _aco
 from skroute.metrics import route_cost
+from skroute.utils import initial_tour
 
 
 def _assert_consistent(est, C, **kw):
@@ -228,6 +229,71 @@ def test_coincident_points_are_handled():
     assert aco.cost_ == pytest.approx(reference.brute_force(C)[0], rel=1e-9)
     tour = aco.problem_.to_index_tour(aco.tour_).tolist()
     assert abs(tour.index(3) - tour.index(4)) == 1, "coincident nodes must be visited consecutively"
+
+
+def _zero_optimum_instances():
+    """Legal inputs (square, finite) whose optimum is a zero-cost tour.
+
+    Every ``1 / L`` of the trail (initial value, deposit, bounds) is at risk on them.
+    """
+    n, cycle = 5, [0, 2, 4, 1, 3]
+    decoy = np.full((n, n), 5.0)  # the nearest-neighbour tour costs 10 (0 -> 1 is also free), the cycle 0
+    np.fill_diagonal(decoy, 0.0)
+    for a, b in zip(cycle, cycle[1:] + cycle[:1], strict=True):
+        decoy[a, b] = 0.0
+    decoy[0, 1] = 0.0
+    return {
+        "all-zero": np.zeros((5, 5)),
+        "all-zero-n3": np.zeros((3, 3)),
+        "zero-cycle-asym": decoy,
+        "zero-cycle-sym": np.minimum(decoy, decoy.T),
+        "zero-cycle-4": np.array([[0, 0, 5, 5], [5, 0, 0, 5], [5, 5, 0, 0], [0, 5, 5, 0]], dtype=float),
+    }
+
+
+@pytest.mark.parametrize("name", list(_zero_optimum_instances()))
+@pytest.mark.parametrize("local_search", [("two_opt",), None], ids=["polish", "no-polish"])
+def test_zero_cost_tours_are_returned_with_a_finite_trail(name, local_search):
+    # regression: 1 / (rho * L_NN), 1 / L_deposit and 1 / (rho * L_best) raised ZeroDivisionError as soon
+    # as a tour cost exactly 0 (all nodes coincident, or a zero-cost Hamiltonian cycle found by an ant after
+    # a positive nearest-neighbour tour)
+    C = _zero_optimum_instances()[name]
+    aco = AntColony(random_state=0, local_search=local_search).fit(C)
+    assert aco.cost_ == 0.0 == reference.brute_force(C)[0]
+    assert np.all(np.isfinite(aco.pheromone_)) and np.all(aco.pheromone_ >= 0.0)
+    assert np.all(aco.history_ == 0.0) and aco.stop_reason_ == "patience"
+    _assert_consistent(aco, C)
+
+
+def test_deposit_and_trail_bounds_use_the_problem_cost_under_a_budget(alicante):
+    # One iteration, modelled exactly: tau0 = 1 / (rho * L_NN) evaporates once, the iteration-best ant
+    # deposits 1 / cost on its arcs (both directions: alicante is symmetric) and the trail is clipped to
+    # [tau_max / (2n), tau_max] with tau_max = 1 / (rho * L_best). Every L is the PROBLEM cost (fixed charges
+    # and depot legs of the split included), not the plain giant-tour cost: the deposit steers the colony.
+    d, kw = alicante["bunch"], alicante["kwargs"]
+    rho = 0.05
+    aco = AntColony(n_iter=1, patience=None, rho=rho, random_state=0).fit(d.cost, time_matrix=d.time, **kw)
+    p, n = aco.problem_, d.cost.shape[0]
+    assert p.symmetric and aco.n_trips_ >= 2
+    best = p.to_index_tour(aco.tour_)
+    plain = reference.tour_cost(d.cost, best)
+    assert aco.cost_ > plain + 1.0, "under the budget the objective differs from the plain tour cost"
+    l_nn = p.evaluate(initial_tour(p, "nearest_neighbour", None))
+    expected = np.full((n, n), (1.0 - rho) / (rho * l_nn))
+    heads, tails = best, np.roll(best, -1)
+    expected[heads, tails] += 1.0 / aco.cost_
+    expected[tails, heads] += 1.0 / aco.cost_
+    tau_max = 1.0 / (rho * aco.cost_)
+    expected = np.clip(expected, tau_max / (2.0 * n), tau_max)
+    np.fill_diagonal(expected, 0.0)
+    assert np.allclose(aco.pheromone_, expected, rtol=1e-12, atol=0.0)
+    wrong = np.full((n, n), (1.0 - rho) / (rho * l_nn))
+    wrong[heads, tails] += 1.0 / plain
+    wrong[tails, heads] += 1.0 / plain
+    np.fill_diagonal(wrong, 0.0)
+    assert not np.allclose(aco.pheromone_, wrong, rtol=1e-6, atol=0.0), (
+        "a 1 / plain-cost deposit is distinguishable"
+    )
 
 
 # --------------------------------------------------------------------------- kernels

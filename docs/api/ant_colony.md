@@ -11,9 +11,13 @@ iteration-best ant — the best-so-far ant every fifth iteration — deposits `1
 arcs; the trail is clipped to `[tau_max / (2 n), tau_max]` with `tau_max = 1 / (rho * L_best)`,
 which keeps the colony from stagnating.
 
-The trail is stored as an `(n, n)` matrix (`pheromone_` after the fit) and the transition
-weights are recomputed once per iteration as a second `(n, n)` matrix, so the practical
-ceiling is a few thousand nodes. On an asymmetric matrix the trail is directional.
+The trail is stored as an `(n, n)` matrix (`pheromone_` after the fit); the heuristic
+desirability `(1 / C) ** beta` and the transition weights, recomputed once per iteration, are
+two more `(n, n)` matrices — three float64 matrices besides the cost matrix, all updated in
+place — so the practical ceiling is a few thousand nodes. On an asymmetric matrix the trail is
+directional. Zero off-diagonal costs (coincident points) are floored to a thousandth of the
+smallest positive cost in the heuristic, and the same floor bounds every `1 / L` of the trail,
+so an instance whose optimum is a zero-cost tour is returned with a finite trail.
 
 ```python
 >>> from skroute import AntColony
