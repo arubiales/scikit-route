@@ -19,22 +19,22 @@ import math
 import numpy as np
 
 __all__ = [
-    "tour_cost",
+    "brute_force",
+    "double_bridge",
     "greedy_split",
     "optimal_split",
-    "trip_starts",
-    "problem_cost",
-    "route_cost_from_labels",
-    "brute_force",
-    "two_opt_apply",
-    "two_opt_delta_by_recompute",
     "or_opt_apply",
     "or_opt_delta_by_recompute",
-    "swap_apply",
-    "swap_delta_by_recompute",
-    "double_bridge",
     "ox",
     "pmx",
+    "problem_cost",
+    "route_cost_from_labels",
+    "swap_apply",
+    "swap_delta_by_recompute",
+    "tour_cost",
+    "trip_starts",
+    "two_opt_apply",
+    "two_opt_delta_by_recompute",
 ]
 
 
@@ -154,8 +154,9 @@ def problem_cost(C, T, tour, max_time=math.inf, fixed_cost=0.0, split="greedy"):
     raise ValueError(f"split must be 'greedy' or 'optimal', got {split!r}")
 
 
-def route_cost_from_labels(C, route, labels, depot, T=None, max_time=math.inf,
-                           fixed_cost=0.0, split="greedy"):
+def route_cost_from_labels(
+    C, route, labels, depot, T=None, max_time=math.inf, fixed_cost=0.0, split="greedy"
+):
     """Objective of a label-space route (depot first, possibly repeated between
     trips and at the end): depot occurrences are dropped and the giant tour is
     re-decoded, exactly like ``RoutingProblem.to_index_tour`` followed by
@@ -168,8 +169,7 @@ def route_cost_from_labels(C, route, labels, depot, T=None, max_time=math.inf,
 
 
 # --------------------------------------------------------------------------- exact oracle
-def brute_force(C, T=None, *, depot=0, max_time_work=None, extra_cost=0.0, people=1,
-                split="greedy"):
+def brute_force(C, T=None, *, depot=0, max_time_work=None, extra_cost=0.0, people=1, split="greedy"):
     """Exhaustive optimum over all giant tours. Ties: the lexicographically first tour.
 
     Returns ``(cost, tour)`` with ``tour`` an ``int64`` array starting at ``depot``.
@@ -192,7 +192,7 @@ def brute_force(C, T=None, *, depot=0, max_time_work=None, extra_cost=0.0, peopl
 def two_opt_apply(tour, i, j):
     """Reverse ``tour[i..j]`` (inclusive, ``i < j``); returns a new list."""
     tour = list(tour)
-    tour[i:j + 1] = tour[i:j + 1][::-1]
+    tour[i : j + 1] = tour[i : j + 1][::-1]
     return tour
 
 
@@ -206,15 +206,15 @@ def or_opt_apply(tour, i, L, j, reverse=False):
     a new list. Position 0 (the depot) never moves."""
     tour = list(tour)
     n = len(tour)
-    assert 1 <= i and i + L <= n and 1 <= L <= 3
+    assert i >= 1 and i + L <= n and 1 <= L <= 3
     assert not (i - 1 <= j <= i + L - 1), "j must not be inside or just before the segment"
-    seg = tour[i:i + L]
+    seg = tour[i : i + L]
     if reverse:
         seg = seg[::-1]
     anchor = tour[j]
-    rest = tour[:i] + tour[i + L:]
+    rest = tour[:i] + tour[i + L :]
     k = rest.index(anchor)
-    return rest[:k + 1] + seg + rest[k + 1:]
+    return rest[: k + 1] + seg + rest[k + 1 :]
 
 
 def or_opt_delta_by_recompute(C, tour, i, L, j, reverse=False):
@@ -248,9 +248,9 @@ def ox(p1, p2, a, b):
     m = len(p1)
     assert 0 <= a <= b < m
     child = [None] * m
-    child[a:b + 1] = p1[a:b + 1]
-    present = set(child[a:b + 1])
-    fill = [g for g in p2[b + 1:] + p2[:b + 1] if g not in present]
+    child[a : b + 1] = p1[a : b + 1]
+    present = set(child[a : b + 1])
+    fill = [g for g in p2[b + 1 :] + p2[: b + 1] if g not in present]
     pos = (b + 1) % m
     for g in fill:
         child[pos] = g
@@ -266,10 +266,10 @@ def pmx(p1, p2, a, b):
     m = len(p1)
     assert 0 <= a <= b < m
     child = [None] * m
-    child[a:b + 1] = p1[a:b + 1]
+    child[a : b + 1] = p1[a : b + 1]
     mapping = {p1[k]: p2[k] for k in range(a, b + 1)}
-    segment = set(child[a:b + 1])
-    for k in list(range(0, a)) + list(range(b + 1, m)):
+    segment = set(child[a : b + 1])
+    for k in list(range(a)) + list(range(b + 1, m)):
         g = p2[k]
         while g in segment:
             g = mapping[g]

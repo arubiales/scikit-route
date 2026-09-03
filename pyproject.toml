@@ -109,7 +109,7 @@ exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedE
 [tool.ruff]
 line-length = 110
 target-version = "py311"
-extend-exclude = ["build", "dist", "site", ".venv*"]
+extend-exclude = ["build", "dist", "site", ".venv*", "docs/development"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "NPY", "RUF", "SIM", "PIE", "PERF"]
