@@ -7,7 +7,7 @@ the published optima of the small Waterloo instances.
 | Solver | Objective it certifies | Cap (`max_nodes`) | Typical time |
 |---|---|---|---|
 | `BruteForce` | plain tour **and** multi-trip, under `split="greedy"` or `"optimal"` | 11 | a fraction of a second at n = 11 |
-| `HeldKarp` | plain tour, symmetric or asymmetric | 20 | under a second at n = 20 (~80 MB) |
+| `HeldKarp` | plain tour, symmetric or asymmetric | 20 | under a second at n = 20 (~90 MB of tables) |
 | `MILP` | plain tour, symmetric or asymmetric | 300 | wi29 and dj38 in well under a second; qa194 proved in about a minute |
 
 `HeldKarp` and `MILP` raise `ValueError` when `max_time_work` is given: an "exact" result that

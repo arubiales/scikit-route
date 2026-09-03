@@ -3,8 +3,9 @@
 Every exact solver must equal ``reference.brute_force`` on the tiny instances (symmetric and
 asymmetric); BruteForce also on the Alicante multi-trip fixture under both split rules and with
 the oracle's tie-breaking; HeldKarp and MILP raise under a budget (D6); MILP proves the published
-optima of the fast tier and returns a valid tour when its time budget runs out. Slow-tier tests
-(qa194) live in ``tests/benchmarks/test_waterloo.py``.
+optima of the fast tier and returns a valid tour when its time budget runs out; its certificate does
+not depend on the units of the costs; the compiled kernels reject wrong buffers before their ``nogil``
+loops. Slow-tier tests (qa194) live in ``tests/benchmarks/test_waterloo.py``.
 """
 
 from __future__ import annotations
@@ -197,7 +198,70 @@ def test_held_karp_kernel_rejects_bad_sizes():
         _hk.held_karp_search(C, np.array([1, 2, 3], dtype=np.int64), 0, np.empty(3, dtype=np.int64))
 
 
+def test_held_karp_kernel_rejects_wrong_indices_before_the_nogil_loop():
+    """``boundscheck=False``: an index out of range used to read garbage in silence (returned a cost)."""
+    C = _euclid(4, seed=4)
+    out = np.empty(4, dtype=np.int64)
+    others = np.array([1, 2, 3], dtype=np.int64)
+
+    def call(C_=C, others_=others, depot=0, out_=out):
+        return _hk.held_karp_search(C_, others_, depot, out_)
+
+    with pytest.raises(ValueError, match=r"C must be an \(4, 4\) matrix"):
+        call(C_=C[:2, :2].copy())
+    with pytest.raises(ValueError, match=r"C must be an \(4, 4\) matrix"):
+        call(C_=_euclid(6, seed=6))
+    with pytest.raises(ValueError, match=r"depot must be a node index in \[0, 4\)"):
+        call(depot=40)
+    with pytest.raises(ValueError, match="depot must be a node index"):
+        call(depot=-1)
+    with pytest.raises(ValueError, match=r"others must hold node indices in \[0, 4\)"):
+        call(others_=np.array([1, 2, 9], dtype=np.int64))
+    with pytest.raises(ValueError, match="node 1 appears twice"):
+        call(others_=np.array([1, 1, 2], dtype=np.int64))
+    with pytest.raises(ValueError, match="node 0 appears twice"):  # the depot inside others
+        call(others_=np.array([0, 1, 2], dtype=np.int64))
+    # any order of the others and any depot are fine
+    cost = call(others_=np.array([3, 1, 0], dtype=np.int64), depot=2)
+    assert cost == pytest.approx(reference.brute_force(C, depot=2)[0], rel=1e-9) and out[0] == 2
+
+
 # --------------------------------------------------------------------------- BruteForce kernel
+def test_brute_kernel_rejects_wrong_buffers_before_the_nogil_loop():
+    """``boundscheck=False``: a wrong buffer used to be read — or, for the optimal split's scratch, WRITTEN —
+    out of bounds in silence; the call returned a plausible cost over corrupted memory."""
+    C = _euclid(4, seed=4)
+    tour, best = np.arange(4, dtype=np.int64), np.empty(4, dtype=np.int64)
+    no_dp, no_pred = np.empty(0), np.empty(0, dtype=np.int64)
+
+    def call(C_=C, T_=C, tour_=tour, best_=best, max_time=np.inf, split=0, dp=no_dp, pred=no_pred):
+        return _brute.brute_force_search(C_, T_, tour_, best_, max_time, 0.0, split, False, dp, pred)
+
+    with pytest.raises(ValueError, match=r"C must be an \(4, 4\) matrix"):
+        call(C_=C[:3, :3].copy())
+    with pytest.raises(ValueError, match=r"T must be an \(4, 4\) matrix"):
+        call(T_=C[:3, :3].copy())
+    with pytest.raises(ValueError, match="best must have the same length as tour"):
+        call(best_=best[:3].copy())
+    with pytest.raises(ValueError, match=r"tour must hold node indices in \[0, 4\)"):
+        call(tour_=np.array([0, 1, 2, 7], dtype=np.int64))
+    with pytest.raises(ValueError, match="strictly ascending"):
+        call(tour_=np.array([0, 2, 1, 3], dtype=np.int64))
+    with pytest.raises(ValueError, match="strictly ascending"):  # a repeated non-depot node
+        call(tour_=np.array([0, 1, 1, 3], dtype=np.int64))
+    with pytest.raises(ValueError, match="repeats the depot"):
+        call(tour_=np.array([1, 1, 2, 3], dtype=np.int64))
+    with pytest.raises(ValueError, match="dp and pred must have length >= 4"):
+        call(max_time=100.0, split=1)  # the optimal split with zero-length scratch: heap corruption before
+    with pytest.raises(ValueError, match="dp and pred must have length >= 4"):
+        call(max_time=100.0, split=1, dp=np.empty(4), pred=np.empty(3, dtype=np.int64))
+    # the greedy split and a plain TSP (whatever the split code) need no scratch; a depot elsewhere is fine
+    assert call(max_time=100.0, split=0)[1] == 6
+    assert call(max_time=np.inf, split=1)[1] == 6
+    cost, _ = call(tour_=np.array([2, 0, 1, 3], dtype=np.int64))
+    assert cost == pytest.approx(reference.brute_force(C, depot=2)[0], rel=1e-9)
+
+
 def test_brute_kernel_halving_and_buffer_restoration():
     n = 8
     C = _euclid(n, seed=n)
@@ -270,6 +334,38 @@ def test_milp_relative_gap_relaxes_the_certificate():
     assert est.lower_bound_ <= est.cost_ + 1e-9
     assert est.is_optimal_ is (est.gap_ == 0.0)
     assert est.cost_ >= HeldKarp().fit(C).cost_ - 1e-9
+
+
+@pytest.mark.parametrize("scale", [1e-6, 1e-8, 1e9], ids=["1e-6", "1e-8", "1e9"])
+def test_milp_certificate_is_invariant_to_the_units_of_the_costs(scale):
+    """HiGHS proves optimality to absolute tolerances of 1e-6 that scipy does not expose. Unnormalised, on
+    seed 16 at 1e-6 it returned the runner-up tour (rel. error 1.25e-4) with ``is_optimal_ True`` and a
+    ``lower_bound_`` above the true optimum; the objective is now solved on a power-of-two normalised copy."""
+    C = _euclid(16, seed=16) * scale
+    ref = HeldKarp().fit(C)
+    est = MILP().fit(C)
+    assert est.cost_ == pytest.approx(ref.cost_, rel=1e-9)
+    assert est.is_optimal_ is True and est.gap_ == 0.0
+    assert est.lower_bound_ == pytest.approx(est.cost_, rel=1e-9)
+    assert est.lower_bound_ <= ref.cost_ * (1 + 1e-9)  # a bound above the optimum is a broken certificate
+
+
+@pytest.mark.parametrize("asymmetric", [False, True], ids=["sym", "asym"])
+def test_milp_tiny_costs_match_the_oracle(asymmetric):
+    C = _euclid(8, seed=8, asymmetric=asymmetric) * 1e-7
+    est = MILP().fit(C)
+    assert est.cost_ == pytest.approx(reference.brute_force(C)[0], rel=1e-9) and est.is_optimal_ is True
+
+
+def test_milp_objective_scale_is_an_exact_power_of_two():
+    from skroute.exact._milp import _objective_scale
+
+    for cmax in (1e-9, 1e-6, 0.3, 1.0, 8191.9, 8192.0, 9639.0, 16383.9, 16384.0, 1e12):
+        s = _objective_scale(np.array([cmax / 3, -cmax, 0.0]))  # the sign and the zeros do not matter
+        assert math.frexp(s)[0] == 0.5  # an exact power of two: the products and quotients round nothing
+        assert 2**13 <= cmax * s < 2**14
+    assert _objective_scale(np.array([9639.0])) == 1.0  # wi29's largest cost lies in the band: untouched
+    assert _objective_scale(np.zeros(3)) == 1.0 and _objective_scale(np.empty(0)) == 1.0
 
 
 def test_milp_labels_and_depot_by_label():
