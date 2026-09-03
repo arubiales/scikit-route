@@ -1,0 +1,10 @@
+NAME : tiny.tour
+COMMENT : a tour over explicit_matrix.tsp (cost 22)
+TYPE : TOUR
+DIMENSION : 4
+TOUR_SECTION
+1
+2
+3
+4
+-1
