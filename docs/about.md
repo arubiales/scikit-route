@@ -4,7 +4,7 @@
 
 scikit-route was started in 2020 by Alberto Rubiales as a route-optimisation library with the spirit of
 scikit-learn: estimators you configure in `__init__`, fit on your data and read results from. It grew out of
-a concrete routing problem at Secoex — planning the daily rounds of a sales team around Spanish cities,
+a concrete routing problem — planning the daily rounds of a sales team around Spanish cities,
 where a working day must not exceed eight hours and every extra day has a price — which is why the library
 has always carried, next to the plain travelling salesman problem, a multi-trip objective with a per-trip
 working-time budget and a fixed charge per additional trip. The bundled cost datasets (Alicante–Murcia,
@@ -59,7 +59,7 @@ Replace `version` and `year` with those of the release you used (`skroute.__vers
   come from the **National Traveling Salesman Problems** collection assembled by William Cook and his
   colleagues at the University of Waterloo (<https://www.math.uwaterloo.ca/tsp/world/countries.html>), which
   also publishes the optimal or best-known tour lengths that the benchmarks page compares against.
-- The `.tsp` file format, the `EUC_2D`/`CEIL_2D`/`ATT`/`GEO` distance definitions implemented in
+- The `.tsp` file format, the TSPLIB distance definitions (`EUC_2D`, `CEIL_2D`, `MAN_2D`, ...) implemented in
   `skroute.preprocessing.distance_matrix`, and the `ulysses16` and `att48` instances used as reader tests are
   from **TSPLIB** by Gerhard Reinelt (Heidelberg University,
   <http://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/>).
