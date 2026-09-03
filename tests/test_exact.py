@@ -3,7 +3,8 @@
 Every exact solver must equal ``reference.brute_force`` on the tiny instances (symmetric and
 asymmetric); BruteForce also on the Alicante multi-trip fixture under both split rules and with
 the oracle's tie-breaking; HeldKarp and MILP raise under a budget (D6); MILP proves the published
-optima of the fast tier and returns a valid tour when its time budget runs out; the compiled kernels reject wrong buffers before their ``nogil``
+optima of the fast tier and returns a valid tour when its time budget runs out; its certificate does
+not depend on the units of the costs; the compiled kernels reject wrong buffers before their ``nogil``
 loops. Slow-tier tests (qa194) live in ``tests/benchmarks/test_waterloo.py``.
 """
 
@@ -333,6 +334,38 @@ def test_milp_relative_gap_relaxes_the_certificate():
     assert est.lower_bound_ <= est.cost_ + 1e-9
     assert est.is_optimal_ is (est.gap_ == 0.0)
     assert est.cost_ >= HeldKarp().fit(C).cost_ - 1e-9
+
+
+@pytest.mark.parametrize("scale", [1e-6, 1e-8, 1e9], ids=["1e-6", "1e-8", "1e9"])
+def test_milp_certificate_is_invariant_to_the_units_of_the_costs(scale):
+    """HiGHS proves optimality to absolute tolerances of 1e-6 that scipy does not expose. Unnormalised, on
+    seed 16 at 1e-6 it returned the runner-up tour (rel. error 1.25e-4) with ``is_optimal_ True`` and a
+    ``lower_bound_`` above the true optimum; the objective is now solved on a power-of-two normalised copy."""
+    C = _euclid(16, seed=16) * scale
+    ref = HeldKarp().fit(C)
+    est = MILP().fit(C)
+    assert est.cost_ == pytest.approx(ref.cost_, rel=1e-9)
+    assert est.is_optimal_ is True and est.gap_ == 0.0
+    assert est.lower_bound_ == pytest.approx(est.cost_, rel=1e-9)
+    assert est.lower_bound_ <= ref.cost_ * (1 + 1e-9)  # a bound above the optimum is a broken certificate
+
+
+@pytest.mark.parametrize("asymmetric", [False, True], ids=["sym", "asym"])
+def test_milp_tiny_costs_match_the_oracle(asymmetric):
+    C = _euclid(8, seed=8, asymmetric=asymmetric) * 1e-7
+    est = MILP().fit(C)
+    assert est.cost_ == pytest.approx(reference.brute_force(C)[0], rel=1e-9) and est.is_optimal_ is True
+
+
+def test_milp_objective_scale_is_an_exact_power_of_two():
+    from skroute.exact._milp import _objective_scale
+
+    for cmax in (1e-9, 1e-6, 0.3, 1.0, 8191.9, 8192.0, 9639.0, 16383.9, 16384.0, 1e12):
+        s = _objective_scale(np.array([cmax / 3, -cmax, 0.0]))  # the sign and the zeros do not matter
+        assert math.frexp(s)[0] == 0.5  # an exact power of two: the products and quotients round nothing
+        assert 2**13 <= cmax * s < 2**14
+    assert _objective_scale(np.array([9639.0])) == 1.0  # wi29's largest cost lies in the band: untouched
+    assert _objective_scale(np.zeros(3)) == 1.0 and _objective_scale(np.empty(0)) == 1.0
 
 
 def test_milp_labels_and_depot_by_label():

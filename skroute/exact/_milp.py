@@ -39,7 +39,11 @@ class MILP(BaseRouter):
     time_limit : float or None, default 60.0
         Wall-clock budget in seconds for the whole cut loop; every solve receives the time
         that remains. ``None`` runs until proven optimal. When the budget runs out the fit
-        still returns a valid tour (see ``is_optimal_``).
+        still returns a valid tour (see ``is_optimal_``). HiGHS checks its limit only between
+        internal phases, so a single solve can overrun the time it was handed by the length
+        of one uninterruptible phase — its presolve above all: on the 89 700-variable
+        asymmetric model at n = 300 a 1 s budget took 1.8 s. ``fit_time_`` may therefore
+        exceed ``time_limit`` by roughly the duration of one solve of the model at hand.
     max_nodes : int, default 300
         Hard cap on the number of nodes (``fit`` raises ``ValueError`` above it). Realistic
         sizes within a minute: ~200 symmetric nodes, ~60 asymmetric.
@@ -52,8 +56,15 @@ class MILP(BaseRouter):
     Attributes
     ----------
     is_optimal_ : bool
-        ``True`` when the last solve returned an integral single-component solution proven
-        optimal (then ``lower_bound_ == cost_`` and ``gap_ == 0.0``); ``False`` on time-out.
+        ``True`` when the last solve returned an integral single-component solution that
+        HiGHS reported optimal (then ``lower_bound_ == cost_`` and ``gap_ == 0.0``);
+        ``False`` on time-out. HiGHS proves optimality to *absolute* tolerances
+        (``mip_feasibility_tolerance`` and ``mip_abs_gap``, both 1e-6, which
+        :func:`scipy.optimize.milp` does not expose), so the programme is solved on a
+        normalised objective — the costs multiplied by the power of two that brings the
+        largest one into ``[8192, 16384)`` — and the certificate holds to about 1e-10 times
+        the largest cost, below the library's 1e-9 relative tolerance, whatever the units of
+        the input (see Notes).
     lower_bound_ : float
         The largest valid lower bound on the optimum seen: the trivial assignment bound to
         start with (``sum_i min_j C[i, j]``; half the two smallest entries per row when
@@ -75,6 +86,16 @@ class MILP(BaseRouter):
     failing that, the core's nearest-neighbour tour polished by 2-opt (``two_opt_descent``
     when symmetric; the full-evaluation ``local_search_generic`` with the 2-opt move when
     asymmetric, because O(1) reversal deltas are exact only on symmetric matrices).
+
+    The objective handed to HiGHS is ``C`` multiplied by a power of two that brings its
+    largest entry into ``[2**13, 2**14)``; every objective value and bound is divided by the
+    same factor on the way back. The scaling is exact (a power of two rounds nothing), so
+    the programme, its optimum and the order of tours are exactly those of the unscaled
+    problem, but HiGHS's absolute tolerances — 1e-6 on integrality, on the primal-dual gap
+    and on the cutoff that prunes a node "not better than the incumbent" — then bite at
+    about 1e-10 of the largest cost whatever the units. Without it, on costs of order 1e-5
+    or below HiGHS prunes the true optimum as not better than its incumbent by 1e-6 and
+    returns the runner-up with an "optimal" status, i.e. a false certificate.
 
     DFJ is preferred to the Miller-Tucker-Zemlin formulation because MTZ's relaxation is
     weak: it takes hours around n = 200 where DFJ proved qa194 (9352) in about 40 s.
@@ -145,6 +166,8 @@ class MILP(BaseRouter):
             iu, ju = np.nonzero(~np.eye(n, dtype=bool))  # one variable per arc (i, j)
         m = iu.size
         c = np.ascontiguousarray(C[iu, ju], dtype=np.float64)
+        scale = _objective_scale(c)
+        c_scaled = c * scale  # exact: `scale` is a power of two (see _objective_scale)
         cols = np.arange(m)
         if symmetric:  # every node touches exactly two chosen edges
             rows = np.concatenate([iu, ju])
@@ -170,9 +193,11 @@ class MILP(BaseRouter):
                 if remaining <= 0.0:
                     break
                 options["time_limit"] = remaining
-            res = milp(c, constraints=constraints, integrality=integrality, bounds=bounds, options=options)
+            res = milp(
+                c_scaled, constraints=constraints, integrality=integrality, bounds=bounds, options=options
+            )
             n_solves += 1
-            lower = max(lower, self._bound_of(res))
+            lower = max(lower, self._bound_of(res, scale))
             if res.x is None:  # no incumbent: the time limit hit before a first feasible point
                 log.debug("MILP solve %d: status %d, no incumbent, bound %.6g", n_solves, res.status, lower)
                 break
@@ -183,7 +208,7 @@ class MILP(BaseRouter):
                 "MILP solve %d: status %d, objective %.6g, %d component(s), bound %.6g",
                 n_solves,
                 res.status,
-                res.fun,
+                res.fun / scale,
                 n_components,
                 lower,
             )
@@ -217,7 +242,10 @@ class MILP(BaseRouter):
         if best_tour is None:
             best_tour = _fallback_tour(problem)
         cost = float(problem.evaluate(best_tour))
-        if proven and self.mip_rel_gap > 0.0:
+        if proven:
+            # The certificate must survive re-evaluation: the largest valid bound (the final solve's own
+            # objective when mip_rel_gap == 0, the dual bound otherwise) has to reach the tour's cost as the
+            # core prices it. HiGHS's x is integral to ~1e-14 in practice, so this only ever trips on garbage.
             proven = lower >= cost - 1e-9 * max(1.0, abs(cost))
         lower = cost if proven else min(lower, cost)
         self.is_optimal_ = bool(proven)
@@ -227,18 +255,38 @@ class MILP(BaseRouter):
         self.n_cuts_ = int(n_cuts)
         return best_tour
 
-    def _bound_of(self, res: Any) -> float:
-        """Valid lower bound carried by one solve, or ``-inf`` when it offers none."""
+    def _bound_of(self, res: Any, scale: float) -> float:
+        """Valid lower bound carried by one solve, in the units of ``C`` (``-inf`` when it offers none)."""
         bound = -math.inf
         if res.status == 0 and self.mip_rel_gap == 0.0 and res.fun is not None:
             bound = float(res.fun)  # a relaxation solved to optimality
         dual = getattr(res, "mip_dual_bound", None)
         if dual is not None and math.isfinite(dual):
             bound = max(bound, float(dual))
-        return bound
+        return bound / scale  # exact: `scale` is a power of two; -inf stays -inf
 
 
 # ---------------------------------------------------------------------- helpers
+def _objective_scale(c: np.ndarray) -> float:
+    """Power of two that puts ``max(abs(c))`` in ``[2**13, 2**14)``; ``1.0`` when there is nothing to scale.
+
+    HiGHS decides integrality, the primal-dual gap and the "not better than the incumbent"
+    cutoff with absolute tolerances of 1e-6 that :func:`scipy.optimize.milp` does not expose.
+    On an objective whose values are of order 1e-4 they swallow the difference between the
+    optimum and its runner-up and HiGHS returns the runner-up as optimal; on one of order 1e12
+    they are meaninglessly tight. Solving on ``c * scale`` puts every instance in the same
+    well-conditioned range whatever its units, and a power of two keeps ``c * scale`` and
+    ``value / scale`` exact, so the tour, the order of tours and the bounds are those of the
+    unscaled problem bit for bit. Inputs whose largest cost already lies in the range (wi29,
+    for one) get ``scale == 1.0``.
+    """
+    cmax = float(np.max(np.abs(c))) if c.size else 0.0
+    if not (cmax > 0.0 and math.isfinite(cmax)):
+        return 1.0
+    # frexp: cmax = mantissa * 2**exponent with mantissa in [0.5, 1), so cmax in [2**(e-1), 2**e)
+    return math.ldexp(1.0, 14 - math.frexp(cmax)[1])
+
+
 def _trivial_bound(C: np.ndarray, symmetric: bool) -> float:
     """Assignment-style bound: every node has one outgoing arc (two incident edges when symmetric)."""
     off = C.copy()
