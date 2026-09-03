@@ -22,6 +22,13 @@ no money column: `cost` is the driving distance in kilometres.
 The table holds each unordered pair once (18 336 rows, no diagonal); the
 matrices are mirrored from it and are therefore symmetric.
 
+One pair is recorded as zeros: the row `(104, 111)` has `meters = 0` and
+`seconds = 0` although the two places (25.533 N 50.977 E and 25.568 N 50.959 E)
+are about 4 km apart, so `cost`, `time` and `distance` each hold one zero off
+the diagonal (the Spanish tables have none). It is kept as in the source; fill
+it yourself (for example with the haversine distance) if your use needs
+strictly positive legs.
+
 ## Note
 
 In 1.0 `load_costs_qatar()` returned the Valencia table by mistake; the 2.0
