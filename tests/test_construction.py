@@ -606,7 +606,9 @@ def test_nrbs_row_stats_are_the_2020_arithmetic():
         C = _random_instance(n, seed)
         mean, std = row_stats(C)
         ref_mean, ref_std = _row_stats_reference(C)
-        assert np.array_equal(mean, ref_mean) and np.array_equal(std, ref_std)
+        assert np.array_equal(mean, ref_mean)  # sequential sums: bit-identical
+        # squares/sqrt: IEEE-exact in row_stats, libm pow in the 2020 loops -> equal up to an ulp
+        np.testing.assert_allclose(std, ref_std, rtol=1e-12, atol=0.0)
 
 
 def test_nrbs_valid_on_tiny(tiny_instance):

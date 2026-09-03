@@ -20,11 +20,11 @@ _CAND_CHUNK = 64  # candidates converted to Python ints at a time (the passes re
 
 
 def _pow(x: np.ndarray, e: float) -> np.ndarray:
-    """``x ** e`` element-wise through libm ``pow``, exactly as Python's float ``**`` computes it.
+    """``x ** e`` element-wise through the generic ``pow`` loop, as Python's float ``**`` does.
 
-    ``np.power`` with a *scalar* exponent special-cases 0.5 and 2.0 (``sqrt``/``square``), which
-    differ from ``pow(x, 0.5)``/``pow(x, 2.0)`` by an ulp on some inputs; an array-shaped exponent
-    takes the generic loop and reproduces the 2020 arithmetic bit for bit (verified on 3e5 samples).
+    Used for the five user exponents (which are usually fractional). ``np.power`` with a *scalar*
+    exponent special-cases 0.5 and 2.0; an array-shaped exponent takes the generic loop, so the
+    same formula is applied whatever the exponent's value.
     """
     return np.power(x, np.full(x.shape, e))
 
@@ -32,9 +32,11 @@ def _pow(x: np.ndarray, e: float) -> np.ndarray:
 def row_stats(C: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Per-row mean and population standard deviation of ``C``, the zero diagonal included.
 
-    Sums run left to right (``cumsum``), squares and the square root go through ``pow`` — the
-    operations of the 2020 Python loops — so the statistics are bit-identical to 1.0's. The rows
-    are processed in blocks, so the temporaries never hold a second copy of the matrix.
+    Sums run left to right (``cumsum``) like the 2020 Python loops; the squares and the square
+    root use ``np.square``/``np.sqrt``, which are correctly rounded IEEE operations and therefore
+    identical on every platform (``pow(x, 2.0)``/``pow(x, 0.5)`` are not: numpy dispatches them to
+    SIMD libraries that differ from libm by an ulp). The rows are processed in blocks, so the
+    temporaries never hold a second copy of the matrix.
     """
     n = C.shape[0]
     mean = np.empty(n, dtype=np.float64)
@@ -43,9 +45,9 @@ def row_stats(C: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         for start in range(0, n, _ROW_BLOCK):
             block = C[start : start + _ROW_BLOCK]
             mu = np.cumsum(block, axis=1)[:, -1] / n
-            var = np.cumsum(_pow(block - mu[:, None], 2.0), axis=1)[:, -1] / n
+            var = np.cumsum(np.square(block - mu[:, None]), axis=1)[:, -1] / n
             mean[start : start + _ROW_BLOCK] = mu
-            std[start : start + _ROW_BLOCK] = _pow(var, 0.5)
+            std[start : start + _ROW_BLOCK] = np.sqrt(var)
     return mean, std
 
 
