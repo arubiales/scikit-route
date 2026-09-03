@@ -9,12 +9,15 @@ rendered by mkdocstrings somewhere in ``docs/api/*.md``, either directly
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import pkgutil
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if importlib.util.find_spec("skroute") is None:  # development checkout without an installed package (D29)
+    sys.path.insert(0, str(ROOT))
 DIRECTIVE = re.compile(r"^:::\s+([\w.]+)", re.MULTILINE)
 SKIP_PACKAGES = {
     "skroute._core",
