@@ -9,6 +9,7 @@ live in ``tests/benchmarks/test_waterloo.py``.
 from __future__ import annotations
 
 import logging
+import math
 
 import numpy as np
 import pytest
@@ -360,20 +361,35 @@ def test_ils_metropolis_rule_is_total_on_degenerate_costs(small_euclidean):
     assert _default_temperature(0.0) == 1.0 and _default_temperature(200.0) == pytest.approx(1.0)
 
 
-def test_ils_metropolis_default_temperature_is_positive_on_a_negative_matrix():
-    """A negative temperature makes ``exp(-delta / T) > 1`` for every worse candidate (accept everything);
-    the automatic temperature is 0.5 % of the *absolute* init cost, i.e. the run equals the explicit one."""
-    N = _euclid(20, seed=20) - 60.0
+def test_ils_metropolis_default_temperature_is_positive_on_a_negative_matrix(monkeypatch):
+    """A negative temperature makes ``exp(-delta / T) > 1`` for every worse candidate, i.e. the 0.5 % rule
+    silently became "accept everything". The automatic temperature is 0.5 % of the *absolute* init cost
+    (the run equals the explicit one bit for bit) and the rule only ever hands ``exp`` a non-positive
+    exponent: a worse candidate is accepted with probability < 1, and nothing can overflow."""
+    import skroute.local_search._iterated as ils_module
+
+    N = _euclid(30, seed=0) - 60.0
     np.fill_diagonal(N, 0.0)
     problem = RoutingProblem(N)
     init_cost = float(problem.evaluate(initial_tour(problem, "nearest_neighbour", None)))
     assert init_cost < 0.0 and problem.symmetric
     temperature = _default_temperature(init_cost)
     assert temperature > 0.0 and temperature == pytest.approx(0.005 * abs(init_cost))
-    automatic = IteratedLocalSearch(acceptance="metropolis", n_iter=30, random_state=0).fit(N)
-    explicit = IteratedLocalSearch(
-        acceptance="metropolis", temperature=0.005 * abs(init_cost), n_iter=30, random_state=0
-    ).fit(N)
+
+    exponents = []
+
+    class RecordingMath:
+        @staticmethod
+        def exp(x):
+            exponents.append(x)
+            return math.exp(x)
+
+    monkeypatch.setattr(ils_module, "math", RecordingMath)
+    kw = dict(acceptance="metropolis", n_iter=60, patience=None, random_state=0)
+    automatic = IteratedLocalSearch(**kw).fit(N)
+    assert len(exponents) >= 5, "kicks on a 30-node instance land in worse local optima all the time"
+    assert max(exponents) <= 0.0  # delta > 0 and T > 0: with T < 0 every one of these would be positive
+    explicit = IteratedLocalSearch(temperature=temperature, **kw).fit(N)
     assert np.array_equal(automatic.tour_, explicit.tour_)
     assert np.array_equal(automatic.history_, explicit.history_)
     assert automatic.cost_ == pytest.approx(route_cost(N, automatic.route_), rel=1e-9)
