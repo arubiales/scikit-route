@@ -1,11 +1,18 @@
-"""Metaheuristics: population-, trajectory- and network-based solvers of SPEC §4.4 (D18).
+"""Metaheuristics: population-free and population-based searches over the giant tour (SPEC §4.4).
 
-Append-only registry of the package (D29): one import per line, one ``__all__`` entry per line,
-each work package adds its own at the end.
+Every class here is a stochastic, iterative :class:`~skroute.base.BaseRouter`: it consumes
+``random_state`` (D10: all randomness is pre-drawn in Python and handed to ``nogil`` kernels
+as arrays) and records ``history_``/``n_iter_``/``stop_reason_``. All but :class:`SOM` see the
+multi-trip objective during their search. Solver packages append their exports at the end of
+the import list and of ``__all__``, one line each (D29).
 """
 
+from ._simulated_annealing import SimulatedAnnealing
 from ._som import SOM
+from ._tabu_search import TabuSearch
 
 __all__ = [
     "SOM",
+    "SimulatedAnnealing",
+    "TabuSearch",
 ]

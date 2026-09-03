@@ -118,8 +118,23 @@ MEASURED: dict[str, dict[str, float]] = {
     "OrOpt": {"lu980": 0.217},
     "LocalSearch": {"qa194": 0.119, "lu980": 0.078},
     "IteratedLocalSearch": {"lu980": 0.0416},
-    "SimulatedAnnealing": {"wi29": 0.0, "dj38": 0.0, "qa194": 0.035, "uy734": 0.054, "lu980": 0.070},
+    "SimulatedAnnealing": {
+        "wi29": 0.0,
+        "dj38": 0.0,
+        "qa194": 0.0244,
+        "uy734": 0.0684,
+        "zi929": 0.0569,
+        "lu980": 0.0702,
+    },  # 2.0 kernel (2-opt + Or-opt + swap), defaults, random_state=0
     "Genetic": {"wi29": 0.049, "dj38": 0.086, "qa194": 0.188},
+    "TabuSearch": {
+        "wi29": 0.0,
+        "dj38": 0.0,
+        "qa194": 0.0534,
+        "uy734": 0.0507,
+        "zi929": 0.0358,
+        "lu980": 0.0426,
+    },
 }
 
 

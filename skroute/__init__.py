@@ -55,7 +55,8 @@ _EXPORTS: dict[str, str] = {
     "IteratedLocalSearch": "skroute.local_search",
     # metaheuristics
     "SOM": "skroute.metaheuristics",
-    # ensemble
+    "SimulatedAnnealing": "skroute.metaheuristics",
+    "TabuSearch": "skroute.metaheuristics",  # ensemble
 }
 
 # The five solver subpackages of D18: a registered name defined in one of them is a solver.
@@ -101,6 +102,8 @@ if TYPE_CHECKING:
     from .local_search import OrOpt as OrOpt
     from .local_search import TwoOpt as TwoOpt
     from .metaheuristics import SOM as SOM
+    from .metaheuristics import SimulatedAnnealing as SimulatedAnnealing
+    from .metaheuristics import TabuSearch as TabuSearch
 
 
 def __getattr__(name: str) -> Any:
