@@ -40,6 +40,9 @@ _EXPORTS: dict[str, str] = {
     # SOLVER ENTRIES — appended by each solver work package when it lands (D29), one line per
     # public name, grouped under its package comment, at the END of its group:
     # exact (D18)
+    "BruteForce": "skroute.exact",
+    "HeldKarp": "skroute.exact",
+    "MILP": "skroute.exact",
     # construction
     # local search
     # metaheuristics
@@ -74,8 +77,11 @@ if TYPE_CHECKING:
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
 
-    # isort: split
     # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    # isort: split
+    from .exact import MILP as MILP
+    from .exact import BruteForce as BruteForce
+    from .exact import HeldKarp as HeldKarp
     from .metaheuristics import SOM as SOM
 
 
