@@ -45,6 +45,10 @@ _EXPORTS: dict[str, str] = {
     "MILP": "skroute.exact",
     # construction
     # local search
+    "TwoOpt": "skroute.local_search",
+    "OrOpt": "skroute.local_search",
+    "LocalSearch": "skroute.local_search",
+    "IteratedLocalSearch": "skroute.local_search",
     # metaheuristics
     "SOM": "skroute.metaheuristics",
     # ensemble
@@ -82,6 +86,10 @@ if TYPE_CHECKING:
     from .exact import MILP as MILP
     from .exact import BruteForce as BruteForce
     from .exact import HeldKarp as HeldKarp
+    from .local_search import IteratedLocalSearch as IteratedLocalSearch
+    from .local_search import LocalSearch as LocalSearch
+    from .local_search import OrOpt as OrOpt
+    from .local_search import TwoOpt as TwoOpt
     from .metaheuristics import SOM as SOM
 
 
