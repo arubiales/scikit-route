@@ -122,8 +122,10 @@ cdef int _check_square(const double[:, ::1] M, Py_ssize_t n, str name) except -1
 
 
 cdef int _check_tour(const int64_t[::1] tour) except -1:
-    if tour.shape[0] < 1:
-        raise ValueError("tour must contain at least the depot")
+    # A depot-only tour would make tour_cost read the diagonal (§3.1) and the two decoders of
+    # trip_starts disagree on it; RoutingProblem needs n >= 3 anyway.
+    if tour.shape[0] < 2:
+        raise ValueError("tour must contain at least the depot and one customer")
     return 0
 
 
@@ -133,8 +135,9 @@ cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, con
 
     Dispatches exactly like the inline ``problem_cost``: ``max_time == inf`` gives the plain
     closed-tour cost (``T`` is never read), ``split == SplitRule.SPLIT_GREEDY`` the greedy
-    decoder, anything else the optimal (Prins) decoder. Holds the GIL and allocates its own
-    ``dp``/``pred`` scratch.
+    decoder, anything else the optimal (Prins) decoder. Validates with the GIL held, allocates
+    its own ``dp``/``pred`` scratch only for the optimal split (plain TSP and the greedy decoder
+    never touch it) and releases the GIL around the kernel call.
 
     Parameters
     ----------
@@ -160,9 +163,10 @@ cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, con
     Raises
     ------
     ValueError
-        If ``C`` or ``T`` is not ``(n, n)`` for ``n = len(tour)``.
+        If ``C`` or ``T`` is not ``(n, n)`` for ``n = len(tour)`` or ``tour`` has fewer than
+        two nodes.
     MemoryError
-        If the scratch allocation fails.
+        If the optimal split's scratch allocation fails.
 
     Examples
     --------
@@ -183,8 +187,17 @@ cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, con
     cdef double result
     _check_tour(tour)
     _check_square(C, n, "C")
-    if max_time != INFINITY:
-        _check_square(T, n, "T")
+    # The three branches of the inline ``problem_cost``, spelled out so that the plain and greedy
+    # paths (RoutingProblem.evaluate's default) pay no heap round-trip for scratch they never read.
+    if max_time == INFINITY:
+        with nogil:
+            result = tour_cost(C, tour)
+        return result
+    _check_square(T, n, "T")
+    if split == SPLIT_GREEDY:
+        with nogil:
+            result = greedy_split_cost(C, T, tour, max_time, fixed_cost)
+        return result
     dp_buf = <double*> malloc(n * sizeof(double))
     if dp_buf == NULL:
         raise MemoryError()
@@ -196,7 +209,7 @@ cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, con
         dp = <double[:n]> dp_buf
         pred = <int64_t[:n]> pred_buf
         with nogil:
-            result = problem_cost(C, T, tour, max_time, fixed_cost, split, dp, pred)
+            result = optimal_split_cost(C, T, tour, max_time, fixed_cost, dp, pred)
     finally:
         free(dp_buf)
         free(pred_buf)
@@ -239,8 +252,9 @@ cpdef Py_ssize_t trip_starts(const double[:, ::1] T, const int64_t[::1] tour, do
     Raises
     ------
     ValueError
-        If ``out`` is shorter than ``n + 1``, if a matrix is not ``(n, n)``, or if the
-        optimal split has no feasible partition (a node's round trip exceeds ``max_time``).
+        If ``tour`` has fewer than two nodes, if ``out`` is shorter than ``n + 1``, if a
+        matrix is not ``(n, n)``, or if the optimal split has no feasible partition (a node's
+        round trip exceeds ``max_time``).
     MemoryError
         If the optimal split's scratch allocation fails.
 
@@ -1218,7 +1232,7 @@ def greedy_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const i
     Raises
     ------
     ValueError
-        If ``C`` or ``T`` is not ``(n, n)`` or ``tour`` is empty.
+        If ``C`` or ``T`` is not ``(n, n)`` or ``tour`` has fewer than two nodes.
     """
     _check_tour(tour)
     _check_square(C, tour.shape[0], "C")
@@ -1254,7 +1268,7 @@ def optimal_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const 
     Raises
     ------
     ValueError
-        If ``C`` or ``T`` is not ``(n, n)`` or ``tour`` is empty.
+        If ``C`` or ``T`` is not ``(n, n)`` or ``tour`` has fewer than two nodes.
     MemoryError
         If the ``dp``/``pred`` scratch allocation fails.
 

@@ -41,6 +41,8 @@ cdef inline double greedy_split_cost(const double[:, ::1] C, const double[:, ::1
                                      double max_time, double fixed_cost) noexcept nogil:
     # Greedy decoder (D1): leg a->b joins the open trip iff t + T[a,b] + T[b,d] <= max_time,
     # else the trip closes at a and a new one opens d->b. Returns travel cost + (trips-1)*fixed_cost. O(n).
+    # At k == 0 the "closing" leg a->d is the depot's own diagonal entry (the first customer's round
+    # trip does not fit -- excluded by D5); it is skipped so that the diagonal is never read (§3.1).
     cdef Py_ssize_t k, n = tour.shape[0]
     cdef int64_t d = tour[0], a, b
     cdef int64_t trips = 1
@@ -52,7 +54,9 @@ cdef inline double greedy_split_cost(const double[:, ::1] C, const double[:, ::1
             t += T[a, b]
             cost += C[a, b]
         else:
-            cost += C[a, d] + C[d, b]
+            if k > 0:
+                cost += C[a, d]
+            cost += C[d, b]
             t = T[d, b]
             trips += 1
     cost += C[tour[n - 1], d]
@@ -76,14 +80,17 @@ cdef inline double problem_cost(const double[:, ::1] C, const double[:, ::1] T, 
     return optimal_split_cost(C, T, tour, max_time, fixed_cost, dp, pred)
 
 
-# Python entry point; holds the GIL, malloc/frees its own dp/pred scratch (MemoryError on failure).
-# NOT noexcept nogil. Used by RoutingProblem.evaluate and tests.
+# Python entry point; validates with the GIL held, malloc/frees its own dp/pred scratch for the optimal
+# split only (MemoryError on failure) and releases the GIL around the kernel call. NOT noexcept nogil.
+# Rejects tours shorter than 2 (a depot-only tour would read the diagonal). Used by
+# RoutingProblem.evaluate and tests.
 cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                              double max_time, double fixed_cost, int split)
 
 # writes out[0..k] (out[0] == 1, out[k] == n) and returns k = n_trips; out has length n + 1.
 # C and fixed_cost are needed only by the optimal split, for which it malloc/frees its own dp/pred
-# scratch while holding the GIL (NOT noexcept nogil, MemoryError on failure). Plain TSP -> k == 1.
+# scratch with the GIL held and releases the GIL around the DP (NOT noexcept nogil, MemoryError on
+# failure, ValueError when no partition is feasible). Plain TSP -> k == 1. Rejects tours shorter than 2.
 cpdef Py_ssize_t trip_starts(const double[:, ::1] T, const int64_t[::1] tour, double max_time, int split,
                              const double[:, ::1] C, double fixed_cost, int64_t[::1] out)
 

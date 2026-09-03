@@ -551,6 +551,70 @@ def test_descents_reset_the_bits_of_every_endpoint_of_an_applied_move(inst, max_
         assert all(dlb[v] == 0 for v in lost if v != a), (kernel, tour.tolist(), t.tolist(), dlb.tolist())
 
 
+@SETTINGS
+@given(instance_and_candidates(symmetric=True, with_time=True), st.sampled_from([1e12, -3.0, 1e-9, 7.5]))
+def test_kernels_never_read_the_diagonal(inst, diag):
+    """SPEC §3.1: every kernel gives bit-identical results whatever finite value sits on the diagonal
+    of C and T — including the greedy decoder on a D5-infeasible budget (first customer's round trip
+    too long), whose closing leg at the depot is the depot's own diagonal entry."""
+    C0, T0, tour, n, cand = inst["C"], inst["T"], inst["tour"], inst["n"], inst["cand"]
+    mt, fc, d = inst["max_time"], inst["fixed_cost"], int(tour[0])
+    C1, T1 = C0.copy(), T0.copy()
+    np.fill_diagonal(C1, diag)
+    np.fill_diagonal(T1, diag)
+    bad = 0.5 * (T0[d, tour[1]] + T0[tour[1], d])  # below the first customer's round trip
+
+    def run(C, T):
+        out = {
+            "tour": core.tour_cost_py(C, tour),
+            "greedy": core.greedy_split_cost_py(C, T, tour, mt, fc),
+            "optimal": core.optimal_split_cost_py(C, T, tour, mt, fc),
+            "greedy_infeasible": core.greedy_split_cost_py(C, T, tour, bad, fc),
+            "optimal_infeasible": core.optimal_split_cost_py(C, T, tour, bad, fc),
+            "problem": [
+                core.problem_cost_py(C, T, tour, m, fc, s) for m in (math.inf, mt, bad) for s in (GREEDY,)
+            ]
+            + [core.problem_cost_py(C, T, tour, mt, fc, OPTIMAL)],
+            "two_opt": [core.two_opt_delta_py(C, tour, i, j) for i, j in two_opt_pairs(n)],
+            "two_opt_asym": [core.two_opt_delta_asym_py(C, tour, i, j) for i, j in two_opt_pairs(n)],
+            "swap": [core.swap_delta_py(C, tour, i, j) for i, j in two_opt_pairs(n)],
+            "or_opt": [
+                core.or_opt_delta_py(C, tour, i, L, j, r)
+                for i, L, j in or_opt_moves(n)
+                for r in (False, True)
+            ],
+        }
+        for split in (GREEDY, OPTIMAL):
+            starts = np.full(n + 1, -1, dtype=np.int64)
+            k = core.trip_starts(T, tour, mt, split, C, fc, starts)
+            costs, times = np.empty(k), np.empty(k)
+            core.trip_costs(C, tour, starts[: k + 1], costs)
+            core.trip_times(T, tour, starts[: k + 1], times)
+            out[f"trips{split}"] = (k, starts.tolist(), costs.tolist(), times.tolist())
+        starts = np.full(n + 1, -1, dtype=np.int64)
+        out["trips_infeasible"] = (core.trip_starts(T, tour, bad, GREEDY, C, fc, starts), starts.tolist())
+        nn = np.empty(n, dtype=np.int64)
+        core.nearest_neighbour_tour(C, d, nn)
+        out["nn"] = nn.tolist()
+        for first in (True, False):
+            t, pos, dlb = descent_buffers(inst)
+            g = core.two_opt_descent(C, t, pos, cand, dlb, first, 1000)
+            out[f"two_opt_descent{first}"] = (g, t.tolist(), pos.tolist(), dlb.tolist())
+        t, pos, dlb = descent_buffers(inst)
+        g = core.or_opt_descent(C, t, pos, cand, dlb, 3, True, 1000)
+        out["or_opt_descent"] = (g, t.tolist(), pos.tolist(), dlb.tolist())
+        for m, split in ((math.inf, GREEDY), (mt, GREEDY), (mt, OPTIMAL)):
+            t, pos, _ = descent_buffers(inst)
+            scratch_tour, dp, pred = scratch(n)
+            g = core.local_search_generic(
+                C, T, t, pos, cand, m, fc, split, 7, 3, 1000, scratch_tour, dp, pred
+            )
+            out[f"generic{m}{split}"] = (g, t.tolist(), pos.tolist())
+        return out
+
+    assert run(C1, T1) == run(C0, T0)
+
+
 # ----------------------------------------------------------------------------- generic descent
 @SETTINGS
 @given(
@@ -749,6 +813,15 @@ def test_python_entry_points_validate_shapes_and_dtypes():
         core.trip_starts(C, tour, 3.0, GREEDY, C, 0.0, np.empty(4, dtype=np.int64))
     with pytest.raises(ValueError, match="at least the depot"):
         core.tour_cost_py(C, np.empty(0, dtype=np.int64))
+    # a depot-only tour is rejected too: tour_cost would read the diagonal and the two decoders of
+    # trip_starts used to disagree on it (greedy k = 1, out = [1, 1]; optimal k = 0)
+    for split in (GREEDY, OPTIMAL):
+        with pytest.raises(ValueError, match="at least the depot and one customer"):
+            core.trip_starts(
+                C[:1, :1], np.zeros(1, dtype=np.int64), 5.0, split, C[:1, :1], 0.0, np.empty(2, np.int64)
+            )
+    with pytest.raises(ValueError, match="at least the depot and one customer"):
+        core.problem_cost_py(C[:1, :1], C[:1, :1], np.zeros(1, dtype=np.int64), math.inf, 0.0, GREEDY)
     # typed memoryviews refuse other dtypes and non-contiguous layouts
     with pytest.raises((ValueError, TypeError)):
         core.tour_cost_py(C, tour.astype(np.int32))
