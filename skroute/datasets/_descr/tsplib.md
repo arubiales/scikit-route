@@ -12,12 +12,13 @@ with `EDGE_WEIGHT_TYPE: EUC_2D`.
   TSPLIB metric, never haversine).
 - `labels`: `int64 (n,)`, the file's 1-based ids; `depot` is the first label.
 - `edge_weight_type`: `"EUC_2D"`.
-- `optimal_tour_length`: $optimum -- the published optimum under the TSPLIB
-  `EUC_2D` metric (`nint(x) = floor(x + 0.5)` of the Euclidean distance);
-  `None` when the instance is subsampled with `n_nodes=` or `mode=`.
+- `optimal_tour_length`: $optimum -- $optimality, under the TSPLIB `EUC_2D`
+  metric (`nint(x) = floor(x + 0.5)` of the Euclidean distance); `None` when
+  the instance is subsampled with `n_nodes=` or `mode=`.
 - `distance_matrix(*, force=False)`: builds (once, cached) the `(n, n)`
   `float64` matrix with `skroute.preprocessing.distance_matrix(coords,
-  metric="tsplib_euc_2d")`; solvers reproduce the published optima on it.
+  metric="tsplib_euc_2d")`; the benchmarks compare every solver against
+  `optimal_tour_length` on it.
 
 ## Usage
 
@@ -29,6 +30,7 @@ $note
 ## Source and licence
 
 Data compiled by the University of Waterloo for the "National Traveling
-Salesman Problems" collection (https://www.math.uwaterloo.ca/tsp/world/countries.html),
+Salesman Problems" collection (https://www.math.uwaterloo.ca/tsp/world/countries.html;
+tour lengths and status from https://www.math.uwaterloo.ca/tsp/world/summary.html),
 derived from the National Imagery and Mapping Agency database of geographic
 feature names. Redistributed unchanged for research and teaching.

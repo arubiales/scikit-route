@@ -7,7 +7,7 @@ import inspect
 import string
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -64,35 +64,46 @@ _DESCR_DIR = _HERE / "_descr"
 #: Above this many nodes ``TSPBunch.distance_matrix`` refuses to build the dense matrix without ``force``.
 _MAX_DENSE_N = 20_000
 
-#: name -> (country, published optimal tour length under EUC_2D), ordered by size.
-_INSTANCES: dict[str, tuple[str, int]] = {
-    "wi29": ("Western Sahara", 27603),
-    "dj38": ("Djibouti", 6656),
-    "qa194": ("Qatar", 9352),
-    "uy734": ("Uruguay", 79114),
-    "zi929": ("Zimbabwe", 95345),
-    "lu980": ("Luxembourg", 11340),
-    "rw1621": ("Rwanda", 26051),
-    "mu1979": ("Oman", 86891),
-    "nu3496": ("Nicaragua", 96132),
-    "ca4663": ("Canada", 1290319),
-    "tz6117": ("Tanzania", 394718),
-    "eg7146": ("Egypt", 172386),
-    "ym7663": ("Yemen", 238314),
-    "pm8079": ("Panama", 114855),
-    "ei8246": ("Ireland", 206171),
-    "ar9152": ("Argentina", 837479),
-    "ja9847": ("Japan", 491924),
-    "gr9882": ("Greece", 300899),
-    "kz9976": ("Kazakhstan", 1061882),
-    "fi10639": ("Finland", 520527),
-    "mo14185": ("Morocco", 427377),
-    "ho14473": ("Honduras", 177092),
-    "it16862": ("Italy", 557315),
-    "vm22775": ("Vietnam", 569288),
-    "sw24978": ("Sweden", 855597),
-    "bm33708": ("Burma", 959289),
-    "ch71009": ("China", 4566563),
+
+class _Instance(NamedTuple):
+    country: str
+    #: Tour length published by Waterloo under ``EUC_2D``: the proven optimum unless ``gap`` is set.
+    tour_length: int
+    #: For the two instances still open (``bm33708``, ``ch71009``): the gap between the best-known tour
+    #: and Waterloo's lower bound. ``None`` when ``tour_length`` is proven optimal.
+    gap: str | None = None
+
+
+#: name -> instance, ordered by size. Values from Waterloo's status table
+#: https://www.math.uwaterloo.ca/tsp/world/summary.html (last updated 2022-07-31).
+_INSTANCES: dict[str, _Instance] = {
+    "wi29": _Instance("Western Sahara", 27603),
+    "dj38": _Instance("Djibouti", 6656),
+    "qa194": _Instance("Qatar", 9352),
+    "uy734": _Instance("Uruguay", 79114),
+    "zi929": _Instance("Zimbabwe", 95345),
+    "lu980": _Instance("Luxembourg", 11340),
+    "rw1621": _Instance("Rwanda", 26051),
+    "mu1979": _Instance("Oman", 86891),
+    "nu3496": _Instance("Nicaragua", 96132),
+    "ca4663": _Instance("Canada", 1290319),
+    "tz6117": _Instance("Tanzania", 394718),
+    "eg7146": _Instance("Egypt", 172386),
+    "ym7663": _Instance("Yemen", 238314),
+    "pm8079": _Instance("Panama", 114855),
+    "ei8246": _Instance("Ireland", 206171),
+    "ar9152": _Instance("Argentina", 837479),
+    "ja9847": _Instance("Japan", 491924),
+    "gr9882": _Instance("Greece", 300899),
+    "kz9976": _Instance("Kazakhstan", 1061881),
+    "fi10639": _Instance("Finland", 520527),
+    "mo14185": _Instance("Morocco", 427377),
+    "ho14473": _Instance("Honduras", 177092),
+    "it16862": _Instance("Italy", 557315),
+    "vm22775": _Instance("Vietnam", 569288),
+    "sw24978": _Instance("Sweden", 855597),
+    "bm33708": _Instance("Burma", 959289, gap="0.031 %"),
+    "ch71009": _Instance("China", 4566506, gap="0.024 %"),
 }
 
 _EWT_TO_METRIC = {
@@ -107,7 +118,7 @@ _LARGE_NOTE = """
 ## This instance cannot be solved whole in scikit-route 2.0
 
 scikit-route 2.0 evaluates every solution on a **dense** cost matrix, and the
-`(n, n)` `float64` matrix of $name would take about $gib GB. `distance_matrix()`
+`(n, n)` `float64` matrix of $name would take about $gb GB. `distance_matrix()`
 therefore refuses to build it (pass `force=True` if you really have the memory);
 work on a subsample instead, whose optimum is unknown (`optimal_tour_length is
 None`):
@@ -182,19 +193,31 @@ class TSPBunch(Bunch):
             for ``EUC_2D`` instances (the other TSPLIB coordinate types map to their
             ``tsplib_*`` metric). The same array object is returned on every call:
             copy it before modifying it.
+
+        Raises
+        ------
+        ValueError
+            Above 20 000 nodes without ``force``, or when ``edge_weight_type`` is not
+            one of ``EUC_2D``, ``CEIL_2D``, ``MAN_2D``, ``ATT``, ``GEO`` (never a
+            silent fall-back to the planar metric).
         """
         cached = self._distance_matrix
         if cached is not None:
             return cached
         n = int(np.asarray(self["coords"]).shape[0])
         if n > _MAX_DENSE_N and not force:
-            gib = n * n * 8 / 1024**3
+            gb = n * n * 8 / 1e9  # decimal GB, as everywhere in scikit-route (ch71009: 40 GB)
             raise ValueError(
-                f"{self['name']} has {n} nodes: its dense float64 distance matrix needs {gib:.1f} GiB. "
+                f"{self['name']} has {n} nodes: its dense float64 distance matrix needs {gb:.1f} GB. "
                 f"Subsample with load_tsp({self['name']!r}, n_nodes=...) or pass force=True."
             )
-        metric = _EWT_TO_METRIC.get(str(self["edge_weight_type"]), "tsplib_euc_2d")
-        matrix = distance_matrix(self["coords"], metric=metric)
+        ewt = str(self["edge_weight_type"]).upper()
+        if ewt not in _EWT_TO_METRIC:
+            raise ValueError(
+                f"edge_weight_type {self['edge_weight_type']!r} has no tsplib_* metric; "
+                f"TSPBunch.distance_matrix supports {list(_EWT_TO_METRIC)}"
+            )
+        matrix = distance_matrix(self["coords"], metric=_EWT_TO_METRIC[ewt])
         self._distance_matrix = matrix
         return matrix
 
@@ -247,20 +270,25 @@ def load_tsp(
         With ``name``, ``coords`` (``float64 (n, 2)``, ``x``/``y`` as in the file),
         ``labels`` (``int64``, the file's 1-based ids), ``depot`` (the first label,
         ``1``), ``edge_weight_type`` (``"EUC_2D"`` for all 27), ``optimal_tour_length``
-        (the published optimum, ``None`` when subsampled), ``DESCR``, and the cached
-        method ``distance_matrix(*, force=False)``. The matrix is never built by the
-        loader.
+        (the tour length published by Waterloo: the proven optimum, except for
+        ``bm33708`` and ``ch71009`` where it is the best-known tour; ``None`` when
+        subsampled), ``DESCR``, and the cached method ``distance_matrix(*, force=False)``.
+        The matrix is never built by the loader.
 
     Notes
     -----
     The four instances above 20 000 nodes (``vm22775``, ``sw24978``, ``bm33708``,
     ``ch71009``) cannot be solved whole in 2.0 (dense matrices only); their
-    ``DESCR`` says so and shows ``load_tsp(name, n_nodes=5000)``.
+    ``DESCR`` says so and shows ``load_tsp(name, n_nodes=5000)``. ``bm33708`` and
+    ``ch71009`` are still open problems: their ``optimal_tour_length`` is the
+    best-known tour, within 0.031 % and 0.024 % of Waterloo's lower bound, and the
+    ``DESCR`` says so too.
 
     References
     ----------
     W. Cook et al., *National Traveling Salesman Problems*, University of Waterloo,
-    https://www.math.uwaterloo.ca/tsp/world/countries.html
+    https://www.math.uwaterloo.ca/tsp/world/countries.html; status table at
+    https://www.math.uwaterloo.ca/tsp/world/summary.html
 
     Examples
     --------
@@ -274,7 +302,8 @@ def load_tsp(
     """
     if name not in _INSTANCES:
         raise ValueError(f"unknown instance {name!r}; available: {', '.join(_INSTANCES)}")
-    country, optimum = _INSTANCES[name]
+    instance = _INSTANCES[name]
+    country, optimum = instance.country, instance.tour_length
     raw = read_tsplib(_TSPLIB_DIR / f"{name}.tsp")
     coords: NDArray[np.float64] = raw.coords
     labels: NDArray[np.int64] = raw.labels
@@ -308,10 +337,19 @@ def load_tsp(
             subsampled = True
 
     if n > _MAX_DENSE_N:
-        note = string.Template(_LARGE_NOTE).safe_substitute(name=name, gib=f"{n * n * 8 / 1024**3:.0f}")
+        note = string.Template(_LARGE_NOTE).safe_substitute(name=name, gb=f"{n * n * 8 / 1e9:.0f}")
     else:
         note = ""
-    descr = _read_descr("tsplib", name=name, country=country, n=n, optimum=optimum, note=note)
+    if instance.gap is None:
+        optimality = "the proven optimal tour length published by the University of Waterloo"
+    else:
+        optimality = (
+            "the length of the best-known tour published by the University of Waterloo, within "
+            f"{instance.gap} of its lower bound and **not proven optimal**"
+        )
+    descr = _read_descr(
+        "tsplib", name=name, country=country, n=n, optimum=optimum, optimality=optimality, note=note
+    )
     if subsampled:
         descr += (
             f"\n## Subsample\n\nThis Bunch holds {coords.shape[0]} of the {n} cities (`n_nodes=`); "
@@ -330,10 +368,12 @@ def load_tsp(
 
 
 # --------------------------------------------------------------------------- country wrappers
-# One-line wrappers of load_tsp with the exact 1.0 names; **kwargs = n_nodes, random_state, mode.
+# One-line wrappers of load_tsp with the exact 1.0 names; **kwargs = n_nodes, random_state. ``mode`` is
+# spelled out so that it may also be positional, as in 1.0 (``load_qatar("small")``): that call then
+# reaches load_tsp's DeprecationWarning instead of dying with an opaque TypeError.
 
 
-def load_sahara(**kwargs: Any) -> TSPBunch:
+def load_sahara(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Western Sahara, ``wi29`` (29 cities, optimum 27603); ``load_tsp("wi29", **kwargs)``.
 
     Examples
@@ -343,10 +383,10 @@ def load_sahara(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('wi29', 29, 27603)
     """
-    return load_tsp("wi29", **kwargs)
+    return load_tsp("wi29", mode=mode, **kwargs)
 
 
-def load_djibouti(**kwargs: Any) -> TSPBunch:
+def load_djibouti(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Djibouti, ``dj38`` (38 cities, optimum 6656); ``load_tsp("dj38", **kwargs)``.
 
     Examples
@@ -356,10 +396,10 @@ def load_djibouti(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('dj38', 38, 6656)
     """
-    return load_tsp("dj38", **kwargs)
+    return load_tsp("dj38", mode=mode, **kwargs)
 
 
-def load_qatar(**kwargs: Any) -> TSPBunch:
+def load_qatar(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Qatar, ``qa194`` (194 cities, optimum 9352); ``load_tsp("qa194", **kwargs)``.
 
     Examples
@@ -369,10 +409,10 @@ def load_qatar(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('qa194', 194, 9352)
     """
-    return load_tsp("qa194", **kwargs)
+    return load_tsp("qa194", mode=mode, **kwargs)
 
 
-def load_uruguay(**kwargs: Any) -> TSPBunch:
+def load_uruguay(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Uruguay, ``uy734`` (734 cities, optimum 79114); ``load_tsp("uy734", **kwargs)``.
 
     Examples
@@ -382,10 +422,10 @@ def load_uruguay(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('uy734', 734, 79114)
     """
-    return load_tsp("uy734", **kwargs)
+    return load_tsp("uy734", mode=mode, **kwargs)
 
 
-def load_zimbabwe(**kwargs: Any) -> TSPBunch:
+def load_zimbabwe(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Zimbabwe, ``zi929`` (929 cities, optimum 95345); ``load_tsp("zi929", **kwargs)``.
 
     Examples
@@ -395,10 +435,10 @@ def load_zimbabwe(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('zi929', 929, 95345)
     """
-    return load_tsp("zi929", **kwargs)
+    return load_tsp("zi929", mode=mode, **kwargs)
 
 
-def load_luxembourg(**kwargs: Any) -> TSPBunch:
+def load_luxembourg(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Luxembourg, ``lu980`` (980 cities, optimum 11340); ``load_tsp("lu980", **kwargs)``.
 
     Examples
@@ -408,10 +448,10 @@ def load_luxembourg(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('lu980', 980, 11340)
     """
-    return load_tsp("lu980", **kwargs)
+    return load_tsp("lu980", mode=mode, **kwargs)
 
 
-def load_rwanda(**kwargs: Any) -> TSPBunch:
+def load_rwanda(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Rwanda, ``rw1621`` (1621 cities, optimum 26051); ``load_tsp("rw1621", **kwargs)``.
 
     Examples
@@ -421,10 +461,10 @@ def load_rwanda(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('rw1621', 1621, 26051)
     """
-    return load_tsp("rw1621", **kwargs)
+    return load_tsp("rw1621", mode=mode, **kwargs)
 
 
-def load_oman(**kwargs: Any) -> TSPBunch:
+def load_oman(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Oman, ``mu1979`` (1979 cities, optimum 86891); ``load_tsp("mu1979", **kwargs)``.
 
     Examples
@@ -434,10 +474,10 @@ def load_oman(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('mu1979', 1979, 86891)
     """
-    return load_tsp("mu1979", **kwargs)
+    return load_tsp("mu1979", mode=mode, **kwargs)
 
 
-def load_nicaragua(**kwargs: Any) -> TSPBunch:
+def load_nicaragua(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Nicaragua, ``nu3496`` (3496 cities, optimum 96132); ``load_tsp("nu3496", **kwargs)``.
 
     Examples
@@ -447,10 +487,10 @@ def load_nicaragua(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('nu3496', 3496, 96132)
     """
-    return load_tsp("nu3496", **kwargs)
+    return load_tsp("nu3496", mode=mode, **kwargs)
 
 
-def load_canada(**kwargs: Any) -> TSPBunch:
+def load_canada(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Canada, ``ca4663`` (4663 cities, optimum 1290319); ``load_tsp("ca4663", **kwargs)``.
 
     Examples
@@ -460,10 +500,10 @@ def load_canada(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ca4663', 4663, 1290319)
     """
-    return load_tsp("ca4663", **kwargs)
+    return load_tsp("ca4663", mode=mode, **kwargs)
 
 
-def load_tanzania(**kwargs: Any) -> TSPBunch:
+def load_tanzania(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Tanzania, ``tz6117`` (6117 cities, optimum 394718); ``load_tsp("tz6117", **kwargs)``.
 
     Examples
@@ -473,10 +513,10 @@ def load_tanzania(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('tz6117', 6117, 394718)
     """
-    return load_tsp("tz6117", **kwargs)
+    return load_tsp("tz6117", mode=mode, **kwargs)
 
 
-def load_egypt(**kwargs: Any) -> TSPBunch:
+def load_egypt(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Egypt, ``eg7146`` (7146 cities, optimum 172386); ``load_tsp("eg7146", **kwargs)``.
 
     Examples
@@ -486,10 +526,10 @@ def load_egypt(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('eg7146', 7146, 172386)
     """
-    return load_tsp("eg7146", **kwargs)
+    return load_tsp("eg7146", mode=mode, **kwargs)
 
 
-def load_yemen(**kwargs: Any) -> TSPBunch:
+def load_yemen(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Yemen, ``ym7663`` (7663 cities, optimum 238314); ``load_tsp("ym7663", **kwargs)``.
 
     Examples
@@ -499,10 +539,10 @@ def load_yemen(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ym7663', 7663, 238314)
     """
-    return load_tsp("ym7663", **kwargs)
+    return load_tsp("ym7663", mode=mode, **kwargs)
 
 
-def load_panama(**kwargs: Any) -> TSPBunch:
+def load_panama(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Panama, ``pm8079`` (8079 cities, optimum 114855); ``load_tsp("pm8079", **kwargs)``.
 
     Examples
@@ -512,10 +552,10 @@ def load_panama(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('pm8079', 8079, 114855)
     """
-    return load_tsp("pm8079", **kwargs)
+    return load_tsp("pm8079", mode=mode, **kwargs)
 
 
-def load_ireland(**kwargs: Any) -> TSPBunch:
+def load_ireland(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Ireland, ``ei8246`` (8246 cities, optimum 206171); ``load_tsp("ei8246", **kwargs)``.
 
     Examples
@@ -525,10 +565,10 @@ def load_ireland(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ei8246', 8246, 206171)
     """
-    return load_tsp("ei8246", **kwargs)
+    return load_tsp("ei8246", mode=mode, **kwargs)
 
 
-def load_argentina(**kwargs: Any) -> TSPBunch:
+def load_argentina(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Argentina, ``ar9152`` (9152 cities, optimum 837479); ``load_tsp("ar9152", **kwargs)``.
 
     Examples
@@ -538,10 +578,10 @@ def load_argentina(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ar9152', 9152, 837479)
     """
-    return load_tsp("ar9152", **kwargs)
+    return load_tsp("ar9152", mode=mode, **kwargs)
 
 
-def load_japan(**kwargs: Any) -> TSPBunch:
+def load_japan(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Japan, ``ja9847`` (9847 cities, optimum 491924); ``load_tsp("ja9847", **kwargs)``.
 
     Examples
@@ -551,10 +591,10 @@ def load_japan(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ja9847', 9847, 491924)
     """
-    return load_tsp("ja9847", **kwargs)
+    return load_tsp("ja9847", mode=mode, **kwargs)
 
 
-def load_greece(**kwargs: Any) -> TSPBunch:
+def load_greece(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Greece, ``gr9882`` (9882 cities, optimum 300899); ``load_tsp("gr9882", **kwargs)``.
 
     Examples
@@ -564,23 +604,23 @@ def load_greece(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('gr9882', 9882, 300899)
     """
-    return load_tsp("gr9882", **kwargs)
+    return load_tsp("gr9882", mode=mode, **kwargs)
 
 
-def load_kazakhstan(**kwargs: Any) -> TSPBunch:
-    """Kazakhstan, ``kz9976`` (9976 cities, optimum 1061882); ``load_tsp("kz9976", **kwargs)``.
+def load_kazakhstan(mode: str | None = None, **kwargs: Any) -> TSPBunch:
+    """Kazakhstan, ``kz9976`` (9976 cities, optimum 1061881); ``load_tsp("kz9976", **kwargs)``.
 
     Examples
     --------
     >>> from skroute.datasets import load_kazakhstan
     >>> b = load_kazakhstan()
     >>> b.name, len(b.labels), b.optimal_tour_length
-    ('kz9976', 9976, 1061882)
+    ('kz9976', 9976, 1061881)
     """
-    return load_tsp("kz9976", **kwargs)
+    return load_tsp("kz9976", mode=mode, **kwargs)
 
 
-def load_finland(**kwargs: Any) -> TSPBunch:
+def load_finland(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Finland, ``fi10639`` (10639 cities, optimum 520527); ``load_tsp("fi10639", **kwargs)``.
 
     Examples
@@ -590,10 +630,10 @@ def load_finland(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('fi10639', 10639, 520527)
     """
-    return load_tsp("fi10639", **kwargs)
+    return load_tsp("fi10639", mode=mode, **kwargs)
 
 
-def load_morocco(**kwargs: Any) -> TSPBunch:
+def load_morocco(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Morocco, ``mo14185`` (14185 cities, optimum 427377); ``load_tsp("mo14185", **kwargs)``.
 
     Examples
@@ -603,10 +643,10 @@ def load_morocco(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('mo14185', 14185, 427377)
     """
-    return load_tsp("mo14185", **kwargs)
+    return load_tsp("mo14185", mode=mode, **kwargs)
 
 
-def load_honduras(**kwargs: Any) -> TSPBunch:
+def load_honduras(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Honduras, ``ho14473`` (14473 cities, optimum 177092); ``load_tsp("ho14473", **kwargs)``.
 
     Examples
@@ -616,10 +656,10 @@ def load_honduras(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ho14473', 14473, 177092)
     """
-    return load_tsp("ho14473", **kwargs)
+    return load_tsp("ho14473", mode=mode, **kwargs)
 
 
-def load_italy(**kwargs: Any) -> TSPBunch:
+def load_italy(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Italy, ``it16862`` (16862 cities, optimum 557315); ``load_tsp("it16862", **kwargs)``.
 
     Examples
@@ -629,10 +669,10 @@ def load_italy(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('it16862', 16862, 557315)
     """
-    return load_tsp("it16862", **kwargs)
+    return load_tsp("it16862", mode=mode, **kwargs)
 
 
-def load_vietnam(**kwargs: Any) -> TSPBunch:
+def load_vietnam(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Vietnam, ``vm22775`` (22775 cities, optimum 569288); ``load_tsp("vm22775", **kwargs)``.
 
     Above the 20 000-node dense-matrix ceiling of 2.0: subsample with ``n_nodes=``.
@@ -644,10 +684,10 @@ def load_vietnam(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('vm22775', 5000, None)
     """
-    return load_tsp("vm22775", **kwargs)
+    return load_tsp("vm22775", mode=mode, **kwargs)
 
 
-def load_sweden(**kwargs: Any) -> TSPBunch:
+def load_sweden(mode: str | None = None, **kwargs: Any) -> TSPBunch:
     """Sweden, ``sw24978`` (24978 cities, optimum 855597); ``load_tsp("sw24978", **kwargs)``.
 
     Above the 20 000-node dense-matrix ceiling of 2.0: subsample with ``n_nodes=``.
@@ -659,13 +699,15 @@ def load_sweden(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('sw24978', 5000, None)
     """
-    return load_tsp("sw24978", **kwargs)
+    return load_tsp("sw24978", mode=mode, **kwargs)
 
 
-def load_burma(**kwargs: Any) -> TSPBunch:
-    """Burma, ``bm33708`` (33708 cities, optimum 959289); ``load_tsp("bm33708", **kwargs)``.
+def load_burma(mode: str | None = None, **kwargs: Any) -> TSPBunch:
+    """Burma, ``bm33708`` (33708 cities, best-known tour 959289); ``load_tsp("bm33708", **kwargs)``.
 
-    Above the 20 000-node dense-matrix ceiling of 2.0: subsample with ``n_nodes=``.
+    Above the 20 000-node dense-matrix ceiling of 2.0: subsample with ``n_nodes=``. Still an
+    open problem: ``optimal_tour_length`` is the best-known tour (within 0.031 % of the lower
+    bound), not a proven optimum.
 
     Examples
     --------
@@ -674,13 +716,15 @@ def load_burma(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('bm33708', 5000, None)
     """
-    return load_tsp("bm33708", **kwargs)
+    return load_tsp("bm33708", mode=mode, **kwargs)
 
 
-def load_china(**kwargs: Any) -> TSPBunch:
-    """China, ``ch71009`` (71009 cities, optimum 4566563); ``load_tsp("ch71009", **kwargs)``.
+def load_china(mode: str | None = None, **kwargs: Any) -> TSPBunch:
+    """China, ``ch71009`` (71009 cities, best-known tour 4566506); ``load_tsp("ch71009", **kwargs)``.
 
-    Above the 20 000-node dense-matrix ceiling of 2.0: subsample with ``n_nodes=``.
+    Above the 20 000-node dense-matrix ceiling of 2.0: subsample with ``n_nodes=``. Still an
+    open problem: ``optimal_tour_length`` is the best-known tour (within 0.024 % of the lower
+    bound), not a proven optimum.
 
     Examples
     --------
@@ -689,7 +733,7 @@ def load_china(**kwargs: Any) -> TSPBunch:
     >>> b.name, len(b.labels), b.optimal_tour_length
     ('ch71009', 5000, None)
     """
-    return load_tsp("ch71009", **kwargs)
+    return load_tsp("ch71009", mode=mode, **kwargs)
 
 
 # --------------------------------------------------------------------------- cost data sets
@@ -961,6 +1005,11 @@ def load_qatar_costs(*, as_frame: bool = False) -> Bunch:
     -----
     In 1.0 ``load_costs_qatar()`` returned the Valencia table; that name survives as a
     deprecated alias of this function.
+
+    The source table records the pair ``(104, 111)`` as 0 m / 0 s although the two
+    places are about 4 km apart, so ``cost``, ``time`` and ``distance`` each hold one
+    zero off the diagonal (the Spanish tables have none). It is kept as in the source;
+    fill it (e.g. with the haversine distance) if your use needs positive legs.
 
     Examples
     --------

@@ -36,7 +36,7 @@ def coerce_matrix(M: Any, name: str) -> tuple[np.ndarray, np.ndarray | None]:
         The coerced matrix.
     labels : ndarray of shape (n,) or None
         Labels carried by ``M`` (DataFrame index, dict keys) coerced with
-        :func:`coerce_labels`; ``None`` for a plain array.
+        ``coerce_labels``; ``None`` for a plain array.
 
     Raises
     ------
@@ -80,7 +80,7 @@ def coerce_labels(seq: Any, n: int) -> np.ndarray:
 
     The label dtype is ALWAYS ``int64`` or ``object``, whatever the input path
     (ndarray + ``labels=``, DataFrame index, dict keys), so ``tour_``, ``labels_``
-    and ``depot_`` compare equal across paths and :func:`numpy.array_equal` never
+    and ``depot_`` compare equal across paths and ``numpy.array_equal`` never
     mixes kinds. Integer-like labels (numpy or Python ints, never bool) become
     ``int64``; anything else (strings, mixed, tuples) becomes ``object``
     (``np.asarray(["a", "b"])`` would give ``'<U1'`` and a DataFrame index
@@ -102,7 +102,7 @@ def coerce_labels(seq: Any, n: int) -> np.ndarray:
     ValueError
         If ``seq`` does not hold exactly ``n`` unique items.
     TypeError
-        If an item is unhashable (raised by :class:`set`).
+        If an item is unhashable (raised by ``set``).
 
     Examples
     --------
@@ -125,12 +125,12 @@ def coerce_labels(seq: Any, n: int) -> np.ndarray:
 
 
 def check_random_state(seed: Any) -> np.random.Generator:
-    """Turn ``seed`` into a :class:`numpy.random.Generator`.
+    """Turn ``seed`` into a ``numpy.random.Generator``.
 
     Parameters
     ----------
     seed : None, int or numpy.random.Generator
-        ``None`` or an integer are passed to :func:`numpy.random.default_rng`; a
+        ``None`` or an integer are passed to ``numpy.random.default_rng``; a
         ``Generator`` is returned as is (and is therefore advanced by the fit that
         uses it). The legacy ``RandomState`` is not accepted.
 
@@ -160,10 +160,10 @@ def check_random_state(seed: Any) -> np.random.Generator:
 
 
 def check_is_fitted(estimator: Any) -> None:
-    """Raise :class:`~skroute.exceptions.NotFittedError` unless ``estimator`` has been fitted.
+    """Raise [`NotFittedError`][skroute.exceptions.NotFittedError] unless ``estimator`` has been fitted.
 
     An estimator is fitted when it carries the ``cost_`` attribute, which
-    :meth:`~skroute.base.BaseRouter.fit` sets last.
+    [`fit`][skroute.base.BaseRouter.fit] sets last.
 
     Parameters
     ----------

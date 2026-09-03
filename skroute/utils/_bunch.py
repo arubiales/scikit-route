@@ -8,7 +8,7 @@ __all__ = ["Bunch"]
 class Bunch(dict):
     """Container object exposing keys as attributes.
 
-    ``Bunch`` extends :class:`dict` so that values can be accessed either with
+    ``Bunch`` extends ``dict`` so that values can be accessed either with
     ``b["key"]`` or ``b.key``. Setting an attribute stores a key.
 
     Examples

@@ -12,13 +12,20 @@
 # the successor of position n-1 is position 0; the diagonal is never read.
 #
 # ``noexcept nogil`` applies to every function except ``problem_cost_py`` and ``trip_starts``:
-# those two hold the GIL and malloc/free their own dp/pred scratch for the optimal split
-# (MemoryError on failure).
+# those two validate their arguments and malloc/free their own dp/pred scratch for the optimal
+# split with the GIL held (MemoryError on failure), then release the GIL around the kernel call
+# (amendment of 2026-09-03), so concurrent callers do not serialise on them.
 from libc.math cimport INFINITY
 from libc.stdint cimport int64_t, uint8_t
 
 
 cpdef enum SplitRule:          # Python: _routing.SplitRule.SPLIT_GREEDY / .SPLIT_OPTIMAL (IntEnum)
+    """Decoder of a giant tour into trips (SPEC D1): ``SPLIT_GREEDY`` (0) or ``SPLIT_OPTIMAL`` (1).
+
+    Reached from Python as the ``IntEnum`` class ``_routing.SplitRule``; its members are not
+    module attributes. C code compares an ``int split`` argument against the two values
+    (``problem_cost`` dispatches on ``split == SPLIT_GREEDY``, anything else is the optimal split).
+    """
     SPLIT_GREEDY = 0
     SPLIT_OPTIMAL = 1
 
@@ -41,6 +48,8 @@ cdef inline double greedy_split_cost(const double[:, ::1] C, const double[:, ::1
                                      double max_time, double fixed_cost) noexcept nogil:
     # Greedy decoder (D1): leg a->b joins the open trip iff t + T[a,b] + T[b,d] <= max_time,
     # else the trip closes at a and a new one opens d->b. Returns travel cost + (trips-1)*fixed_cost. O(n).
+    # At k == 0 the "closing" leg a->d is the depot's own diagonal entry (the first customer's round
+    # trip does not fit -- excluded by D5); it is skipped so that the diagonal is never read (§3.1).
     cdef Py_ssize_t k, n = tour.shape[0]
     cdef int64_t d = tour[0], a, b
     cdef int64_t trips = 1
@@ -52,7 +61,9 @@ cdef inline double greedy_split_cost(const double[:, ::1] C, const double[:, ::1
             t += T[a, b]
             cost += C[a, b]
         else:
-            cost += C[a, d] + C[d, b]
+            if k > 0:
+                cost += C[a, d]
+            cost += C[d, b]
             t = T[d, b]
             trips += 1
     cost += C[tour[n - 1], d]
@@ -76,14 +87,17 @@ cdef inline double problem_cost(const double[:, ::1] C, const double[:, ::1] T, 
     return optimal_split_cost(C, T, tour, max_time, fixed_cost, dp, pred)
 
 
-# Python entry point; holds the GIL, malloc/frees its own dp/pred scratch (MemoryError on failure).
-# NOT noexcept nogil. Used by RoutingProblem.evaluate and tests.
+# Python entry point; validates with the GIL held, malloc/frees its own dp/pred scratch for the optimal
+# split only (MemoryError on failure) and releases the GIL around the kernel call. NOT noexcept nogil.
+# Rejects tours shorter than 2 (a depot-only tour would read the diagonal). Used by
+# RoutingProblem.evaluate and tests.
 cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                              double max_time, double fixed_cost, int split)
 
 # writes out[0..k] (out[0] == 1, out[k] == n) and returns k = n_trips; out has length n + 1.
 # C and fixed_cost are needed only by the optimal split, for which it malloc/frees its own dp/pred
-# scratch while holding the GIL (NOT noexcept nogil, MemoryError on failure). Plain TSP -> k == 1.
+# scratch with the GIL held and releases the GIL around the DP (NOT noexcept nogil, MemoryError on
+# failure, ValueError when no partition is feasible). Plain TSP -> k == 1. Rejects tours shorter than 2.
 cpdef Py_ssize_t trip_starts(const double[:, ::1] T, const int64_t[::1] tour, double max_time, int split,
                              const double[:, ::1] C, double fixed_cost, int64_t[::1] out)
 
@@ -218,7 +232,16 @@ cpdef void rebuild_pos(const int64_t[::1] tour, int64_t[::1] pos) noexcept nogil
 # optimum for this move, nothing changed". A pass = one sweep over the nodes whose don't-look bit is active.
 # cand: int64 (n, k) candidate lists from RoutingProblem.neighbours(k); dont_look: uint8[n] (0 = active).
 # Both use Bentley's neighbour-list scan with the pruning `C[a, succ(a)] > C[a, c]` and reset the
-# don't-look bits of the touched endpoints on improvement. Stop at a local optimum or after max_passes.
+# don't-look bits of the touched endpoints on improvement (the four endpoints of a reversal, the six of
+# a segment move: both ends of the three removed edges). Stop at a local optimum or after max_passes.
+# "Local optimum" is the neighbour-list / don't-look-bit one: a move is found only from a node whose
+# bit is active and whose new edge is shorter than its removed edge, and bits are reset only for the
+# touched endpoints, so a node whose bit is set may miss a move that a later change elsewhere made
+# available. With full lists, clearing the bits before every pass makes two_opt_descent an exact
+# 2-opt local optimum; or_opt_descent additionally never scans from the two nodes whose gap closes
+# (p, q), so it may stop short of a full Or-opt optimum even then. or_opt_descent examines, for an
+# active node a, the segments starting and ending at a (a as a segment end) and the segments starting
+# or ending at a's candidates inserted next to a (a as the insertion anchor, the depot included).
 # The pos/cand/dont_look buffers are caller-owned and persist across calls (LocalSearch calls with
 # max_passes=1).
 

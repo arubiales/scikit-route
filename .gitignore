@@ -24,3 +24,4 @@ _*.html
 .hypothesis/
 coverage.xml
 htmlcov/
+docs/user_guide/_capability_table.md

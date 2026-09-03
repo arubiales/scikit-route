@@ -17,6 +17,9 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from skroute.utils import Bunch
+from skroute.utils.validation import coerce_labels
+
+from ._convert import _as_label_list
 
 __all__ = ["CostScraper", "GoogleDistanceMatrix"]
 
@@ -57,8 +60,9 @@ class GoogleDistanceMatrix:
     ``pip install scikit-route[google]``. Progress is logged to the ``skroute`` logger
     at INFO (one record per request); enable it with
     ``logging.basicConfig(level=logging.INFO)`` or ``skroute.set_log_level("INFO")``.
-    Elements the API cannot route (``status != "OK"``) become ``nan`` and are logged
-    at WARNING; complete them before solving (every solver needs finite matrices).
+    Elements the API cannot route (``status != "OK"``, or an ``"OK"`` element without
+    a ``distance`` or ``duration`` value) become ``nan`` and are logged at WARNING;
+    complete them before solving (every solver needs finite matrices).
 
     Examples
     --------
@@ -93,22 +97,28 @@ class GoogleDistanceMatrix:
         coords : array-like of shape (n, 2)
             ``(latitude, longitude)`` in decimal degrees.
         labels : sequence of length n, optional
-            Node labels for the returned ``labels`` field; defaults to ``0..n-1``.
+            Unique node labels for the returned ``labels`` field; defaults to ``0..n-1``.
 
         Returns
         -------
         Bunch
             ``distance`` (metres) and ``time`` (hours) as ``float64 (n, n)`` arrays,
-            ``labels`` (``ndarray``) and ``units == {"distance": "m", "time": "h"}``.
-            The matrices are directional (Google's durations are not symmetric).
+            ``labels`` (``int64`` when every label is an integer, ``object`` otherwise
+            -- the rule of :func:`skroute.utils.validation.coerce_labels`) and
+            ``units == {"distance": "m", "time": "h"}``. The matrices are directional
+            (Google's durations are not symmetric).
         """
         xy = np.asarray(coords, dtype=np.float64)
         if xy.ndim != 2 or xy.shape[1] != 2:
             raise ValueError(f"coords must have shape (n, 2); got {xy.shape}")
         n = xy.shape[0]
-        lab = np.arange(n) if labels is None else np.asarray(labels)
-        if lab.shape != (n,):
-            raise ValueError(f"labels must have length {n}; got shape {lab.shape}")
+        if labels is None:
+            lab = np.arange(n, dtype=np.int64)
+        else:
+            items = _as_label_list(labels)
+            if len(items) != n:
+                raise ValueError(f"labels must have length {n}; got {len(items)}")
+            lab = coerce_labels(items, n)
 
         points = [(float(lat), float(lon)) for lat, lon in xy]
         distance = np.full((n, n), np.nan, dtype=np.float64)
@@ -167,8 +177,28 @@ class GoogleDistanceMatrix:
             for c, element in enumerate(row.get("elements", [])[: j1 - j0]):
                 if element.get("status") != "OK":
                     continue
-                distance[i0 + r, j0 + c] = float(element["distance"]["value"])
-                time[i0 + r, j0 + c] = float(element["duration"]["value"]) / 3600.0
+                metres = _element_value(element, "distance")
+                seconds = _element_value(element, "duration")
+                if metres is None or seconds is None:
+                    # An "OK" element without both values is unroutable for us: a KeyError here would
+                    # abort fetch() after the quota of the previous requests has been spent.
+                    _log.warning(
+                        "GoogleDistanceMatrix: element [%d, %d] has status OK but no distance/duration value",
+                        i0 + r,
+                        j0 + c,
+                    )
+                    continue
+                distance[i0 + r, j0 + c] = metres
+                time[i0 + r, j0 + c] = seconds / 3600.0
+
+
+def _element_value(element: dict[str, Any], key: str) -> float | None:
+    """``element[key]["value"]`` as a float, or ``None`` when absent or not a number."""
+    field = element.get(key)
+    value = field.get("value") if isinstance(field, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+        return None
+    return float(value)
 
 
 class CostScraper:

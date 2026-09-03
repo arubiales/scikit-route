@@ -74,7 +74,8 @@ def greedy_split(C, T, tour, max_time, fixed_cost):
             t += T[a, b]
             cost += C[a, b]
         else:
-            cost += C[a, d] + C[d, b]
+            # close the trip at a (nothing to add when a is the depot itself: never read the diagonal)
+            cost += (C[a, d] if k > 0 else 0.0) + C[d, b]
             t = T[d, b]
             starts.append(k + 1)
     cost += C[tour[n - 1], d]

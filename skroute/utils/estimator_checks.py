@@ -3,7 +3,7 @@
 ``check_router(estimator)`` takes an **unfitted instance**, builds its own small instances
 (n = 6 symmetric Euclidean with coordinates, n = 6 asymmetric, n = 3 and n = 4 symmetric and
 asymmetric, n = 12 and n = 40 for reproducibility, and the Alicante multi-trip bunch from
-:mod:`skroute.datasets`) and runs the structural checks 1-11 and 13 of §6. Every sub-check is a
+``skroute.datasets``) and runs the structural checks 1-11 and 13 of §6. Every sub-check is a
 separately callable function ``fn(estimator)`` that raises ``AssertionError`` prefixed with its
 check number; ``check_router.checks`` is the list of ``(name, fn)`` pairs, which
 ``tests/test_common.py`` exposes as parametrised tests over ``skroute.all_solvers()``. The
@@ -11,22 +11,31 @@ tolerance checks (12) are not here: they live in ``tests/test_common.py`` and ar
 ``tests/tolerances.py``.
 
 A check that cannot run in the current environment (the datasets package is missing) raises
-:class:`CheckSkipped`; the driver turns it into a ``UserWarning`` and the test-suite into a skip.
+``CheckSkipped``; the driver turns it into a ``UserWarning`` and the test-suite into a skip.
 Nothing here imports from ``tests/``: the oracles are re-implemented with numpy only, and pandas
-is looked up through :mod:`importlib` and skipped when absent.
+is looked up through ``importlib`` and skipped when absent.
+
+The instances the battery builds are **read-only arrays**: ``RoutingProblem`` aliases a float64
+C-contiguous input (D13), so a solver writing into ``problem.cost``/``problem.time``/``problem.coords``
+would corrupt the caller's data — here it raises at the offending line instead, and check 3 also
+compares the input before and after the fit.
 """
 
 from __future__ import annotations
 
 import contextlib
+import ctypes
 import functools
 import importlib
 import io
 import itertools
 import logging
 import math
+import os
+import sys
+import tempfile
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import numpy as np
@@ -39,6 +48,22 @@ from .validation import check_is_fitted
 __all__ = ["CheckSkipped", "check_router"]
 
 _STOP_REASONS = {"converged", "max_iter", "patience", "time_limit"}
+# The documented subsets of the fitted-attribute table (SPEC §3.4, D9), by class name. A class that is
+# not listed may emit any reason its parameters allow (no ``patience``/``time_limit`` parameter -> never
+# that value); a wrapper with an estimator parameter (MultiStart) copies the best estimator's value.
+_ALLOWED_STOP_REASONS: dict[str, frozenset[str]] = {
+    "TwoOpt": frozenset({"converged", "max_iter"}),
+    "OrOpt": frozenset({"converged", "max_iter"}),
+    "LocalSearch": frozenset({"converged", "max_iter"}),
+    "SOM": frozenset({"converged", "max_iter"}),
+    "IteratedLocalSearch": frozenset({"max_iter", "patience", "time_limit"}),
+    "TabuSearch": frozenset({"max_iter", "patience", "time_limit"}),
+    "Genetic": frozenset({"max_iter", "patience", "time_limit"}),
+    "AntColony": frozenset({"max_iter", "patience", "time_limit"}),
+    "SimulatedAnnealing": frozenset({"converged", "patience", "time_limit"}),
+    "EnsembleGenetic": frozenset({"max_iter", "patience", "time_limit"}),
+    "EnsembleSimulatedAnnealing": frozenset({"converged", "patience", "time_limit"}),
+}
 
 
 class CheckSkipped(Exception):
@@ -65,9 +90,40 @@ def _has_param(estimator: BaseRouter, name: str) -> bool:
     return name in estimator._get_param_names()
 
 
+def _fitted_attrs(estimator: BaseRouter) -> list[str]:
+    """Trailing-underscore instance attributes that are not hyper-parameters (``lambda_`` is a knob)."""
+    params = set(estimator._get_param_names())
+    return [k for k in vars(estimator) if k.endswith("_") and not k.startswith("_") and k not in params]
+
+
+def _allowed_stop_reasons(estimator: BaseRouter) -> set[str]:
+    """The ``stop_reason_`` values ``estimator`` may emit (SPEC §3.4 table, D9)."""
+    name = type(estimator).__name__
+    if name in _ALLOWED_STOP_REASONS:
+        return set(_ALLOWED_STOP_REASONS[name])
+    inner = [v for v in estimator.get_params(deep=False).values() if isinstance(v, BaseRouter)]
+    if inner:  # a wrapper copies the best estimator's value
+        return set().union(*(_allowed_stop_reasons(e) for e in inner))
+    allowed = set(_STOP_REASONS)
+    if not _has_param(estimator, "patience"):
+        allowed.discard("patience")
+    if not _has_param(estimator, "time_limit"):
+        allowed.discard("time_limit")
+    return allowed
+
+
+def _read_only(*arrays: np.ndarray) -> None:
+    """Freeze the battery's inputs: a solver writing into an aliased matrix raises instead of corrupting it.
+
+    Every kernel takes ``const`` memoryviews, so read-only arrays are accepted everywhere.
+    """
+    for a in arrays:
+        a.setflags(write=False)
+
+
 @functools.cache
 def _euclid(n: int, seed: int, asymmetric: bool = False) -> tuple[np.ndarray, np.ndarray]:
-    """``(C, coords)``: the same generator as the test-suite's fixtures, numpy only."""
+    """``(C, coords)``: the same generator as the test-suite's fixtures, numpy only; both read-only."""
     rng = np.random.default_rng(seed)
     xy = rng.random((n, 2)) * 100
     diff = xy[:, None, :] - xy[None, :, :]
@@ -75,7 +131,9 @@ def _euclid(n: int, seed: int, asymmetric: bool = False) -> tuple[np.ndarray, np
     if asymmetric:
         C = C * rng.uniform(0.7, 1.3, C.shape)
         np.fill_diagonal(C, 0.0)
-    return np.ascontiguousarray(C), xy
+    C = np.ascontiguousarray(C)
+    _read_only(C, xy)
+    return C, xy
 
 
 def _load_alicante() -> dict[str, Any]:
@@ -223,7 +281,7 @@ def check_not_fitted(estimator: BaseRouter) -> None:
         _assert("is not fitted yet" in str(e), 2, f"NotFittedError message is {str(e)!r}")
     else:
         raise AssertionError("check 2: check_is_fitted must raise NotFittedError before fit")
-    fitted_attrs = [k for k in vars(fresh) if k.endswith("_") and not k.startswith("_")]
+    fitted_attrs = _fitted_attrs(fresh)
     _assert(
         not fitted_attrs, 2, f"no trailing-underscore attribute may exist before fit, found {fitted_attrs}"
     )
@@ -304,9 +362,12 @@ def _check_fitted_structure(est: BaseRouter, n: int, number: int) -> None:
 def check_fit_results(estimator: BaseRouter) -> None:
     """3. ``fit`` returns self and the fitted attributes have the types, shapes and invariants of §3.4."""
     C, xy = _euclid(6, seed=6)
+    C_before, xy_before = C.copy(), xy.copy()
     est = _fresh(estimator)
     out = _fit(est, C, coords=xy)
     _assert(out is est, 3, "fit must return self")
+    _assert(np.array_equal(C, C_before), 3, "fit must not modify X (RoutingProblem aliases it, D13)")
+    _assert(np.array_equal(xy, xy_before), 3, "fit must not modify coords (RoutingProblem aliases them)")
     _check_fitted_structure(est, 6, 3)
     _assert(not hasattr(est, "trip_times_"), 3, "trip_times_ must not exist for a plain TSP")
     _assert(est.n_trips_ == 1 and len(est.trips_) == 1, 3, "a plain TSP has exactly one trip")
@@ -431,10 +492,12 @@ def check_invalid_inputs(estimator: BaseRouter) -> None:
         X = kw.pop("X")
         try:
             _fit(_fresh(estimator), X, **kw)
+        except (
+            InfeasibleProblemError
+        ):  # a subclass of ValueError, so it must be caught FIRST to be told apart
+            raise AssertionError(f"check 6: {message!r} case raised InfeasibleProblemError") from None
         except ValueError as e:
             _assert(message in str(e), 6, f"expected {message!r} in the error, got {str(e)!r}")
-        except InfeasibleProblemError:  # a subclass of ValueError, but must not be what these raise
-            raise AssertionError(f"check 6: {message!r} case raised InfeasibleProblemError") from None
         else:
             raise AssertionError(f"check 6: fit must raise ValueError ({message!r}) for {kw}")
     try:
@@ -451,6 +514,7 @@ def _synthetic_multi_trip() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """``(C, T, coords, budget)``: a 6-node symmetric instance whose greedy decode needs several trips."""
     C, xy = _euclid(6, seed=6)
     T = C / 10.0
+    _read_only(T)
     budget = 1.5 * float((T[0, :] + T[:, 0]).max())
     return C, T, xy, budget
 
@@ -515,13 +579,17 @@ def check_tags_honoured(estimator: BaseRouter) -> None:
     budget_warnings = [
         w for w in caught if issubclass(w.category, UserWarning) and "ignores max_time_work" in str(w.message)
     ]
+    name = type(estimator).__name__
     if tags.budget_aware:
         _assert(not budget_warnings, 7, "budget-aware solvers must not warn under a budget")
     else:
+        # At least one (the spec's requirement), and one of them names THIS estimator: a wrapper around a
+        # budget-unaware solver legitimately adds the inner fits' warnings to its own.
+        _assert(budget_warnings, 7, "budget-unaware solvers must warn (UserWarning) under a budget")
         _assert(
-            len(budget_warnings) == 1,
+            any(str(w.message).startswith(f"{name} ignores max_time_work") for w in budget_warnings),
             7,
-            "budget-unaware solvers must warn exactly once (UserWarning) under a budget",
+            f"the budget warning must name the estimator ({name!r})",
         )
     _assert(
         np.all(est.trip_times_ <= budget + 1e-9), 7, "every trip must fit the budget, return leg included"
@@ -596,15 +664,58 @@ class _RecordingHandler(logging.Handler):
         self.records.append(record)
 
 
+def _flush_c_stdio() -> None:
+    """``fflush(NULL)``: a C-level ``printf`` sits in libc's buffer until flushed (best effort)."""
+    try:
+        libc = ctypes.cdll.msvcrt if sys.platform == "win32" else ctypes.CDLL(None)
+        libc.fflush(None)
+    except (OSError, AttributeError):  # pragma: no cover - no C runtime reachable from ctypes
+        pass
+
+
+@contextlib.contextmanager
+def _capture_output() -> Iterator[dict[str, str]]:
+    """Capture BOTH ``sys.stdout``/``sys.stderr`` and file descriptors 1/2 (a ``printf`` in a ``.pyx``
+    bypasses the Python objects). Yields a dict filled with ``"stdout"``/``"stderr"`` on exit."""
+    result: dict[str, str] = {}
+    py_out, py_err = io.StringIO(), io.StringIO()
+    try:
+        saved = (os.dup(1), os.dup(2))
+    except OSError:  # pragma: no cover - no usable descriptors (pythonw, some embedded interpreters)
+        with contextlib.redirect_stdout(py_out), contextlib.redirect_stderr(py_err):
+            yield result
+        result["stdout"], result["stderr"] = py_out.getvalue(), py_err.getvalue()
+        return
+    with tempfile.TemporaryFile(mode="w+b") as fd_out, tempfile.TemporaryFile(mode="w+b") as fd_err:
+        try:
+            _flush_c_stdio()
+            os.dup2(fd_out.fileno(), 1)
+            os.dup2(fd_err.fileno(), 2)
+            try:
+                with contextlib.redirect_stdout(py_out), contextlib.redirect_stderr(py_err):
+                    yield result
+            finally:
+                _flush_c_stdio()
+                os.dup2(saved[0], 1)
+                os.dup2(saved[1], 2)
+        finally:
+            os.close(saved[0])
+            os.close(saved[1])
+        fd_out.seek(0)
+        fd_err.seek(0)
+        result["stdout"] = py_out.getvalue() + fd_out.read().decode(errors="replace")
+        result["stderr"] = py_err.getvalue() + fd_err.read().decode(errors="replace")
+
+
 def check_no_printing(estimator: BaseRouter) -> None:
-    """9. Nothing is written to stdout/stderr; ``verbose=1`` emits at least one record on the ``skroute``
-    logger for iterative solvers (D24)."""
+    """9. Nothing is written to stdout/stderr (Python objects AND file descriptors, so a C ``printf`` is
+    caught too); ``verbose=1`` emits at least one record on the ``skroute`` logger for iterative solvers
+    (D24)."""
     C, xy = _euclid(6, seed=6)
-    out, err = io.StringIO(), io.StringIO()
-    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+    with _capture_output() as captured:
         _fit(_fresh(estimator), C, coords=xy)
-    _assert(out.getvalue() == "", 9, f"fit must not print to stdout, got {out.getvalue()!r}")
-    _assert(err.getvalue() == "", 9, f"fit must not print to stderr, got {err.getvalue()!r}")
+    _assert(captured["stdout"] == "", 9, f"fit must not print to stdout, got {captured['stdout']!r}")
+    _assert(captured["stderr"] == "", 9, f"fit must not print to stderr, got {captured['stderr']!r}")
     if not _has_param(estimator, "verbose"):
         return
     logger = logging.getLogger("skroute")
@@ -612,14 +723,13 @@ def check_no_printing(estimator: BaseRouter) -> None:
     old_level = logger.level
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
-    out, err = io.StringIO(), io.StringIO()
     try:
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        with _capture_output() as captured:
             _fit(_fresh(estimator, verbose=1), C, coords=xy)
     finally:
         logger.removeHandler(handler)
         logger.setLevel(old_level)
-    _assert(out.getvalue() == "" and err.getvalue() == "", 9, "verbose=1 must log, never print")
+    _assert(captured["stdout"] == "" and captured["stderr"] == "", 9, "verbose=1 must log, never print")
     if estimator._get_tags().iterative:
         _assert(handler.records, 9, "verbose=1 must emit at least one record on logging.getLogger('skroute')")
         _assert(
@@ -677,6 +787,14 @@ def check_iterative_contract(estimator: BaseRouter) -> None:
             10,
             "a solver without a time_limit parameter cannot stop by 'time_limit'",
         )
+    allowed = _allowed_stop_reasons(estimator)
+    _assert(
+        est.stop_reason_ in allowed,
+        10,
+        f"{type(estimator).__name__} may only stop by {sorted(allowed)} (SPEC §3.4 table), "
+        f"got {est.stop_reason_!r}",
+    )
+    if not _has_param(estimator, "time_limit"):
         return
     est = _fit(_fresh(estimator, time_limit=1e-6), C, coords=xy)
     _assert(
@@ -815,7 +933,7 @@ def check_router(estimator: BaseRouter) -> None:
     AssertionError
         Prefixed with the number of the failing check (``"check 3: ..."``).
     TypeError
-        If ``estimator`` is not a :class:`~skroute.base.BaseRouter` instance.
+        If ``estimator`` is not a [`BaseRouter`][skroute.base.BaseRouter] instance.
     ValueError
         If ``estimator`` is already fitted.
 

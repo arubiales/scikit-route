@@ -9,12 +9,15 @@ rendered by mkdocstrings somewhere in ``docs/api/*.md``, either directly
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import pkgutil
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if importlib.util.find_spec("skroute") is None:  # development checkout without an installed package (D29)
+    sys.path.insert(0, str(ROOT))
 DIRECTIVE = re.compile(r"^:::\s+([\w.]+)", re.MULTILINE)
 SKIP_PACKAGES = {
     "skroute._core",
@@ -38,7 +41,12 @@ def public_names() -> dict[str, list[str]]:
 
     names = {"skroute": list(getattr(skroute, "__all__", []))}
     for info in pkgutil.walk_packages(skroute.__path__, prefix="skroute."):
-        if info.name.split(".")[-1].startswith("_") or any(info.name.startswith(s) for s in SKIP_PACKAGES):
+        # Public surface = the top-level names plus the __all__ of every sub-PACKAGE (skroute.exact,
+        # skroute.datasets, ...); plain modules (skroute.base, skroute.utils.validation) are reached
+        # through the names their package re-exports.
+        if not info.ispkg or info.name.split(".")[-1].startswith("_"):
+            continue
+        if any(info.name.startswith(s) for s in SKIP_PACKAGES):
             continue
         module = importlib.import_module(info.name)
         exported = list(getattr(module, "__all__", []))
@@ -54,8 +62,15 @@ def missing() -> list[str]:
         for name in exported:
             candidates = {f"{module}.{name}", module}
             if module == "skroute":
-                obj = getattr(importlib.import_module("skroute"), name, None)
-                if obj is not None and hasattr(obj, "__module__"):
+                if name.startswith("__"):
+                    continue  # dunders such as __version__ are not API pages
+                skroute = importlib.import_module("skroute")
+                registered = getattr(skroute, "_EXPORTS", {}).get(name)
+                if registered:  # the public home of a re-exported name, e.g. skroute.exact.BruteForce
+                    candidates.add(f"{registered}.{name}")
+                    candidates.add(registered)
+                obj = getattr(skroute, name, None)
+                if obj is not None and hasattr(obj, "__module__") and isinstance(obj.__module__, str):
                     candidates.add(f"{obj.__module__}.{name}")
                     candidates.add(obj.__module__)
             if not candidates & targets:

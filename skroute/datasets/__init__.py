@@ -3,15 +3,18 @@
 Two families ship with scikit-route:
 
 * the 27 **Waterloo national TSP instances** (`load_tsp(name)` and one
-  `load_<country>()` wrapper each), coordinates with a published optimum under
-  the TSPLIB ``EUC_2D`` metric;
+  `load_<country>()` wrapper each), coordinates with the tour length published
+  by the University of Waterloo under the TSPLIB ``EUC_2D`` metric -- the proven
+  optimum for 25 of them, the best-known tour for ``bm33708`` and ``ch71009``;
 * five **road-cost tables** (`load_alicante_murcia`, `load_barcelona`,
   `load_madrid`, `load_valencia`, `load_qatar_costs`) with cost, time and
   distance matrices for the multi-trip objective.
 
 Loaders return :class:`~skroute.utils.Bunch` objects whose matrices are plain
 arrays: pass ``labels=b.labels`` (and ``depot=b.depot``) to ``fit``.
-:func:`read_tsplib` and :func:`read_tsplib_tour` read any TSPLIB 95 file.
+:func:`read_tsplib` reads TSPLIB 95 ``.tsp`` files with the edge-weight types
+``EUC_2D``, ``CEIL_2D``, ``MAN_2D``, ``ATT``, ``GEO`` and ``EXPLICIT`` (row
+formats); :func:`read_tsplib_tour` reads ``.tour`` files.
 """
 
 from ._loaders import (

@@ -6,7 +6,11 @@ Every solver is an estimator: ``__init__`` stores the knobs, ``fit(X, ...)`` ret
 ``est.fit(C, time_matrix=T, max_time_work=8, extra_cost=12.83, people=2)``.
 
 The public names are exported lazily (PEP 562): importing ``skroute`` does not import
-any solver until it is first used.
+any solver until it is first used. The modules of the top-level surface (``skroute.base``,
+``skroute.problem``, ``skroute.exceptions``, ``skroute.metrics``, ``skroute.utils``,
+``skroute.datasets``, ``skroute.preprocessing``) resolve the same way, so
+``skroute.metrics.route_cost(...)`` or ``except skroute.exceptions.InfeasibleProblemError``
+work after a bare ``import skroute``.
 """
 
 from __future__ import annotations
@@ -78,6 +82,11 @@ _SOLVER_MODULES: frozenset[str] = frozenset(
 # Solvers that cannot be instantiated without arguments, hence never returned by all_solvers()
 # (D27): MultiStart wraps another estimator and is covered by tests/test_ensemble.py.
 _NEEDS_ARGUMENTS: frozenset[str] = frozenset({"MultiStart"})
+# Modules of the top-level surface (SPEC §3.4) that ``skroute.<name>`` resolves after a bare
+# ``import skroute`` — lazily, like the exported names, so importing skroute stays cheap.
+_SUBMODULES: frozenset[str] = frozenset(
+    {"base", "problem", "exceptions", "metrics", "utils", "datasets", "preprocessing"}
+)
 
 __all__ = ["__version__", "all_solvers", "set_log_level", *sorted(_EXPORTS)]
 
@@ -85,6 +94,13 @@ if TYPE_CHECKING:
     # Eager imports so mypy and mkdocstrings see real types (neither sees __getattr__). The
     # redundant ``X as X`` spelling marks an explicit re-export (PEP 484), so linters and type
     # checkers do not report the names as unused.
+    from . import base as base
+    from . import datasets as datasets
+    from . import exceptions as exceptions
+    from . import metrics as metrics
+    from . import preprocessing as preprocessing
+    from . import problem as problem
+    from . import utils as utils
     from .base import BaseRouter as BaseRouter
     from .base import RouterTags as RouterTags
     from .base import clone as clone
@@ -116,7 +132,9 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> Any:
-    """PEP 562: resolve a public name on first access and cache it on the module."""
+    """PEP 562: resolve a public name or a surface module on first access and cache it on the module."""
+    if name in _SUBMODULES:
+        return importlib.import_module(f"{__name__}.{name}")  # the import machinery binds skroute.<name>
     try:
         module_path = _EXPORTS[name]
     except KeyError:
@@ -127,7 +145,7 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))
+    return sorted(set(globals()) | set(__all__) | _SUBMODULES)
 
 
 def all_solvers() -> list[type[BaseRouter]]:
@@ -143,7 +161,7 @@ def all_solvers() -> list[type[BaseRouter]]:
     Returns
     -------
     solvers : list of type
-        Subclasses of :class:`~skroute.base.BaseRouter`, sorted by ``__name__``.
+        Subclasses of [`BaseRouter`][skroute.base.BaseRouter], sorted by ``__name__``.
 
     Raises
     ------
@@ -196,9 +214,13 @@ def set_log_level(level: int | str) -> None:
     Examples
     --------
     >>> import logging, skroute
+    >>> log = logging.getLogger("skroute")
+    >>> saved = (log.level, list(log.handlers))  # the example restores the logger it changes
     >>> skroute.set_log_level("INFO")
-    >>> logging.getLogger("skroute").level == logging.INFO
+    >>> log.level == logging.INFO and any(isinstance(h, logging.StreamHandler) for h in log.handlers)
     True
+    >>> log.setLevel(saved[0])  # undo, so the example leaves the logger as it found it
+    >>> log.handlers[:] = saved[1]
     """
     _log.setLevel(level)
     if all(isinstance(h, logging.NullHandler) for h in _log.handlers):

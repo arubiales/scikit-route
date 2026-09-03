@@ -33,19 +33,38 @@ _SECTIONS = frozenset(
     }
 )
 
+_BOM = "﻿"
+
+
+def _decode(data: bytes) -> str:
+    """UTF-8 first (dropping a BOM), latin-1 as the fallback.
+
+    TSPLIB files are ASCII; the accented comments of a few are latin-1, and files
+    re-saved by Windows editors carry a UTF-8 BOM that, decoded as latin-1, would
+    glue ``ï»¿`` to the first keyword and silently lose ``NAME``.
+    """
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode("latin-1")
+
 
 def _read_text(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> str:
     if hasattr(path_or_file, "read"):
         data = path_or_file.read()
-        return data.decode("latin-1") if isinstance(data, bytes) else str(data)
-    return Path(path_or_file).read_text(encoding="latin-1")
+        text = _decode(data) if isinstance(data, bytes) else str(data)
+    else:
+        text = _decode(Path(path_or_file).read_bytes())
+    return text.lstrip(_BOM)  # a text file object opened as plain "utf-8" yields the BOM as a character
 
 
 def _parse(text: str) -> tuple[dict[str, str], list[str], dict[str, list[str]]]:
     """Split a TSPLIB file into specification entries, comment lines and section tokens.
 
     Tolerates ``KEY : value`` and ``KEY: value``, CRLF line endings, indentation,
-    a trailing colon after a section keyword and a missing ``EOF``.
+    a trailing colon after a section keyword, data tokens on the same line as the
+    section keyword (``TOUR_SECTION 1 2 3 -1``), a specification line between a
+    section's header and its data, and a missing ``EOF``.
     """
     spec: dict[str, str] = {}
     comments: list[str] = []
@@ -55,12 +74,15 @@ def _parse(text: str) -> tuple[dict[str, str], list[str], dict[str, list[str]]]:
         line = raw.strip()
         if not line:
             continue
-        first = line.split(None, 1)[0].rstrip(":").upper()
+        parts = line.split(None, 1)
+        first = parts[0].rstrip(":").upper()
         if first == "EOF":
             break
         if first in _SECTIONS:
             current = first
-            sections.setdefault(current, [])
+            tokens = sections.setdefault(current, [])
+            if len(parts) > 1:  # data written on the keyword line
+                tokens.extend(parts[1].lstrip(":").split())
             continue
         if ":" in line and first[:1].isalpha():
             key, _, value = line.partition(":")
@@ -70,8 +92,7 @@ def _parse(text: str) -> tuple[dict[str, str], list[str], dict[str, list[str]]]:
                 comments.append(value)
             else:
                 spec[key] = value
-            current = None
-            continue
+            continue  # ``current`` is kept: a keyword line does not close the section around it
         if current is None:
             raise ValueError(f"cannot parse line {raw!r}: data outside any section")
         sections[current].extend(line.split())
@@ -103,6 +124,9 @@ def _coord_section(
     if dimension is not None and n != dimension:
         raise ValueError(f"{what} has {n} nodes but DIMENSION is {dimension}")
     ids = np.fromiter((_to_int(tokens[3 * k], what) for k in range(n)), dtype=np.int64, count=n)
+    unique, counts = np.unique(ids, return_counts=True)
+    if unique.shape[0] != n:
+        raise ValueError(f"{what} repeats node id {int(unique[counts > 1][0])}")
     xy = np.empty((n, 2), dtype=np.float64)
     for k in range(n):
         xy[k, 0] = _to_float(tokens[3 * k + 1], what)
@@ -156,7 +180,8 @@ def read_tsplib(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> B
         With the fields
 
         - ``name``, ``comment`` (``COMMENT`` lines joined with newlines; ``None`` when absent),
-          ``type`` (``"TSP"``, ``"ATSP"``, ...), ``dimension`` (``int``),
+          ``type`` (``"TSP"``, ``"ATSP"``, ...: the first word of the ``TYPE`` entry, so a
+          trailing author note is dropped), ``dimension`` (``int``),
           ``edge_weight_type``, ``edge_weight_format`` (``None`` unless ``EXPLICIT``);
         - ``coords``: ``float64 (n, 2)`` for the coordinate types ``EUC_2D``, ``CEIL_2D``,
           ``MAN_2D``, ``ATT`` and ``GEO`` (kept raw -- ``GEO`` stays in ``DDD.MM``
@@ -167,19 +192,21 @@ def read_tsplib(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> B
           (triangular formats are mirrored), otherwise ``None``;
         - ``display_coords``: ``float64 (n, 2)`` from a ``DISPLAY_DATA_SECTION``, else ``None``;
         - ``labels``: ``int64 (n,)`` node ids exactly as written in the file (1-based in
-          every TSPLIB instance), in file order.
+          every TSPLIB instance), in file order; they must be unique.
 
     Raises
     ------
     ValueError
         For an unsupported ``EDGE_WEIGHT_TYPE`` (``"EDGE_WEIGHT_TYPE EUC_3D is not
-        supported in this version"``), an unsupported ``EDGE_WEIGHT_FORMAT``, a
-        section whose size disagrees with ``DIMENSION``, or a malformed line.
+        supported in this version"``), a missing or unsupported ``EDGE_WEIGHT_FORMAT``
+        with ``EXPLICIT``, a ``DIMENSION`` below 1 or disagreeing with a section's size,
+        a repeated node id, or a malformed line.
 
     Notes
     -----
     Tolerant of ``KEY : value`` and ``KEY: value`` (``dj38.tsp`` mixes both), CRLF
-    line endings, indented data lines and a missing ``EOF``. Sections this reader
+    line endings, indented data lines, data tokens on the section keyword's own line,
+    a UTF-8 BOM, UTF-8 or latin-1 text, and a missing ``EOF``. Sections this reader
     does not use (``DEMAND_SECTION``, ``FIXED_EDGES_SECTION``, ...) are skipped;
     check ``type`` when reading anything other than a plain TSP. Pure Python: no
     pandas, no regular expressions.
@@ -205,6 +232,8 @@ def read_tsplib(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> B
     spec, comments, sections = _parse(_read_text(path_or_file))
 
     dimension: int | None = _to_int(spec["DIMENSION"], "DIMENSION") if "DIMENSION" in spec else None
+    if dimension is not None and dimension < 1:
+        raise ValueError(f"DIMENSION must be a positive integer; got {dimension}")
     ewt = spec.get("EDGE_WEIGHT_TYPE", "").upper() or None
     fmt = spec.get("EDGE_WEIGHT_FORMAT", "").upper() or None
 
@@ -226,6 +255,8 @@ def read_tsplib(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> B
     elif ewt == "EXPLICIT":
         if "EDGE_WEIGHT_SECTION" not in sections:
             raise ValueError("EDGE_WEIGHT_TYPE EXPLICIT needs an EDGE_WEIGHT_SECTION")
+        if fmt is None:
+            raise ValueError("EDGE_WEIGHT_FORMAT is required with EDGE_WEIGHT_TYPE EXPLICIT")
         if fmt not in EXPLICIT_FORMATS:
             raise ValueError(f"EDGE_WEIGHT_FORMAT {fmt} is not supported in this version")
         if dimension is None:
@@ -239,7 +270,7 @@ def read_tsplib(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> B
     return Bunch(
         name=spec.get("NAME"),
         comment="\n".join(comments) if comments else None,
-        type=spec.get("TYPE", "TSP").upper(),
+        type=(spec.get("TYPE") or "TSP").split()[0].upper(),
         dimension=int(dimension),
         edge_weight_type=ewt,
         edge_weight_format=fmt if ewt == "EXPLICIT" else None,
@@ -262,7 +293,8 @@ def read_tsplib_tour(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes])
     -------
     ndarray of int64, shape (n,)
         The ids of the ``TOUR_SECTION`` in order (1-based, exactly as written), up to
-        the ``-1`` terminator; the closing return to the first node is implicit.
+        the ``-1`` terminator; the closing return to the first node is implicit. Ids
+        written on the ``TOUR_SECTION`` line itself count.
 
     Raises
     ------

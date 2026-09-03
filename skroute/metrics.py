@@ -1,4 +1,5 @@
-"""Public recomputation helpers: :func:`route_cost` and :func:`split_trips` (SPEC §3.5).
+"""Public recomputation helpers: [`route_cost`][skroute.metrics.route_cost] and
+[`split_trips`][skroute.metrics.split_trips] (SPEC §3.5).
 
 Both work in **label space**, on the ``route_``/``tour_`` arrays a fitted solver
 exposes, so a user (or a test) can price any route under the objective without
@@ -61,7 +62,7 @@ def route_cost(
     ------
     ValueError
         ``"depot must be the first label of route"`` when ``depot`` disagrees with
-        ``route[0]``; the :class:`RoutingProblem` errors for invalid inputs.
+        ``route[0]``; the [`RoutingProblem`][skroute.RoutingProblem] errors for invalid inputs.
 
     Examples
     --------

@@ -8,6 +8,10 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from skroute.utils.validation import coerce_labels
+
+from ._distances import _check_coords
+
 __all__ = [
     "from_dict_of_dicts",
     "normalize_coords",
@@ -17,8 +21,26 @@ __all__ = [
 
 
 def _as_label_list(values: Any) -> list[Any]:
-    """Sequence / Series / 1-D array -> list of hashable Python scalars (numpy scalars unboxed)."""
-    arr = np.asarray(values)
+    """Sequence / Series / 1-D array -> list of hashable Python scalars, each kept as given.
+
+    A plain sequence is never passed through ``np.asarray``: numpy would promote mixed
+    labels (``[1, "a"]`` -> ``["1", "a"]``, ``[1, 2.0]`` -> ``[1.0, 2.0]``) and the ``1``
+    would no longer match the ``depot=1`` the user passes later. numpy scalars are
+    unboxed to Python scalars; arrays and pandas objects go through ``tolist()``, which
+    does the same (an ``object`` array keeps its elements).
+    """
+    if isinstance(values, np.ndarray):
+        arr = values
+    elif hasattr(values, "to_numpy"):  # pandas Series / Index (``object`` dtype when mixed)
+        arr = np.asarray(values.to_numpy())
+    else:
+        try:
+            items = [x.item() if isinstance(x, np.generic) else x for x in values]
+        except TypeError:
+            raise ValueError(f"expected a one-dimensional sequence of labels; got {values!r}") from None
+        if any(isinstance(x, (list, np.ndarray)) for x in items):
+            raise ValueError("expected a one-dimensional sequence of labels; got nested sequences")
+        return items
     if arr.ndim != 1:
         raise ValueError(f"expected a one-dimensional sequence of labels; got shape {arr.shape}")
     return arr.tolist()
@@ -63,8 +85,11 @@ def pairs_to_matrix(
     -------
     matrix : ndarray of shape (n, n), dtype float64
         Dense matrix in the order of ``labels``.
-    labels : ndarray of shape (n,)
-        The labels, in the order used for the matrix (``int64`` for integer ids).
+    labels : ndarray of shape (n,), dtype int64 or object
+        The labels, in the order used for the matrix and exactly as given (a label
+        ``1`` next to a label ``"a"`` stays the integer ``1``): ``int64`` when every
+        label is an integer, ``object`` otherwise -- the rule of every label array
+        in scikit-route (:func:`skroute.utils.validation.coerce_labels`).
 
     Raises
     ------
@@ -138,7 +163,7 @@ def pairs_to_matrix(
             )
         matrix[missing] = float(fill)
 
-    return matrix, np.asarray(label_list)
+    return matrix, coerce_labels(label_list, n)
 
 
 def to_dict_of_dicts(matrix: ArrayLike, labels: ArrayLike | None = None) -> dict[Any, dict[Any, float]]:
@@ -149,12 +174,18 @@ def to_dict_of_dicts(matrix: ArrayLike, labels: ArrayLike | None = None) -> dict
     matrix : array-like of shape (n, n)
         Square matrix.
     labels : sequence of hashable of length n, optional
-        Keys of the dictionaries; defaults to ``0..n-1``.
+        Keys of the dictionaries, unique; defaults to ``0..n-1``.
 
     Returns
     -------
     dict
         Outer and inner keys in the order of ``labels``; values are Python floats.
+
+    Raises
+    ------
+    ValueError
+        If the matrix is not square, or ``labels`` has the wrong length or repeats a
+        label (two equal keys would silently collapse two rows into one).
 
     Examples
     --------
@@ -169,6 +200,8 @@ def to_dict_of_dicts(matrix: ArrayLike, labels: ArrayLike | None = None) -> dict
     keys = list(range(n)) if labels is None else _as_label_list(labels)
     if len(keys) != n:
         raise ValueError(f"labels has {len(keys)} entries but the matrix has {n} rows")
+    if len(set(keys)) != n:
+        raise ValueError("labels must be unique")
     return {ki: {kj: float(m[i, j]) for j, kj in enumerate(keys)} for i, ki in enumerate(keys)}
 
 
@@ -188,7 +221,9 @@ def from_dict_of_dicts(
     Returns
     -------
     matrix : ndarray of shape (n, n), dtype float64
-    labels : ndarray of shape (n,)
+    labels : ndarray of shape (n,), dtype int64 or object
+        The outer keys as given: ``int64`` when all are integers, ``object``
+        otherwise (strings, tuples, mixed types), as :func:`pairs_to_matrix`.
 
     Examples
     --------
@@ -214,7 +249,7 @@ def from_dict_of_dicts(
         missing = [kj for kj in keys if kj not in row and kj != ki]
         if missing:
             raise ValueError(f"row {ki!r} lacks the entries {missing[:5]!r}")
-    return matrix, np.asarray(keys)
+    return matrix, coerce_labels(keys, n)
 
 
 def normalize_coords(coords: ArrayLike) -> NDArray[np.float64]:
@@ -229,12 +264,18 @@ def normalize_coords(coords: ArrayLike) -> NDArray[np.float64]:
     Parameters
     ----------
     coords : array-like of shape (n, 2)
-        Finite coordinates.
+        Finite coordinates, at least one row.
 
     Returns
     -------
     ndarray of shape (n, 2), dtype float64
         Coordinates in ``[0, 1]**2``; all zeros when every point coincides.
+
+    Raises
+    ------
+    ValueError
+        For a shape other than ``(n, 2)``, an empty input or a non-finite
+        coordinate -- the same checks and messages as :func:`distance_matrix`.
 
     Examples
     --------
@@ -242,11 +283,7 @@ def normalize_coords(coords: ArrayLike) -> NDArray[np.float64]:
     >>> normalize_coords([[10.0, 10.0], [30.0, 20.0]]).tolist()
     [[0.0, 0.0], [1.0, 0.5]]
     """
-    xy = np.asarray(coords, dtype=np.float64)
-    if xy.ndim != 2 or xy.shape[1] != 2:
-        raise ValueError(f"coords must have shape (n, 2); got {xy.shape}")
-    if not np.all(np.isfinite(xy)):
-        raise ValueError("coords must be finite (no NaN or inf)")
+    xy = _check_coords(coords)
     lo = xy.min(axis=0)
     span = float((xy.max(axis=0) - lo).max())
     if span == 0.0:

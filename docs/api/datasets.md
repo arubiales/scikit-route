@@ -4,9 +4,9 @@
 TSPLIB 95 file format. Nothing is downloaded: every file ships inside the wheel.
 
 * **27 Waterloo national TSP instances** — the populated places of a country as
-  planar coordinates with a published optimal tour length under the TSPLIB
-  `EUC_2D` metric. Load one with `load_tsp("wi29")` or its country wrapper
-  `load_sahara()`.
+  planar coordinates with the tour length published by the University of
+  Waterloo under the TSPLIB `EUC_2D` metric (a proven optimum for 25 of them).
+  Load one with `load_tsp("wi29")` or its country wrapper `load_sahara()`.
 * **Five road-cost tables** — small multi-trip instances (Alicante–Murcia,
   Barcelona, Madrid, Valencia and Qatar) with cost, time and distance matrices
   retrieved from the Google Distance Matrix API.
@@ -34,14 +34,16 @@ so pass `labels=b.labels` (and `depot=b.depot`) to `fit` or to
 
 All 27 use `EDGE_WEIGHT_TYPE: EUC_2D`, so the distance between two cities is
 `nint(sqrt(dx² + dy²))` with `nint(x) = floor(x + 0.5)` — what
-`TSPBunch.distance_matrix()` computes. Optima are those published by the
-University of Waterloo. The four instances above 20 000 nodes cannot be solved
-whole in scikit-route 2.0 (every solver works on a dense matrix; the one of
-`ch71009` would take 40 GB): `distance_matrix()` refuses them unless
-`force=True`, and `load_tsp(name, n_nodes=5000)` gives a subsample whose optimum
-is unknown.
+`TSPBunch.distance_matrix()` computes. Tour lengths are those published by the
+University of Waterloo (status of 2022-07-31): proven optima for 25 instances,
+while `bm33708` and `ch71009` are still open, so their `optimal_tour_length` is
+the best-known tour — within 0.031 % and 0.024 % of the lower bound — and not a
+proven optimum. The four instances above 20 000 nodes cannot be solved whole in
+scikit-route 2.0 (every solver works on a dense matrix; the one of `ch71009`
+would take 40 GB): `distance_matrix()` refuses them unless `force=True`, and
+`load_tsp(name, n_nodes=5000)` gives a subsample whose optimum is unknown.
 
-| Name | Country | Wrapper | Cities | Optimal tour |
+| Name | Country | Wrapper | Cities | Tour length |
 |---|---|---|---|---|
 | `wi29` | Western Sahara | `load_sahara` | 29 | 27 603 |
 | `dj38` | Djibouti | `load_djibouti` | 38 | 6 656 |
@@ -61,18 +63,22 @@ is unknown.
 | `ar9152` | Argentina | `load_argentina` | 9 152 | 837 479 |
 | `ja9847` | Japan | `load_japan` | 9 847 | 491 924 |
 | `gr9882` | Greece | `load_greece` | 9 882 | 300 899 |
-| `kz9976` | Kazakhstan | `load_kazakhstan` | 9 976 | 1 061 882 |
+| `kz9976` | Kazakhstan | `load_kazakhstan` | 9 976 | 1 061 881 |
 | `fi10639` | Finland | `load_finland` | 10 639 | 520 527 |
 | `mo14185` | Morocco | `load_morocco` | 14 185 | 427 377 |
 | `ho14473` | Honduras | `load_honduras` | 14 473 | 177 092 |
 | `it16862` | Italy | `load_italy` | 16 862 | 557 315 |
 | `vm22775` | Vietnam | `load_vietnam` | 22 775 | 569 288 |
 | `sw24978` | Sweden | `load_sweden` | 24 978 | 855 597 |
-| `bm33708` | Burma | `load_burma` | 33 708 | 959 289 |
-| `ch71009` | China | `load_china` | 71 009 | 4 566 563 |
+| `bm33708` | Burma | `load_burma` | 33 708 | 959 289 † |
+| `ch71009` | China | `load_china` | 71 009 | 4 566 506 † |
+
+† Best-known tour, not proven optimal (Waterloo's lower bounds are 959 011 and
+4 565 452).
 
 Source: W. Cook et al., *National Traveling Salesman Problems*, University of
-Waterloo, <https://www.math.uwaterloo.ca/tsp/world/countries.html>.
+Waterloo, <https://www.math.uwaterloo.ca/tsp/world/countries.html>; status table
+at <https://www.math.uwaterloo.ca/tsp/world/summary.html>.
 
 ::: skroute.datasets.load_tsp
     options:
@@ -88,8 +94,10 @@ Waterloo, <https://www.math.uwaterloo.ca/tsp/world/countries.html>.
 
 ### Country wrappers
 
-Each one is `load_tsp("<name>", **kwargs)` under its 1.0 name and accepts the
-same `n_nodes=`, `random_state=` and (deprecated) `mode=` keywords.
+Each one is `load_tsp("<name>", ...)` under its 1.0 name and accepts the same
+`n_nodes=`, `random_state=` and (deprecated) `mode=` keywords. As in 1.0, `mode`
+may also be the first positional argument (`load_qatar("small")`); it emits the
+same `DeprecationWarning`.
 
 ::: skroute.datasets.load_sahara
     options:
@@ -235,7 +243,9 @@ into symmetric matrices with
 hours, `distance` in metres; `coords` are `(latitude, longitude)` in decimal
 degrees and `depot` is the first id of each file. The Spanish `time` matrices
 come from the `hours` column of the tables, which adds a fixed 7-minute stop to
-every leg (`hours = (secs + 420) / 3600`).
+every leg (`hours = (secs + 420) / 3600`). The Qatar table records the pair
+`(104, 111)` as 0 m / 0 s although the two places are about 4 km apart; the
+matrices reproduce that zero (see the `DESCR`).
 
 | Loader | Places | Depot | `cost` unit | Rows in the table |
 |---|---|---|---|---|
@@ -276,7 +286,11 @@ coordinate types `EUC_2D`, `CEIL_2D`, `MAN_2D`, `ATT` and `GEO` (coordinates are
 returned raw; convert them with
 [`distance_matrix`][skroute.preprocessing.distance_matrix] and the matching
 `tsplib_*` metric) and `EXPLICIT` matrices in the formats `FULL_MATRIX`,
-`UPPER_ROW`, `LOWER_ROW`, `UPPER_DIAG_ROW` and `LOWER_DIAG_ROW`.
+`UPPER_ROW`, `LOWER_ROW`, `UPPER_DIAG_ROW` and `LOWER_DIAG_ROW`; other
+edge-weight types raise `ValueError("... is not supported in this version")`.
+Both readers tolerate `KEY : value` and `KEY: value`, CRLF line endings, a UTF-8
+BOM, UTF-8 or latin-1 text, data written on the section keyword's own line and a
+missing `EOF`.
 
 ::: skroute.datasets.read_tsplib
     options:

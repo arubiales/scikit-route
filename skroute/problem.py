@@ -1,13 +1,15 @@
-"""The problem model: :class:`RoutingProblem`, one immutable instance in index space (SPEC §3.3).
+"""The problem model: ``RoutingProblem``, one immutable instance in index space (SPEC §3.3).
 
-Every solver receives a ``RoutingProblem`` (built by :meth:`BaseRouter.fit` or by the user) and
-works in *index space* (nodes ``0..n-1`` in matrix row order, depot ``problem.depot``); the
-public attributes of a fitted solver are translated back to *label space* with
-:meth:`RoutingProblem.to_label_tour`.
+Every solver receives a [`RoutingProblem`][skroute.RoutingProblem] (built by
+[`BaseRouter.fit`][skroute.base.BaseRouter.fit] or by the user) and works in *index space*
+(nodes ``0..n-1`` in matrix row order, depot ``problem.depot``); the public attributes of a
+fitted solver are translated back to *label space* with
+[`to_label_tour`][skroute.RoutingProblem.to_label_tour].
 """
 
 from __future__ import annotations
 
+from numbers import Real
 from typing import Any
 
 import numpy as np
@@ -21,6 +23,11 @@ __all__ = ["RoutingProblem"]
 # Cython 3 exposes a cpdef enum to Python as the IntEnum class `_routing.SplitRule`; its members are
 # NOT module-level names (`core.SPLIT_GREEDY` raises AttributeError — verified with Cython 3.3).
 _SPLIT = {"greedy": int(core.SplitRule.SPLIT_GREEDY), "optimal": int(core.SplitRule.SPLIT_OPTIMAL)}
+
+
+def _is_number(x: Any) -> bool:
+    """A real scalar (Python or numpy), never a bool, a string or an array."""
+    return isinstance(x, Real) and not isinstance(x, (bool, np.bool_))
 
 
 class RoutingProblem:
@@ -154,7 +161,8 @@ class RoutingProblem:
                     "max_time_work given but no time_matrix; "
                     "pass time_matrix=X to use the cost matrix as durations"
                 )
-            if not (np.isfinite(max_time_work) and float(max_time_work) > 0):  # inf would store T for nothing
+            # type first, then value: a str, a bool or a 1-element array gets THIS message, not a numpy one
+            if not (_is_number(max_time_work) and np.isfinite(max_time_work) and float(max_time_work) > 0):
                 raise ValueError(f"max_time_work must be a finite number > 0, got {max_time_work!r}")
             T, tlab = coerce_matrix(time_matrix, "time_matrix")
             if T.shape != C.shape:
@@ -173,7 +181,7 @@ class RoutingProblem:
                     f"nodes {self.labels[bad].tolist()} cannot be served in one trip: "
                     f"depot round trip exceeds max_time_work={self.max_time_work}"
                 )
-        if not (float(extra_cost) >= 0) or not np.isfinite(extra_cost):
+        if not (_is_number(extra_cost) and np.isfinite(extra_cost) and float(extra_cost) >= 0):
             raise ValueError(f"extra_cost must be a finite number >= 0, got {extra_cost!r}")
         if not isinstance(people, (int, np.integer)) or isinstance(people, bool) or people < 1:
             raise ValueError(f"people must be an integer >= 1, got {people!r}")
@@ -307,23 +315,36 @@ class RoutingProblem:
         if k < 1:
             raise ValueError(f"k must be >= 1, got {k}")
         if k not in self._neigh:
-            dm = self.cost.copy()  # one transient (n, n) copy; accepted
+            n = self.n
+            dm = self.cost.copy()  # the ONE transient (n, n) copy; accepted
             np.fill_diagonal(dm, np.inf)
-            # index order first, then a stable sort by distance: ties inside the selection -> lowest index
-            idx = np.sort(np.argpartition(dm, k - 1, axis=1)[:, :k], axis=1)
-            dist = np.take_along_axis(dm, idx, 1)
-            out = np.take_along_axis(idx, np.argsort(dist, axis=1, kind="stable"), 1)
-            # argpartition chooses arbitrarily among nodes tied AT the k-th distance (coincident points,
-            # integer TSPLIB distances); redo exactly the rows where a tie straddles the boundary: every
-            # node strictly closer first, then the lowest indices among the tied ones.
-            thr = dist.max(axis=1)
-            for r in np.flatnonzero((dm <= thr[:, None]).sum(axis=1) > k):
-                row = dm[r]
-                strict = np.flatnonzero(row < thr[r])
-                tied = np.flatnonzero(row == thr[r])
-                chosen = np.concatenate((strict, tied[: k - strict.size]))
-                out[r] = chosen[np.argsort(row[chosen], kind="stable")]
-            self._neigh[k] = np.ascontiguousarray(out, dtype=np.int64)
+            out = np.empty((n, k), dtype=np.int64)
+            # Row blocks: argpartition materialises an int64 array as large as its input, so partitioning
+            # the whole matrix at once would double the peak (~1 GB more at n = 10 639). A block keeps that
+            # scratch at ~4 MiB and the peak at the accepted single copy.
+            step = max(1, (4 << 20) // (8 * n))
+            for a in range(0, n, step):
+                block = dm[a : a + step]
+                # kth = k: positions < k hold the k smallest (any order), position k the (k + 1)-th smallest
+                part = np.argpartition(block, k, axis=1)
+                # index order first, then a stable sort by distance: ties inside the selection -> lowest index
+                sel = np.sort(part[:, :k], axis=1)
+                dist = np.take_along_axis(block, sel, 1)
+                chosen = np.take_along_axis(sel, np.argsort(dist, axis=1, kind="stable"), 1)
+                # argpartition chooses arbitrarily among nodes tied AT the k-th distance (coincident points,
+                # integer TSPLIB distances): a tie straddles the boundary iff the (k + 1)-th smallest equals
+                # the k-th. Redo exactly those rows: every node strictly closer first, then the lowest
+                # indices among the tied ones.
+                thr = dist.max(axis=1)
+                nxt = np.take_along_axis(block, part[:, k : k + 1], 1)[:, 0]
+                for r in np.flatnonzero(nxt == thr):
+                    row = block[r]
+                    strict = np.flatnonzero(row < thr[r])
+                    tied = np.flatnonzero(row == thr[r])
+                    keep = np.concatenate((strict, tied[: k - strict.size]))
+                    chosen[r] = keep[np.argsort(row[keep], kind="stable")]
+                out[a : a + step] = chosen
+            self._neigh[k] = out
         return self._neigh[k]
 
     def __repr__(self) -> str:

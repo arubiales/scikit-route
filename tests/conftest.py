@@ -276,15 +276,25 @@ def is_dummy(Solver):
 
 
 def solver_roster():
-    """``all_solvers()`` — or the dummies while NO registered solver package exists in the tree.
+    """``all_solvers()`` — or the dummies while NO solver package exists in the tree.
 
-    All-or-nothing on purpose: as soon as one solver package is present, ``all_solvers()`` is called
-    unguarded and a missing or broken registered module fails the collection loudly (D27).
+    All-or-nothing on purpose: as soon as one solver package directory is present, ``all_solvers()``
+    is called unguarded and a missing or broken registered module fails the collection loudly (D27).
+    An EMPTY roster fails too: a solver directory whose registry lines are not in
+    ``skroute/__init__.py`` yet would otherwise parametrise ``Solver`` over nothing and pytest would
+    SKIP every test of the merge gate — green with zero solvers checked.
     """
     modules = sorted(skroute._SOLVER_MODULES)
-    if not any(importlib.util.find_spec(m) is not None for m in modules):
+    present = [m for m in modules if importlib.util.find_spec(m) is not None]
+    if not present:
         return list(DUMMY_SOLVERS)
-    return all_solvers()
+    roster = all_solvers()
+    if not roster:
+        raise pytest.UsageError(
+            f"solver package(s) {present} exist but the registry in skroute/__init__.py lists no solver: "
+            "add their lines (D27/D29), or the Solver-parametrised tests are silently skipped"
+        )
+    return roster
 
 
 def pytest_generate_tests(metafunc):
