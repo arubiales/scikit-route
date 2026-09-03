@@ -280,3 +280,129 @@ def test_set_log_level_attaches_one_stream_handler():
         for h in saved_handlers:
             log.addHandler(h)
         log.setLevel(saved_level)
+
+
+# --------------------------------------------------------------------------- regressions of the first review
+def test_surface_modules_resolve_after_a_bare_import():
+    """SPEC §3.4: ``skroute.exceptions``, ``.metrics``, ``.utils``, ``.datasets``, ``.preprocessing`` (and
+    ``.base``, ``.problem``) are part of the surface — in a FRESH interpreter, where nothing else imported
+    them."""
+    import os
+    import subprocess
+    import sys
+
+    code = (
+        "import skroute\n"
+        "names = ['exceptions', 'metrics', 'utils', 'datasets', 'preprocessing', 'base', 'problem']\n"
+        "assert all(name not in vars(skroute) for name in names), 'must be lazy'\n"
+        "for name in names:\n"
+        "    mod = getattr(skroute, name)\n"
+        "    assert mod.__name__ == f'skroute.{name}', mod\n"
+        "    assert name in dir(skroute) and name in vars(skroute)\n"
+        "assert skroute.metrics.route_cost([[0, 1, 2], [1, 0, 1], [2, 1, 0]], [0, 1, 2]) == 4.0\n"
+        "try:\n"
+        "    raise skroute.exceptions.InfeasibleProblemError('x')\n"
+        "except skroute.exceptions.InfeasibleProblemError:\n"
+        "    pass\n"
+        "assert not hasattr(skroute, 'no_such_module')\n"
+        "print('ok')\n"
+    )
+    root = os.path.dirname(os.path.dirname(os.path.abspath(skroute.__file__)))
+    proc = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True, check=False)
+    assert proc.returncode == 0 and proc.stdout.strip() == "ok", proc.stderr
+
+
+def test_solver_roster_fails_loudly_on_an_empty_registry(monkeypatch):
+    """A solver package directory without its registry lines must not shrink the merge gate to nothing."""
+    import conftest
+
+    monkeypatch.setattr(skroute, "_SOLVER_MODULES", frozenset({"conftest"}))  # a package that exists
+    monkeypatch.setattr(skroute, "_EXPORTS", {"RoutingProblem": "skroute.problem"})  # ... but no solver line
+    with pytest.raises(pytest.UsageError, match="lists no solver"):
+        conftest.solver_roster()
+    monkeypatch.setattr(skroute, "_EXPORTS", {"IdentityRouter": "conftest"})
+    assert conftest.solver_roster() == [conftest.IdentityRouter]
+    monkeypatch.setattr(skroute, "_SOLVER_MODULES", frozenset({"skroute.no_such_package"}))  # nothing exists
+    assert conftest.solver_roster() == list(conftest.DUMMY_SOLVERS)
+
+
+def _unregistered_solvers():
+    """Solver classes in a subpackage's ``__all__`` (SPEC §3.4) that the registry-driven ``all_solvers()``
+    misses."""
+    import importlib
+    import importlib.util
+
+    registered = {cls.__name__ for cls in all_solvers()}
+    missing = []
+    for module in sorted(skroute._SOLVER_MODULES):
+        if importlib.util.find_spec(module) is None:
+            continue
+        mod = importlib.import_module(module)
+        for name in getattr(mod, "__all__", []):
+            obj = getattr(mod, name, None)
+            is_solver = isinstance(obj, type) and issubclass(obj, BaseRouter)
+            if is_solver and name not in skroute._NEEDS_ARGUMENTS and name not in registered:
+                missing.append(f"{module}.{name}")
+    return missing
+
+
+def test_every_solver_in_a_subpackage_all_is_registered(monkeypatch):
+    assert _unregistered_solvers() == []  # the real registry: every exported solver reaches the test battery
+    monkeypatch.setattr(skroute, "_SOLVER_MODULES", frozenset({"conftest"}))
+    monkeypatch.setattr(
+        skroute, "_EXPORTS", {"IdentityRouter": "conftest"}
+    )  # RandomDescentRouter etc. missing
+    assert "conftest.RandomDescentRouter" in _unregistered_solvers() and "conftest.IdentityRouter" not in (
+        _unregistered_solvers()
+    )
+
+
+def test_set_log_level_doctest_leaves_the_logger_as_it_found_it():
+    import doctest
+
+    log = logging.getLogger("skroute")
+    before = (log.level, list(log.handlers))
+    runner = doctest.DocTestRunner(verbose=False)
+    for test in doctest.DocTestFinder().find(skroute.set_log_level, "set_log_level", globs={}):
+        runner.run(test)
+    assert runner.failures == 0 and runner.tries >= 4
+    assert (log.level, list(log.handlers)) == before
+
+
+def test_initial_tour_rejects_a_non_iterable_init_with_the_documented_message():
+    p = RoutingProblem(C4, depot=3)
+    for bad in (5, None, 2.5):
+        with pytest.raises(
+            ValueError, match="init must be 'nearest_neighbour', 'random' or an array of labels"
+        ):
+            initial_tour(p, bad, None)
+
+
+def test_spine_docstrings_use_no_sphinx_roles():
+    """mkdocstrings does not understand ``:class:`` and friends: they render as literal text and
+    ``mkdocs build --strict`` cannot validate them. Cross-references use ``[`Name`][full.path]``."""
+    import os
+    import re
+
+    pkg = os.path.dirname(os.path.abspath(skroute.__file__))
+    spine = [
+        "__init__.py",
+        "base.py",
+        "problem.py",
+        "metrics.py",
+        "exceptions.py",
+        os.path.join("utils", "__init__.py"),
+        os.path.join("utils", "validation.py"),
+        os.path.join("utils", "_param_validation.py"),
+        os.path.join("utils", "_init_tour.py"),
+        os.path.join("utils", "_bunch.py"),
+        os.path.join("utils", "estimator_checks.py"),
+    ]
+    role = re.compile(r":(?:class|func|meth|mod|attr|exc|obj|data):`")
+    offenders = []
+    for rel in spine:
+        with open(os.path.join(pkg, rel), encoding="utf-8") as fh:
+            for lineno, line in enumerate(fh, 1):
+                if role.search(line):
+                    offenders.append(f"skroute/{rel}:{lineno}: {line.strip()}")
+    assert offenders == []

@@ -736,3 +736,141 @@ def test_reset_fitted_and_check_is_fitted():
         check_is_fitted(est)
     est.fit(C4)  # a refit after a multi-trip fit leaves no trip_times_ behind
     assert not hasattr(est, "trip_times_") and est.n_trips_ == 1 and est.cost_ == 22.0
+
+
+# --------------------------------------------------------------------------- regressions of the first review
+def test_reset_fitted_spares_trailing_underscore_parameters():
+    class Lam(Identity):
+        """A knob spelt the sklearn way round a keyword: ``lambda_`` is a knob, not a fitted attribute."""
+
+        def __init__(self, lambda_=0.5, verbose=0):
+            self.lambda_ = lambda_
+            self.verbose = verbose
+
+    est = Lam(lambda_=0.9)
+    assert est.fit(C4) is est and est.lambda_ == 0.9 and est.cost_ == 22.0
+    est.fit(C4, depot=2)  # the refit resets cost_ and friends but keeps the knob
+    assert est.lambda_ == 0.9 and est.get_params() == {"lambda_": 0.9, "verbose": 0}
+    assert repr(est) == "Lam(lambda_=0.9)" and clone(est) == est
+    est._reset_fitted()
+    assert not hasattr(est, "cost_") and est.lambda_ == 0.9
+
+
+def test_param_equal_handles_containers_of_arrays_and_never_raises():
+    class Warm(Identity):
+        def __init__(self, tours=None, verbose=0):
+            self.tours = tours
+            self.verbose = verbose
+
+    a = Warm(tours=[np.array([0, 1, 2]), np.array([0, 2, 1])])
+    assert a == Warm(tours=[np.array([0, 1, 2]), np.array([0, 2, 1])])
+    assert a != Warm(tours=[np.array([0, 1, 2]), np.array([1, 2, 0])])
+    assert a != Warm(tours=[np.array([0, 1, 2])])
+    assert a != Warm(tours=(np.array([0, 1, 2]), np.array([0, 2, 1])))  # a tuple is not a list
+    assert clone(a) == a and repr(a).startswith("Warm(tours=[array([0, 1, 2]), array([0, 2, 1])])")
+    assert _param_equal({"a": np.array([1])}, {"a": np.array([1])})
+    assert not _param_equal({"a": np.array([1])}, {"b": np.array([1])})
+    assert not _param_equal({"a": np.array([1])}, {"a": np.array([2])})
+    assert _param_equal((1, [np.zeros(2)]), (1, [np.zeros(2)])) and not _param_equal([1], [1, 2])
+
+    class Ambiguous:
+        def __eq__(self, other):
+            raise ValueError("ambiguous")
+
+    x = Ambiguous()
+    assert _param_equal(x, x) and not _param_equal(x, Ambiguous())  # falls back to identity
+
+
+@pytest.mark.parametrize(
+    "bad_tour",
+    [np.array([0, 1, 2, 3.7]), np.array([0.0, 1.0, 2.0, 3.0]), np.array([False, True, True, True]), None],
+    ids=["float-truncates", "float-integral", "bool", "none"],
+)
+def test_non_integer_tour_from_solve_is_a_runtime_error(bad_tour):
+    class Broken(Identity):
+        def _solve(self, problem, rng):
+            return bad_tour
+
+    with pytest.raises(
+        RuntimeError, match=r"Broken\._solve returned an invalid tour .* expected an integer array"
+    ):
+        Broken().fit(C4)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"time_matrix": H4, "max_time_work": "8"}, "max_time_work must be a finite number > 0, got '8'"),
+        ({"time_matrix": H4, "max_time_work": True}, "max_time_work must be a finite number > 0, got True"),
+        (
+            {"time_matrix": H4, "max_time_work": np.array([4.0])},
+            "max_time_work must be a finite number > 0, got array([4.])",
+        ),
+        ({"extra_cost": "1"}, "extra_cost, people and split have no effect"),  # D3 fires first, as before
+        (
+            {"time_matrix": H4, "max_time_work": 4.0, "extra_cost": "1"},
+            "extra_cost must be a finite number >= 0, got '1'",
+        ),
+        (
+            {"time_matrix": H4, "max_time_work": 4.0, "extra_cost": True},
+            "extra_cost must be a finite number >= 0, got True",
+        ),
+        (
+            {"time_matrix": H4, "max_time_work": 4.0, "extra_cost": None},
+            "extra_cost must be a finite number >= 0, got None",
+        ),
+    ],
+)
+def test_scalar_knobs_of_the_wrong_type_get_the_spec_message(kwargs, message):
+    with pytest.raises(ValueError) as exc:
+        RoutingProblem(C4, **kwargs)
+    assert str(exc.value).startswith(message) and not isinstance(exc.value, InfeasibleProblemError)
+    p = RoutingProblem(
+        C4, time_matrix=H4, max_time_work=np.float64(4), extra_cost=np.int64(3)
+    )  # numpy scalars are fine
+    assert p.max_time_work == 4.0 and p.extra_cost == 3.0
+
+
+def _brute_neighbours(C, k):
+    n = C.shape[0]
+    return np.array(
+        [sorted((j for j in range(n) if j != i), key=lambda j: (C[i, j], j))[:k] for i in range(n)]
+    )
+
+
+def test_neighbours_matches_brute_force_on_tie_heavy_matrices_for_every_k():
+    rng = np.random.default_rng(0)
+    for trial in range(40):
+        n = int(rng.integers(3, 45))
+        xy = rng.integers(0, 5, size=(n, 2)).astype(float)  # many coincident points and integer distances
+        C = np.round(np.sqrt(((xy[:, None] - xy[None]) ** 2).sum(-1)))
+        if trial % 2:
+            C = C * rng.integers(1, 3, size=C.shape)  # asymmetric
+        np.fill_diagonal(C, rng.uniform(0, 1))
+        p = RoutingProblem(C)
+        for k in range(1, n):  # k = n - 1 included: the (k + 1)-th smallest is then the inf diagonal
+            got = p.neighbours(k)
+            assert got.dtype == np.int64 and got.shape == (n, k) and got.flags["C_CONTIGUOUS"]
+            np.testing.assert_array_equal(got, _brute_neighbours(C, k), err_msg=f"n={n} k={k}")
+    n = 700  # several row blocks, n not a multiple of the block size
+    xy = np.random.default_rng(7).random((n, 2)) * 100
+    C = np.ascontiguousarray(np.round(np.sqrt(((xy[:, None] - xy[None]) ** 2).sum(-1))))
+    np.testing.assert_array_equal(RoutingProblem(C).neighbours(10), _brute_neighbours(C, 10))
+
+
+def test_neighbours_peak_memory_is_one_matrix_copy():
+    import tracemalloc
+
+    n = 1500
+    xy = np.random.default_rng(1).random((n, 2)) * 100
+    C = np.ascontiguousarray(np.round(np.sqrt(((xy[:, None] - xy[None]) ** 2).sum(-1))))
+    p = RoutingProblem(C)
+    tracemalloc.start()
+    try:
+        tracemalloc.reset_peak()
+        p.neighbours(10)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    # the accepted transient is ONE (n, n) copy; a whole-matrix argpartition or an (n, n) mask doubles it
+    assert peak < 1.5 * C.nbytes, f"peak {peak / 2**20:.1f} MiB for a {C.nbytes / 2**20:.1f} MiB matrix"
