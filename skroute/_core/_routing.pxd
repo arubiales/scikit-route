@@ -59,10 +59,10 @@ cdef inline double greedy_split_cost(const double[:, ::1] C, const double[:, ::1
     return cost + (trips - 1) * fixed_cost
 
 
+# Optimal decoder (Prins 2004), no triangle inequality assumed. Defined in _routing.pyx.
 cdef double optimal_split_cost(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                                double max_time, double fixed_cost,
                                double[::1] dp, int64_t[::1] pred) noexcept nogil
-    # Optimal decoder (Prins 2004), no triangle inequality assumed. Defined in _routing.pyx.
 
 
 cdef inline double problem_cost(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
@@ -76,16 +76,16 @@ cdef inline double problem_cost(const double[:, ::1] C, const double[:, ::1] T, 
     return optimal_split_cost(C, T, tour, max_time, fixed_cost, dp, pred)
 
 
+# Python entry point; holds the GIL, malloc/frees its own dp/pred scratch (MemoryError on failure).
+# NOT noexcept nogil. Used by RoutingProblem.evaluate and tests.
 cpdef double problem_cost_py(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                              double max_time, double fixed_cost, int split)
-    # Python entry point; holds the GIL, malloc/frees its own dp/pred scratch (MemoryError on failure).
-    # NOT noexcept nogil. Used by RoutingProblem.evaluate and tests.
 
+# writes out[0..k] (out[0] == 1, out[k] == n) and returns k = n_trips; out has length n + 1.
+# C and fixed_cost are needed only by the optimal split, for which it malloc/frees its own dp/pred
+# scratch while holding the GIL (NOT noexcept nogil, MemoryError on failure). Plain TSP -> k == 1.
 cpdef Py_ssize_t trip_starts(const double[:, ::1] T, const int64_t[::1] tour, double max_time, int split,
                              const double[:, ::1] C, double fixed_cost, int64_t[::1] out)
-    # writes out[0..k] (out[0] == 1, out[k] == n) and returns k = n_trips; out has length n + 1.
-    # C and fixed_cost are needed only by the optimal split, for which it malloc/frees its own dp/pred
-    # scratch while holding the GIL (NOT noexcept nogil, MemoryError on failure). Plain TSP -> k == 1.
 
 cpdef void trip_costs(const double[:, ::1] C, const int64_t[::1] tour, const int64_t[::1] starts,
                       double[::1] out) noexcept nogil       # closed-trip travel cost per trip
@@ -197,16 +197,18 @@ cdef inline void swap_positions_pos(int64_t[::1] tour, int64_t[::1] pos,
     pos[tour[j]] = j
 
 
-cdef void move_segment(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j, bint reverse) noexcept nogil
-    # the Or-opt move matching or_opt_delta; O(|i - j| + L) by rotating the affected span
+# the Or-opt move matching or_opt_delta; O(|i - j| + L) by rotating the affected span
+cdef void move_segment(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
+                       bint reverse) noexcept nogil
 
 cdef void move_segment_pos(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t L,
                            Py_ssize_t j, bint reverse) noexcept nogil
 
+# A B C D -> A C B D with A = tour[0..p1), B = [p1..p2), C = [p2..p3), D = [p3..n);
+# 1 <= p1 < p2 < p3 <= n-1.
+# Orientation-preserving: exact on ATSP. Writes to out (length n).
 cpdef void double_bridge(const int64_t[::1] tour, Py_ssize_t p1, Py_ssize_t p2, Py_ssize_t p3,
                          int64_t[::1] out) noexcept nogil
-    # A B C D -> A C B D with A = tour[0..p1), B = [p1..p2), C = [p2..p3), D = [p3..n); 1 <= p1 < p2 < p3 <= n-1.
-    # Orientation-preserving: exact on ATSP. Writes to out (length n).
 
 cpdef void rebuild_pos(const int64_t[::1] tour, int64_t[::1] pos) noexcept nogil
 
@@ -217,7 +219,8 @@ cpdef void rebuild_pos(const int64_t[::1] tour, int64_t[::1] pos) noexcept nogil
 # cand: int64 (n, k) candidate lists from RoutingProblem.neighbours(k); dont_look: uint8[n] (0 = active).
 # Both use Bentley's neighbour-list scan with the pruning `C[a, succ(a)] > C[a, c]` and reset the
 # don't-look bits of the touched endpoints on improvement. Stop at a local optimum or after max_passes.
-# The pos/cand/dont_look buffers are caller-owned and persist across calls (LocalSearch calls with max_passes=1).
+# The pos/cand/dont_look buffers are caller-owned and persist across calls (LocalSearch calls with
+# max_passes=1).
 
 cpdef double two_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[::1] pos,
                              const int64_t[:, ::1] cand, uint8_t[::1] dont_look,
@@ -227,14 +230,14 @@ cpdef double or_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[:
                             const int64_t[:, ::1] cand, uint8_t[::1] dont_look,
                             int max_segment, bint allow_reverse, int max_passes) noexcept nogil
 
+# Full-re-evaluation FIRST-IMPROVEMENT descent over the candidate neighbourhoods for the
+# multi-trip objective and/or asymmetric matrices. moves is a bit mask: 1 = two_opt,
+# 2 = or_opt (no reversal, segment lengths 1..max_segment), 4 = swap.
+# O(n) per candidate move; documented ceiling ~2000 nodes.
 cpdef double local_search_generic(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
                                   int64_t[::1] pos, const int64_t[:, ::1] cand, double max_time,
                                   double fixed_cost, int split, int moves, int max_segment, int max_passes,
                                   int64_t[::1] scratch_tour, double[::1] dp, int64_t[::1] pred) noexcept nogil
-    # Full-re-evaluation FIRST-IMPROVEMENT descent over the candidate neighbourhoods for the
-    # multi-trip objective and/or asymmetric matrices. moves is a bit mask: 1 = two_opt,
-    # 2 = or_opt (no reversal, segment lengths 1..max_segment), 4 = swap.
-    # O(n) per candidate move; documented ceiling ~2000 nodes.
 
 
 # ------------------------------------------------------------------ construction

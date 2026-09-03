@@ -382,7 +382,8 @@ cpdef void trip_times(const double[:, ::1] T, const int64_t[::1] tour, const int
 
 
 # ====================================================================== apply moves
-cdef void move_segment(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j, bint reverse) noexcept nogil:
+cdef void move_segment(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
+                       bint reverse) noexcept nogil:
     # Or-opt move matching or_opt_delta: the segment S = tour[i..i+L-1] ends up right after the node
     # at position j. Implemented as a rotation of the affected span by three reversals (block swap),
     # O(|i - j| + L), no scratch memory. With reverse=True the segment lands reversed.
@@ -832,9 +833,10 @@ cdef inline double _eval_scratch(const double[:, ::1] C, const double[:, ::1] T,
     return problem_cost(C, T, scratch, max_time, fixed_cost, split, dp, pred)
 
 
-cdef bint _generic_reverse(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour, int64_t[::1] pos,
-                           Py_ssize_t lo, Py_ssize_t hi, double max_time, double fixed_cost, int split,
-                           int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred, double* cur) noexcept nogil:
+cdef bint _generic_reverse(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
+                           int64_t[::1] pos, Py_ssize_t lo, Py_ssize_t hi, double max_time, double fixed_cost,
+                           int split, int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred,
+                           double* cur) noexcept nogil:
     cdef double new
     if lo < 1 or hi <= lo:
         return False
@@ -882,7 +884,8 @@ cdef bint _generic_swap(const double[:, ::1] C, const double[:, ::1] T, int64_t[
     return True
 
 
-cdef bint _generic_try_pair(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour, int64_t[::1] pos,
+cdef bint _generic_try_pair(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
+                            int64_t[::1] pos,
                             int64_t a, int64_t c, double max_time, double fixed_cost, int split, int moves,
                             int max_segment, int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred,
                             double* cur) noexcept nogil:
@@ -900,11 +903,13 @@ cdef bint _generic_try_pair(const double[:, ::1] C, const double[:, ::1] T, int6
             return True
         if lo >= 1:
             # reverse [lo..hi-1]: new edges (pred(lo), tour[hi-1]) and (tour[lo], tour[hi])
-            if _generic_reverse(C, T, tour, pos, lo, hi - 1, max_time, fixed_cost, split, scratch, dp, pred, cur):
+            if _generic_reverse(C, T, tour, pos, lo, hi - 1, max_time, fixed_cost, split, scratch, dp, pred,
+                                cur):
                 return True
         elif hi < n - 1:
             # lo is the depot: the mirror image, reverse [hi..n-1], closes the tour with (tour[hi], depot)
-            if _generic_reverse(C, T, tour, pos, hi, n - 1, max_time, fixed_cost, split, scratch, dp, pred, cur):
+            if _generic_reverse(C, T, tour, pos, hi, n - 1, max_time, fixed_cost, split, scratch, dp, pred,
+                                cur):
                 return True
     if moves & 2:
         for L in range(1, max_segment + 1):
@@ -913,16 +918,16 @@ cdef bint _generic_try_pair(const double[:, ::1] C, const double[:, ::1] T, int6
                 return True
             # segment ending at a, inserted before c (after pred c)
             j = k - 1 if k > 0 else n - 1
-            if _generic_or_opt(C, T, tour, pos, i - L + 1, L, j, max_time, fixed_cost, split, scratch, dp, pred,
-                               cur):
+            if _generic_or_opt(C, T, tour, pos, i - L + 1, L, j, max_time, fixed_cost, split, scratch, dp,
+                               pred, cur):
                 return True
             # segment starting at c, inserted after a
             if _generic_or_opt(C, T, tour, pos, k, L, i, max_time, fixed_cost, split, scratch, dp, pred, cur):
                 return True
             # segment ending at c, inserted before a (after pred a)
             j = i - 1 if i > 0 else n - 1
-            if _generic_or_opt(C, T, tour, pos, k - L + 1, L, j, max_time, fixed_cost, split, scratch, dp, pred,
-                               cur):
+            if _generic_or_opt(C, T, tour, pos, k - L + 1, L, j, max_time, fixed_cost, split, scratch, dp,
+                               pred, cur):
                 return True
     if moves & 4:
         # a takes the place of c's predecessor / successor, and c the place of a's
@@ -944,7 +949,8 @@ cdef bint _generic_try_pair(const double[:, ::1] C, const double[:, ::1] T, int6
 cpdef double local_search_generic(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
                                   int64_t[::1] pos, const int64_t[:, ::1] cand, double max_time,
                                   double fixed_cost, int split, int moves, int max_segment, int max_passes,
-                                  int64_t[::1] scratch_tour, double[::1] dp, int64_t[::1] pred) noexcept nogil:
+                                  int64_t[::1] scratch_tour, double[::1] dp,
+                                  int64_t[::1] pred) noexcept nogil:
     """First-improvement descent by full re-evaluation: the multi-trip and asymmetric path.
 
     For every node ``a`` and every candidate ``c`` of ``a`` the moves of the enabled kinds
@@ -1010,8 +1016,8 @@ cpdef double local_search_generic(const double[:, ::1] C, const double[:, ::1] T
                 c = cand[a, m]
                 if c == a:
                     continue
-                while _generic_try_pair(C, T, tour, pos, a, c, max_time, fixed_cost, split, moves, max_segment,
-                                        scratch_tour, dp, pred, &cur):
+                while _generic_try_pair(C, T, tour, pos, a, c, max_time, fixed_cost, split, moves,
+                                        max_segment, scratch_tour, dp, pred, &cur):
                     improved_pass = True
         if not improved_pass:
             break
@@ -1076,7 +1082,7 @@ cpdef void nearest_neighbour_tour(const double[:, ::1] C, int64_t depot, int64_t
     free(seen)
 
 
-# ====================================================================== Python wrappers of the inline primitives
+# ====================================================================== Python wrappers (inline primitives)
 # The cdef inline kernels of the .pxd are invisible from Python; these thin wrappers exist for the
 # test-suite, diagnostics and benchmarks. They validate their arguments (ValueError) before calling.
 
