@@ -17,3 +17,10 @@ _*.html
 /wheelhouse
 
 .venv*/
+*.pyd
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+htmlcov/

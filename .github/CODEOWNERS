@@ -1,0 +1,11 @@
+# Ownership of the 2.0 code base (SPEC §8). One owner per path; the lead owns the spine.
+*                                   @arubiales
+/skroute/_core/                     @arubiales
+/skroute/exact/                     @arubiales
+/skroute/construction/              @arubiales
+/skroute/local_search/              @arubiales
+/skroute/metaheuristics/            @arubiales
+/skroute/ensemble/                  @arubiales
+/skroute/datasets/                  @arubiales
+/skroute/preprocessing/             @arubiales
+/docs/                              @arubiales
