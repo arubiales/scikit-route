@@ -499,11 +499,17 @@ def test_clarke_wright_budget_equal_to_a_trip_duration_is_still_one_trip():
     T = rng.uniform(0.1, 1.0, (7, 7))
     T = (T + T.T) / 2
     np.fill_diagonal(T, 0.0)
-    budget = 1.3970773560739378
+    # The budget is derived on this platform from the decoder's own arithmetic (a constant pinned on
+    # one machine is one ulp off on another, D19/R3): take the longest savings trip of a loose run and
+    # copy its duration, ulp for ulp.
+    loose = savings_trips(C, 0, 1.0, T=T, max_time=1.5 * float((T[0, :] + T[:, 0]).max()))
+    longest = max(loose, key=lambda trip: _closed_duration(T, 0, trip))
+    budget = _closed_duration(T, 0, longest)
     trips = savings_trips(C, 0, 1.0, T=T, max_time=budget)
-    assert trips == [[1, 5], [2], [3], [4], [6]]
+    assert longest in trips or longest[::-1] in trips  # kept whole, not split by an ulp
+    assert all(_closed_duration(T, 0, trip) <= budget for trip in trips)
     est = ClarkeWright().fit(C, time_matrix=T, max_time_work=budget, extra_cost=10.0)
-    assert est.n_trips_ == 5 and est.route_.tolist() == [0, 1, 5, 0, 2, 0, 3, 0, 4, 0, 6, 0]
+    assert est.n_trips_ <= len(trips) and np.all(est.trip_times_ <= budget + 1e-12)
     # in general: set the budget to the longest savings trip's duration, ulp for ulp
     for seed in range(40):
         C = _random_instance(9, seed=seed)
