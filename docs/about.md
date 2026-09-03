@@ -10,7 +10,7 @@ has always carried, next to the plain travelling salesman problem, a multi-trip 
 working-time budget and a fixed charge per additional trip. The bundled cost datasets (Alicante–Murcia,
 Barcelona, Madrid, Valencia) date from that period.
 
-The first design reached 1.0.0a2. Version 2.0 (2026) is a full rewrite with the same aim and a stricter
+The first design reached 1.0.0a2 in 2021. Version 2.0 (2026) is a full rewrite with the same aim and a stricter
 contract:
 
 - Python 3.11 or newer, numpy 2 compatible, three runtime dependencies (numpy, scipy, joblib); pandas and
