@@ -1,0 +1,58 @@
+name: Feature request
+description: A new solver, parameter, metric, dataset or helper.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before proposing, skim [Choosing a solver](https://arubiales.github.io/scikit-route/user_guide/choosing_a_solver/):
+        the feature may already exist under another name (for example `Insertion(strategy="farthest")` instead of a new class).
+        Items already scheduled for 2.1 (Christofides, Lin-Kernighan, VNS, a multi-trip MILP, on-the-fly distances)
+        are welcome as issues so that design discussion can start; do not open a pull request for them yet.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can you not do today, or what is harder than it should be? Describe the routing problem, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: api
+    attributes:
+      label: Proposed API
+      description: >-
+        How would a user call it? Follow the conventions of the library: knobs in `__init__`, data in `fit`,
+        results in trailing-underscore attributes, names from the glossary of the contributing guide.
+      render: python
+      placeholder: |
+        from skroute import LinKernighan
+        lk = LinKernighan(depth=5, random_state=0).fit(C)
+        lk.route_, lk.cost_
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other designs, existing solvers or parameters you tried, and why they fall short.
+    validations:
+      required: true
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you implement it?
+      description: A maintainer will review the design first either way (see CONTRIBUTING.md, "Adding a solver").
+      options:
+        - "Yes, I can open a pull request"
+        - "Yes, with guidance"
+        - "No"
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Papers, implementations or benchmarks that describe the algorithm or justify the change.
+    validations:
+      required: false
