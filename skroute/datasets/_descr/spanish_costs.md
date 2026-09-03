@@ -9,7 +9,10 @@ extra_cost=..., people=2)`). The depot is the first id, `$depot`.
 
 - `cost`: `float64 (n, n)`, EUR -- fuel plus driver time, as the 1.0 data set
   priced it. Symmetric with a zero diagonal.
-- `time`: `float64 (n, n)`, hours of driving (the `hours` column of the table).
+- `time`: `float64 (n, n)`, hours per leg (the `hours` column of the table). It
+  is **not** `secs / 3600`: every off-diagonal leg carries a fixed stop of 7
+  minutes on top of the driving time, `hours = (secs + 420) / 3600`, so a trip
+  budget (`max_time_work`) already accounts for the time spent at each address.
 - `distance`: `float64 (n, n)`, metres by road.
 - `coords`: `float64 (n, 2)`, `(latitude, longitude)` in decimal degrees.
 - `labels`: `int64 (n,)`, the place ids in order of first appearance;

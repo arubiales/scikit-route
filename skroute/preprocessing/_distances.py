@@ -227,9 +227,9 @@ def distance_matrix(
     [[0.0, 5.0, 10.0], [5.0, 0.0, 5.0], [10.0, 5.0, 0.0]]
     >>> distance_matrix(xy, metric="manhattan")[0].tolist()
     [0.0, 7.0, 14.0]
-    >>> distance_matrix([[0.0, 0.0], [1.0, 1.0]], metric="tsplib_euc_2d")[0, 1]   # nint(1.414...)
+    >>> float(distance_matrix([[0.0, 0.0], [1.0, 1.0]], metric="tsplib_euc_2d")[0, 1])  # nint(1.414...)
     1.0
-    >>> distance_matrix([[0.0, 0.0], [1.0, 1.0]], metric="tsplib_ceil_2d")[0, 1]
+    >>> float(distance_matrix([[0.0, 0.0], [1.0, 1.0]], metric="tsplib_ceil_2d")[0, 1])
     2.0
     """
     if metric not in _BLOCK_FUNCTIONS:

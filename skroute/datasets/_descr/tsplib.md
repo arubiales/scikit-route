@@ -21,10 +21,10 @@ with `EDGE_WEIGHT_TYPE: EUC_2D`.
 
 ## Usage
 
-    >>> from skroute.datasets import load_tsp
-    >>> b = load_tsp("$name")
-    >>> C = b.distance_matrix()             # plain ndarray, no labels
-    >>> est.fit(C, labels=b.labels)         # pass labels= so route_ uses the ids
+    from skroute.datasets import load_tsp
+    b = load_tsp("$name")
+    C = b.distance_matrix()             # plain ndarray, no labels
+    est.fit(C, labels=b.labels)         # pass labels= so route_ uses the ids
 $note
 ## Source and licence
 

@@ -112,7 +112,7 @@ therefore refuses to build it (pass `force=True` if you really have the memory);
 work on a subsample instead, whose optimum is unknown (`optimal_tour_length is
 None`):
 
-    >>> b = load_tsp("$name", n_nodes=5000)
+    b = load_tsp("$name", n_nodes=5000)
 """
 
 
@@ -968,7 +968,7 @@ def load_qatar_costs(*, as_frame: bool = False) -> Bunch:
     >>> q = load_qatar_costs()
     >>> q.cost.shape, q.depot, q.units["cost"]
     ((192, 192), 1, 'km')
-    >>> bool((q.time == q.distance / 1000 / q.cost.clip(1e-9) * q.time).all())  # same pairs, same shape
+    >>> bool((q.cost == q.distance / 1000.0).all())  # cost is the road distance in km
     True
     """
     columns = _read_csv(_COSTS_DIR / "qatar_costs.csv", _QATAR_SCHEMA)
