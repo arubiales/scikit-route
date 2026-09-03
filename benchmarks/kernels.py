@@ -118,21 +118,33 @@ def gap(cost: float, name: str) -> str:
     return f"gap {100.0 * (cost / opt - 1.0):6.2f} %" if opt else "gap    n/a"
 
 
-def descend(D: np.ndarray, tour: np.ndarray, cand: np.ndarray, rounds: int = 50) -> tuple[float, int]:
-    """Alternate 2-opt and Or-opt (L <= 3, reversals allowed) with persistent buffers until neither
-    improves; returns (total gain, rounds used). This is the LocalSearch protocol of §4.3."""
+def descend(
+    D: np.ndarray, tour: np.ndarray, cand: np.ndarray, rounds: int = 50, *, clear_bits: bool = False
+) -> tuple[float, int]:
+    """Alternate ``two_opt_descent`` and ``or_opt_descent`` (L <= 3, reversals allowed) with ``pos`` and
+    the don't-look bits allocated once; returns (total gain, rounds used).
+
+    ``clear_bits=False`` is the LocalSearch protocol of §4.3: one outer iteration = one call of each
+    kernel with ``max_passes=1``, the bits persist across calls (never cleared), stop when an iteration
+    returns ``0.0`` for both kernels ("converged") or after ``rounds`` iterations (LocalSearch's
+    ``max_passes=50``). ``clear_bits=True`` runs each kernel to convergence with the bits cleared before
+    every call — a full 2-opt / Or-opt descent, more expensive per round and usually a better optimum.
+    """
     n = len(tour)
     pos = np.empty(n, dtype=np.int64)
     core.rebuild_pos(tour, pos)
     dlb = np.zeros(n, dtype=np.uint8)
+    passes = 1000 if clear_bits else 1
     total = 0.0
     used = 0
     for r in range(1, rounds + 1):
         used = r
-        dlb[:] = 0
-        g1 = core.two_opt_descent(D, tour, pos, cand, dlb, True, 1000)
-        dlb[:] = 0
-        g2 = core.or_opt_descent(D, tour, pos, cand, dlb, 3, True, 1000)
+        if clear_bits:
+            dlb[:] = 0
+        g1 = core.two_opt_descent(D, tour, pos, cand, dlb, True, passes)
+        if clear_bits:
+            dlb[:] = 0
+        g2 = core.or_opt_descent(D, tour, pos, cand, dlb, 3, True, passes)
         total += g1 + g2
         if g1 + g2 == 0.0:
             break
@@ -179,17 +191,19 @@ def bench_instance(name: str, repeat: int, rng: np.random.Generator) -> None:
     t_cand, cand = best_of(neighbour_lists, D, K, repeat=1)
     print(f"nearest neighbour  {t_nn * 1e3:9.1f} ms  {gap(c_nn, name)} | {K}-NN lists {t_cand * 1e3:9.1f} ms")
 
-    # ---- 2-opt + Or-opt with candidate lists and don't-look bits, from the NN tour
-    t_ls, (total_gain, rounds) = best_of(lambda: descend(D, nn.copy(), cand), repeat=1)
-    ls = nn.copy()
-    total_gain, rounds = descend(D, ls, cand)
-    c_ls = core.tour_cost_py(D, ls)
-    assert sorted(ls.tolist()) == list(range(n)) and ls[0] == 0
-    assert abs(c_nn + total_gain - c_ls) < 1e-6 * max(1.0, c_ls), (c_nn, total_gain, c_ls)
-    print(
-        f"2-opt + Or-opt     {t_ls * 1e3:9.1f} ms  {gap(c_ls, name)} ({rounds} rounds, {K}-NN, DLB)"
-        + ("   <-- target <= 150 ms" if name == "fi10639" else "")
-    )
+    # ---- 2-opt + Or-opt with candidate lists and don't-look bits, from the NN tour: the §4.3 protocol
+    # (persistent bits, max_passes=1 per call) and the full descent (bits cleared, kernels to convergence)
+    for clear_bits, label in ((False, "§4.3 protocol "), (True, "full descent  ")):
+        t_ls, _ = best_of(lambda cb=clear_bits: descend(D, nn.copy(), cand, clear_bits=cb), repeat=1)
+        ls = nn.copy()
+        total_gain, rounds = descend(D, ls, cand, clear_bits=clear_bits)
+        c_ls = core.tour_cost_py(D, ls)
+        assert sorted(ls.tolist()) == list(range(n)) and ls[0] == 0
+        assert abs(c_nn + total_gain - c_ls) < 1e-6 * max(1.0, c_ls), (c_nn, total_gain, c_ls)
+        print(
+            f"2-opt + Or-opt     {t_ls * 1e3:9.1f} ms  {gap(c_ls, name)} ({label}{rounds} rounds, {K}-NN)"
+            + ("   <-- target <= 150 ms" if name == "fi10639" else "")
+        )
 
     # ---- the full-evaluation generic path (multi-trip / ATSP), only where it is meant to run
     if n <= 1000:

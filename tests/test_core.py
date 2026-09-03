@@ -2,9 +2,13 @@
 
 Every kernel of SPEC §3.5 is checked property-wise (hypothesis, ``derandomize=True``) against
 ``tests/reference.py`` on instances with ``n in 3..12``, symmetric and asymmetric finite
-matrices, random depot-first permutations and budgets in ``[max round trip, 3 x max round
-trip]`` (§6), plus unit tests for the ``n = 3`` edges, the ``SplitRule`` constants, argument
-validation and the ``.pyi`` stub surface.
+matrices of several kinds (random, Euclidean, lattice points with coincidences and exact ties,
+small integers with zero edges, all-zero, scaled by ``1e12`` and by ``1e-9``), random
+depot-first permutations and budgets in ``[max round trip, 3 x max round trip]`` (§6), plus
+unit tests for the ``n = 3`` edges, the ``SplitRule`` constants, argument validation and the
+``.pyi`` stub surface. Two properties are checked beyond the reference: no kernel reads the
+diagonal (§3.1) and the descents' don't-look bookkeeping and neighbourhoods are the documented
+ones.
 """
 
 from __future__ import annotations
@@ -97,29 +101,65 @@ def two_opt_pairs(n: int) -> list[tuple[int, int]]:
     return [(i, j) for i in range(1, n - 1) for j in range(i + 1, n)]
 
 
+def edges(tour) -> set[frozenset[int]]:
+    """The undirected edges of a closed tour."""
+    t = [int(v) for v in tour]
+    return {frozenset((t[k], t[(k + 1) % len(t)])) for k in range(len(t))}
+
+
+def delta_tol(C: np.ndarray, tour: np.ndarray) -> float:
+    """Absolute tolerance for an O(1) delta against a recompute-by-difference: the rounding of the two
+    full sums scales with the tour cost (1e12-scaled instances lose ~1e-3 in absolute terms)."""
+    return 1e-9 * max(1.0, abs(reference.tour_cost(C, tour)))
+
+
 # ----------------------------------------------------------------------------- strategies
+# Matrix kinds: the bundled Waterloo data has coincident points (lu980: 346 duplicate rows) and
+# integer ties, so zero edges and exact ties are normal input; the scaled kinds cover the extremes.
+KINDS = ("uniform", "euclidean", "lattice", "integer", "zero", "huge", "tiny")
+
+
+def make_matrix(rng: np.random.Generator, n: int, symmetric: bool, kind: str) -> np.ndarray:
+    """Finite (n, n) float64 matrix of the given kind with a zero diagonal; symmetric when asked."""
+    if kind in ("euclidean", "lattice"):
+        xy = rng.random((n, 2)) * 100.0 if kind == "euclidean" else rng.integers(0, 3, (n, 2)).astype(float)
+        M = np.sqrt(((xy[:, None, :] - xy[None, :, :]) ** 2).sum(-1))
+        if not symmetric:
+            M = M * rng.uniform(0.7, 1.3, (n, n))
+    else:
+        if kind == "integer":
+            M = rng.integers(0, 6, (n, n)).astype(float)
+        elif kind == "zero":
+            M = np.zeros((n, n))
+        else:
+            M = rng.uniform(1.0, 100.0, (n, n))
+            if kind == "huge":
+                M = M * 1e12
+            elif kind == "tiny":
+                M = M * 1e-9
+        if symmetric:
+            M = (M + M.T) / 2.0
+    np.fill_diagonal(M, 0.0)
+    return np.ascontiguousarray(M)
+
+
 @st.composite
-def instances(draw, symmetric=None, with_time=False, min_n=3, max_n=12):
-    """Instance dict: C (and T, max_time, fixed_cost), a depot-first random tour, n, symmetric."""
+def instances(draw, symmetric=None, with_time=False, min_n=3, max_n=12, kinds=KINDS):
+    """Instance dict: C (and T, max_time, fixed_cost), a depot-first random tour, n, symmetric, kind."""
     n = draw(st.integers(min_n, max_n))
     seed = draw(st.integers(0, 2**31 - 1))
     sym = draw(st.booleans()) if symmetric is None else symmetric
+    kind = draw(st.sampled_from(kinds))
     rng = np.random.default_rng(seed)
-    C = rng.uniform(1.0, 100.0, (n, n))
-    if sym:
-        C = (C + C.T) / 2.0
-    np.fill_diagonal(C, 0.0)
+    C = make_matrix(rng, n, sym, kind)
     depot = draw(st.integers(0, n - 1))
     others = rng.permutation([v for v in range(n) if v != depot])
     tour = np.concatenate(([depot], others)).astype(np.int64)
-    inst = {"C": np.ascontiguousarray(C), "tour": tour, "n": n, "symmetric": sym, "depot": depot}
+    inst = {"C": C, "tour": tour, "n": n, "symmetric": sym, "depot": depot, "kind": kind}
     if with_time:
-        T = rng.uniform(0.5, 10.0, (n, n))
-        if sym:
-            T = (T + T.T) / 2.0
-        np.fill_diagonal(T, 0.0)
+        T = make_matrix(rng, n, sym, kind)
         round_trip = max(T[depot, v] + T[v, depot] for v in range(n) if v != depot)
-        inst["T"] = np.ascontiguousarray(T)
+        inst["T"] = T
         inst["max_time"] = round_trip * draw(st.floats(1.0, 3.0))
         inst["fixed_cost"] = draw(st.floats(0.0, 50.0))
     return inst
@@ -140,8 +180,8 @@ def instance_and_or_opt(draw, symmetric=None):
 
 
 @st.composite
-def instance_and_candidates(draw, symmetric=None, with_time=False):
-    inst = draw(instances(symmetric=symmetric, with_time=with_time))
+def instance_and_candidates(draw, symmetric=None, with_time=False, min_n=3):
+    inst = draw(instances(symmetric=symmetric, with_time=with_time, min_n=min_n))
     k = draw(st.integers(1, inst["n"] - 1))
     inst["cand"] = neighbours(inst["C"], k)
     return inst
@@ -225,8 +265,8 @@ def test_two_opt_delta_is_exact_on_symmetric(args):
     inst, i, j = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.two_opt_delta_by_recompute(C, tour, i, j)
-    assert core.two_opt_delta_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
-    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
+    assert core.two_opt_delta_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
+    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -235,7 +275,7 @@ def test_two_opt_delta_asym_is_exact_on_asymmetric(args):
     inst, i, j = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.two_opt_delta_by_recompute(C, tour, i, j)
-    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
+    assert core.two_opt_delta_asym_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -244,7 +284,7 @@ def test_or_opt_delta_forward_is_exact_on_asymmetric(args):
     inst, i, L, j, _ = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.or_opt_delta_by_recompute(C, tour, i, L, j, reverse=False)
-    assert core.or_opt_delta_py(C, tour, i, L, j, False) == pytest.approx(expected, abs=1e-9)
+    assert core.or_opt_delta_py(C, tour, i, L, j, False) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -253,7 +293,7 @@ def test_or_opt_delta_both_orientations_are_exact_on_symmetric(args):
     inst, i, L, j, reverse = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.or_opt_delta_by_recompute(C, tour, i, L, j, reverse=reverse)
-    assert core.or_opt_delta_py(C, tour, i, L, j, reverse) == pytest.approx(expected, abs=1e-9)
+    assert core.or_opt_delta_py(C, tour, i, L, j, reverse) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 @SETTINGS
@@ -262,7 +302,7 @@ def test_swap_delta_is_exact_on_asymmetric(args):
     inst, i, j = args
     C, tour = inst["C"], inst["tour"]
     expected = reference.swap_delta_by_recompute(C, tour, i, j)
-    assert core.swap_delta_py(C, tour, i, j) == pytest.approx(expected, abs=1e-9)
+    assert core.swap_delta_py(C, tour, i, j) == pytest.approx(expected, abs=delta_tol(C, tour))
 
 
 # ----------------------------------------------------------------------------- applying moves
@@ -405,16 +445,174 @@ def test_descents_with_max_passes_zero_change_nothing(inst):
 
 
 @FEW
-@given(instances(symmetric=True, min_n=5, max_n=9))
-def test_two_opt_descent_with_full_lists_reaches_a_two_opt_local_optimum(inst):
-    """Best-improvement 2-opt over the complete neighbourhood ends where no reversal improves."""
+@given(instances(symmetric=True, min_n=5, max_n=9), st.booleans())
+def test_two_opt_descent_with_full_lists_and_cleared_bits_reaches_a_two_opt_local_optimum(inst, first):
+    """With the complete neighbourhood and the don't-look bits cleared before every pass, the descent
+    ends where no reversal improves: an improving reversal has a new edge shorter than the removed edge
+    at one of its endpoints, and that endpoint's scan finds it. (A single call with persistent bits is
+    only 2-opt-optimal up to the don't-look-bit approximation — see the kernel's Notes.)"""
     C, n = inst["C"], inst["n"]
     inst["cand"] = neighbours(C, n - 1)
     t, pos, dlb = descent_buffers(inst)
-    core.two_opt_descent(C, t, pos, inst["cand"], dlb, False, 10_000)
+    for _ in range(10_000):
+        dlb[:] = 0
+        if core.two_opt_descent(C, t, pos, inst["cand"], dlb, first, 1) == 0.0:
+            break
     cur = reference.tour_cost(C, t)
     for i, j in two_opt_pairs(n):
         assert reference.tour_cost(C, reference.two_opt_apply(t, i, j)) >= cur - 1e-9 * max(1.0, cur) - 1e-12
+
+
+def assert_only_gap_closing_or_opt_moves_remain(C: np.ndarray, tour: np.ndarray, allow_reverse: bool) -> None:
+    """The documented Or-opt neighbourhood: a move is found from any of its six endpoints except the two
+    whose gap closes (p, q). So with full lists and cleared bits, an Or-opt move still improving at
+    termination has none of its new edges at the segment ends or at the anchor shorter than the edge
+    removed there — otherwise one of the four scans (segment start, segment end, anchor after, anchor
+    before) would have applied it."""
+    n = len(tour)
+    cand = neighbours(C, n - 1)
+    t = tour.copy()
+    pos = np.empty(n, dtype=np.int64)
+    core.rebuild_pos(t, pos)
+    dlb = np.zeros(n, dtype=np.uint8)
+    for _ in range(10_000):
+        dlb[:] = 0
+        if core.or_opt_descent(C, t, pos, cand, dlb, 3, allow_reverse, 1) == 0.0:
+            break
+    cur = reference.tour_cost(C, t)
+    floor = cur - 1e-9 * max(1.0, cur) - 1e-12
+    for i, L, j in or_opt_moves(n):
+        for reverse in (False, True) if (allow_reverse and L > 1) else (False,):
+            if reference.tour_cost(C, reference.or_opt_apply(t, i, L, j, reverse)) >= floor:
+                continue
+            p, s0, sL, q = t[i - 1], t[i], t[i + L - 1], t[(i + L) % n]
+            c, d = t[j], t[(j + 1) % n]
+            x, y = (sL, s0) if reverse else (s0, sL)  # new edges (c, x) and (y, d)
+            removed_x, removed_y = (C[sL, q], C[p, s0]) if reverse else (C[p, s0], C[sL, q])
+            assert C[c, x] >= C[c, d] and C[c, x] >= removed_x, (t.tolist(), i, L, j, reverse)
+            assert C[y, d] >= C[c, d] and C[y, d] >= removed_y, (t.tolist(), i, L, j, reverse)
+
+
+@SETTINGS
+@given(instances(symmetric=True, min_n=5, max_n=10, kinds=("uniform", "euclidean")), st.booleans())
+def test_or_opt_descent_with_full_lists_and_cleared_bits_misses_only_gap_closing_moves(inst, allow_reverse):
+    assert_only_gap_closing_or_opt_moves_remain(inst["C"], inst["tour"], allow_reverse)
+
+
+def test_or_opt_descent_finds_the_move_seen_only_from_the_anchor():
+    """Regression: a segment-end scan alone cannot see this move (n = 10 Euclidean instance of the
+    review): at the tour it converged to, node 5 belonged right after the depot — its new edge
+    (depot, 5) is shorter than the depot's removed edge, but not shorter than the edges removed at 5.
+    Only a scan from the anchor (the depot's own candidate list) finds it."""
+    xy = np.array(
+        [
+            [45.501748315239986, 5.677436239291678],
+            [99.53616594289969, 88.86993067083327],
+            [91.6323934973403, 24.657553007363873],
+            [39.411025472496796, 22.717950091335336],
+            [12.49063821776657, 3.302392466573567],
+            [50.3336447986407, 12.313365606638971],
+            [17.630437136812716, 86.04756804576209],
+            [48.42427686339313, 18.370352102024935],
+            [66.98645598173123, 26.58648776948195],
+            [52.693720005005716, 28.295286786234442],
+        ]
+    )
+    C = np.ascontiguousarray(np.sqrt(((xy[:, None, :] - xy[None, :, :]) ** 2).sum(-1)))
+    start = np.array([0, 9, 4, 5, 3, 8, 2, 6, 7, 1], dtype=np.int64)
+    assert_only_gap_closing_or_opt_moves_remain(C, start, allow_reverse=False)
+    assert_only_gap_closing_or_opt_moves_remain(C, start, allow_reverse=True)
+
+
+@SETTINGS
+@given(instance_and_candidates(symmetric=True, min_n=4), st.integers(1, 3), st.booleans())
+def test_descents_reset_the_bits_of_every_endpoint_of_an_applied_move(inst, max_segment, allow_reverse):
+    """Don't-look bookkeeping (.pxd): after an applied move every node that lost a tour edge — the four
+    endpoints of a reversal, the six of a segment move — has its bit active again. Only node n - 1 is
+    active, so it is the only node processed in the single pass (a node reset by one of its moves is
+    never revisited in that pass); its own bit is set when it is done. Nodes outside the net-removed
+    edges may be active too (an edge removed by one move and restored by a later one)."""
+    C, tour, n, cand = inst["C"], inst["tour"], inst["n"], inst["cand"]
+    a = n - 1
+    for kernel in ("two_opt", "or_opt"):
+        t, pos, dlb = descent_buffers(inst)
+        dlb[:] = 1
+        dlb[a] = 0
+        if kernel == "two_opt":
+            gain = core.two_opt_descent(C, t, pos, cand, dlb, True, 1)
+        else:
+            gain = core.or_opt_descent(C, t, pos, cand, dlb, max_segment, allow_reverse, 1)
+        assert dlb[a] == 1
+        if gain == 0.0:
+            assert np.array_equal(t, tour) and dlb.all()
+            continue
+        lost = set().union(*(edges(tour) - edges(t)))
+        assert lost, "an applied move removes at least one edge"
+        assert all(dlb[v] == 0 for v in lost if v != a), (kernel, tour.tolist(), t.tolist(), dlb.tolist())
+
+
+@SETTINGS
+@given(instance_and_candidates(symmetric=True, with_time=True), st.sampled_from([1e12, -3.0, 1e-9, 7.5]))
+def test_kernels_never_read_the_diagonal(inst, diag):
+    """SPEC §3.1: every kernel gives bit-identical results whatever finite value sits on the diagonal
+    of C and T — including the greedy decoder on a D5-infeasible budget (first customer's round trip
+    too long), whose closing leg at the depot is the depot's own diagonal entry."""
+    C0, T0, tour, n, cand = inst["C"], inst["T"], inst["tour"], inst["n"], inst["cand"]
+    mt, fc, d = inst["max_time"], inst["fixed_cost"], int(tour[0])
+    C1, T1 = C0.copy(), T0.copy()
+    np.fill_diagonal(C1, diag)
+    np.fill_diagonal(T1, diag)
+    bad = 0.5 * (T0[d, tour[1]] + T0[tour[1], d])  # below the first customer's round trip
+
+    def run(C, T):
+        out = {
+            "tour": core.tour_cost_py(C, tour),
+            "greedy": core.greedy_split_cost_py(C, T, tour, mt, fc),
+            "optimal": core.optimal_split_cost_py(C, T, tour, mt, fc),
+            "greedy_infeasible": core.greedy_split_cost_py(C, T, tour, bad, fc),
+            "optimal_infeasible": core.optimal_split_cost_py(C, T, tour, bad, fc),
+            "problem": [
+                core.problem_cost_py(C, T, tour, m, fc, s) for m in (math.inf, mt, bad) for s in (GREEDY,)
+            ]
+            + [core.problem_cost_py(C, T, tour, mt, fc, OPTIMAL)],
+            "two_opt": [core.two_opt_delta_py(C, tour, i, j) for i, j in two_opt_pairs(n)],
+            "two_opt_asym": [core.two_opt_delta_asym_py(C, tour, i, j) for i, j in two_opt_pairs(n)],
+            "swap": [core.swap_delta_py(C, tour, i, j) for i, j in two_opt_pairs(n)],
+            "or_opt": [
+                core.or_opt_delta_py(C, tour, i, L, j, r)
+                for i, L, j in or_opt_moves(n)
+                for r in (False, True)
+            ],
+        }
+        for split in (GREEDY, OPTIMAL):
+            starts = np.full(n + 1, -1, dtype=np.int64)
+            k = core.trip_starts(T, tour, mt, split, C, fc, starts)
+            costs, times = np.empty(k), np.empty(k)
+            core.trip_costs(C, tour, starts[: k + 1], costs)
+            core.trip_times(T, tour, starts[: k + 1], times)
+            out[f"trips{split}"] = (k, starts.tolist(), costs.tolist(), times.tolist())
+        starts = np.full(n + 1, -1, dtype=np.int64)
+        out["trips_infeasible"] = (core.trip_starts(T, tour, bad, GREEDY, C, fc, starts), starts.tolist())
+        nn = np.empty(n, dtype=np.int64)
+        core.nearest_neighbour_tour(C, d, nn)
+        out["nn"] = nn.tolist()
+        for first in (True, False):
+            t, pos, dlb = descent_buffers(inst)
+            g = core.two_opt_descent(C, t, pos, cand, dlb, first, 1000)
+            out[f"two_opt_descent{first}"] = (g, t.tolist(), pos.tolist(), dlb.tolist())
+        t, pos, dlb = descent_buffers(inst)
+        g = core.or_opt_descent(C, t, pos, cand, dlb, 3, True, 1000)
+        out["or_opt_descent"] = (g, t.tolist(), pos.tolist(), dlb.tolist())
+        for m, split in ((math.inf, GREEDY), (mt, GREEDY), (mt, OPTIMAL)):
+            t, pos, _ = descent_buffers(inst)
+            scratch_tour, dp, pred = scratch(n)
+            g = core.local_search_generic(
+                C, T, t, pos, cand, m, fc, split, 7, 3, 1000, scratch_tour, dp, pred
+            )
+            out[f"generic{m}{split}"] = (g, t.tolist(), pos.tolist())
+        return out
+
+    assert run(C1, T1) == run(C0, T0)
 
 
 # ----------------------------------------------------------------------------- generic descent
@@ -615,6 +813,15 @@ def test_python_entry_points_validate_shapes_and_dtypes():
         core.trip_starts(C, tour, 3.0, GREEDY, C, 0.0, np.empty(4, dtype=np.int64))
     with pytest.raises(ValueError, match="at least the depot"):
         core.tour_cost_py(C, np.empty(0, dtype=np.int64))
+    # a depot-only tour is rejected too: tour_cost would read the diagonal and the two decoders of
+    # trip_starts used to disagree on it (greedy k = 1, out = [1, 1]; optimal k = 0)
+    for split in (GREEDY, OPTIMAL):
+        with pytest.raises(ValueError, match="at least the depot and one customer"):
+            core.trip_starts(
+                C[:1, :1], np.zeros(1, dtype=np.int64), 5.0, split, C[:1, :1], 0.0, np.empty(2, np.int64)
+            )
+    with pytest.raises(ValueError, match="at least the depot and one customer"):
+        core.problem_cost_py(C[:1, :1], C[:1, :1], np.zeros(1, dtype=np.int64), math.inf, 0.0, GREEDY)
     # typed memoryviews refuse other dtypes and non-contiguous layouts
     with pytest.raises((ValueError, TypeError)):
         core.tour_cost_py(C, tour.astype(np.int32))
@@ -638,8 +845,27 @@ def test_stub_declares_exactly_the_python_surface():
     public = {name for name in dir(core) if not name.startswith("_")}
     assert declared == public
     assert set(core.__all__) == public
+    # the stub's __all__ mirrors the module's (mypy resolves ``core.__all__`` through the stub)
+    stub_all = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in node.targets)
+    )
+    assert ast.literal_eval(stub_all.value) == list(core.__all__)
     enum_cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "SplitRule")
     assert [b.id for b in enum_cls.bases] == ["IntEnum"]  # type: ignore[attr-defined]
+
+
+def test_every_public_name_is_documented_in_numpydoc():
+    """mkdocstrings/help() show every public name: the enum has a docstring and every function a
+    ``Parameters`` section (``embedsignature`` gives the signature, not the parameters' meaning)."""
+    for name in core.__all__:
+        doc = getattr(core, name).__doc__
+        assert doc and doc.strip(), name
+        if name != "SplitRule":
+            assert "Parameters\n" in doc, name
+    enum_doc = core.SplitRule.__doc__ or ""
+    assert "SPLIT_GREEDY" in enum_doc and "SPLIT_OPTIMAL" in enum_doc
 
 
 def test_docstring_examples_of_the_compiled_module_run():

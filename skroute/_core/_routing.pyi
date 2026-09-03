@@ -15,7 +15,38 @@ Float64Array = NDArray[np.float64]
 Int64Array = NDArray[np.int64]
 UInt8Array = NDArray[np.uint8]
 
+# The compiled module's ``__all__``, in the module's own order (tests/test_core.py checks that the two
+# lists agree).
+__all__ = [  # noqa: RUF022
+    "SplitRule",
+    "problem_cost_py",
+    "trip_starts",
+    "trip_costs",
+    "trip_times",
+    "double_bridge",
+    "rebuild_pos",
+    "two_opt_descent",
+    "or_opt_descent",
+    "local_search_generic",
+    "nearest_neighbour_tour",
+    "tour_cost_py",
+    "greedy_split_cost_py",
+    "optimal_split_cost_py",
+    "two_opt_delta_py",
+    "two_opt_delta_asym_py",
+    "or_opt_delta_py",
+    "swap_delta_py",
+    "reverse_segment_py",
+    "reverse_segment_pos_py",
+    "swap_positions_py",
+    "swap_positions_pos_py",
+    "move_segment_py",
+    "move_segment_pos_py",
+]
+
 class SplitRule(IntEnum):
+    """Decoder of a giant tour into trips (SPEC D1); C code compares ``int split`` against the members."""
+
     SPLIT_GREEDY = 0
     SPLIT_OPTIMAL = 1
 
