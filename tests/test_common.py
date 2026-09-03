@@ -4,7 +4,11 @@ run against the test-suite's dummy routers (which also expose what the battery m
 
 from __future__ import annotations
 
+import ctypes
+import dataclasses
+import os
 import re
+import sys
 
 import numpy as np
 import pytest
@@ -12,7 +16,8 @@ import reference
 import tolerances
 from conftest import DUMMY_SOLVERS, fit_kwargs, is_dummy, make
 
-from skroute.base import BaseRouter, RouterTags
+from skroute.base import BaseRouter, RouterTags, clone
+from skroute.exceptions import InfeasibleProblemError
 from skroute.utils import Bunch, estimator_checks
 from skroute.utils.estimator_checks import CheckSkipped, check_router
 
@@ -30,9 +35,9 @@ def _run(check, estimator):
 
 # --------------------------------------------------------------------------- checks 1-11, 13 over the roster
 @pytest.mark.parametrize("check", CHECK_FNS, ids=CHECK_IDS)
-def test_check_router(Solver, check, capsys):
+def test_check_router(Solver, check, capfd):  # capfd: a printf in a .pyx bypasses sys.stdout (capsys)
     _run(check, make(Solver))
-    out, err = capsys.readouterr()
+    out, err = capfd.readouterr()
     assert out == "" and err == "", "nothing may be printed while a solver runs (D24)"
 
 
@@ -243,6 +248,62 @@ class _ForgotStochasticTag(BaseRouter):
         return np.roll(np.arange(problem.n), -problem.depot)
 
 
+class SimulatedAnnealing(_NonMonotoneHistory):
+    """Test-local namesake of the real solver: the §3.4 table says SA never stops by 'max_iter'."""
+
+    def __init__(self, patience=None, time_limit=None, random_state=None, verbose=0):
+        self.patience = patience
+        self.time_limit = time_limit
+        self.random_state = random_state
+        self.verbose = verbose
+
+    def _solve(self, problem, rng):
+        tour = np.roll(np.arange(problem.n), -problem.depot)
+        self.history_, self.n_iter_, self.stop_reason_ = [problem.evaluate(tour)], 1, "max_iter"
+        return tour
+
+
+class _RaisesInfeasible(BaseRouter):
+    """Raises InfeasibleProblemError for every input: check 6 must tell it apart from a plain ValueError."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction")
+
+    def fit(self, X, **kw):
+        raise InfeasibleProblemError("not the message of §3.3")
+
+
+class _PrintsFromC(BaseRouter):
+    """A ``printf`` in a kernel: bypasses ``sys.stdout``, sits in libc's buffer until flushed."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction")
+
+    def _solve(self, problem, rng):
+        ctypes.CDLL(None).printf(b"solving\n")
+        return np.roll(np.arange(problem.n), -problem.depot)
+
+
+class _WritesToFd(BaseRouter):
+    def _get_tags(self):
+        return RouterTags(kind="construction")
+
+    def _solve(self, problem, rng):
+        os.write(2, b"solving\n")
+        return np.roll(np.arange(problem.n), -problem.depot)
+
+
+class _MutatesInput(BaseRouter):
+    """Writes into the aliased cost matrix: the battery's inputs are read-only, so it raises at the write."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction")
+
+    def _solve(self, problem, rng):
+        problem.cost[0, 1] = 0.0
+        return np.roll(np.arange(problem.n), -problem.depot)
+
+
 @pytest.mark.parametrize(
     ("Bad", "check", "match"),
     [
@@ -277,6 +338,19 @@ class _ForgotStochasticTag(BaseRouter):
             estimator_checks.check_stochastic_reproducibility,
             "check 11: RouterTags.stochastic",
         ),
+        (
+            SimulatedAnnealing,
+            estimator_checks.check_iterative_contract,
+            re.escape(
+                "check 10: SimulatedAnnealing may only stop by ['converged', 'patience', 'time_limit']"
+            ),
+        ),
+        (
+            _RaisesInfeasible,
+            estimator_checks.check_invalid_inputs,
+            "check 6: .* case raised InfeasibleProblemError",
+        ),
+        (_WritesToFd, estimator_checks.check_no_printing, "check 9: fit must not print to stderr"),
     ],
     ids=[
         "extra-attribute",
@@ -286,8 +360,85 @@ class _ForgotStochasticTag(BaseRouter):
         "ignores-seed",
         "not-exact",
         "no-stochastic-tag",
+        "undocumented-stop-reason",
+        "infeasible-instead-of-value-error",
+        "writes-to-fd",
     ],
 )
 def test_battery_rejects_violations(Bad, check, match):
     with pytest.raises(AssertionError, match=match):
         check(Bad())
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="ctypes.CDLL(None) is POSIX-only")
+def test_battery_catches_a_c_level_printf():
+    with pytest.raises(AssertionError, match="check 9: fit must not print to stdout, got 'solving"):
+        estimator_checks.check_no_printing(_PrintsFromC())
+
+
+def test_battery_inputs_are_read_only_so_a_mutating_solver_explodes_at_the_write():
+    C, xy = estimator_checks._euclid(6, seed=6)
+    assert not C.flags.writeable and not xy.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        estimator_checks.check_fit_results(_MutatesInput())
+    check_router(make(DUMMY_SOLVERS[0]))  # read-only inputs are fine for a solver that only reads them
+
+
+# --------------------------------------------------------------------------- what the battery must accept
+class _Wrapper(BaseRouter):
+    """MultiStart-shaped wrapper (SPEC §4.5): tags copied from the inner estimator with kind='ensemble', the
+    inner estimator fitted several times on the shared problem. Around a budget-unaware solver it warns
+    once itself and once per inner fit: check 7 requires a UserWarning, not exactly one."""
+
+    def __init__(self, estimator, n_restarts=3):
+        self.estimator = estimator
+        self.n_restarts = n_restarts
+
+    def _get_tags(self):
+        return dataclasses.replace(self.estimator._get_tags(), kind="ensemble")
+
+    def _solve(self, problem, rng):
+        fits = [clone(self.estimator).fit(problem) for _ in range(self.n_restarts)]
+        return problem.to_index_tour(min(fits, key=lambda e: e.cost_).tour_)
+
+
+def test_check_tags_honoured_accepts_a_wrapper_around_a_budget_unaware_solver():
+    from conftest import IdentityRouter
+
+    wrapper = _Wrapper(IdentityRouter())
+    C, T, xy, budget = estimator_checks._synthetic_multi_trip()
+    with pytest.warns(UserWarning) as record:
+        clone(wrapper).fit(C, time_matrix=T, max_time_work=budget, extra_cost=1.0, coords=xy)
+    assert len([w for w in record if "ignores max_time_work" in str(w.message)]) == 4  # 1 outer + 3 inner
+    estimator_checks.check_tags_honoured(wrapper)
+    estimator_checks.check_init_and_params(wrapper)
+
+
+def test_check_not_fitted_accepts_trailing_underscore_parameters():
+    class Lam(BaseRouter):
+        def __init__(self, lambda_=0.5):
+            self.lambda_ = lambda_
+
+        def _get_tags(self):
+            return RouterTags(kind="construction")
+
+        def _solve(self, problem, rng):
+            return np.roll(np.arange(problem.n), -problem.depot)
+
+    estimator_checks.check_not_fitted(Lam(lambda_=0.9))
+    estimator_checks.check_init_and_params(Lam(lambda_=0.9))
+    estimator_checks.check_fit_results(Lam(lambda_=0.9))
+
+
+def test_allowed_stop_reasons_follow_the_table_or_the_parameters():
+    from conftest import RandomDescentRouter
+
+    allowed = estimator_checks._allowed_stop_reasons
+    assert allowed(RandomDescentRouter()) == {"converged", "max_iter", "patience", "time_limit"}
+    assert allowed(_NonMonotoneHistory()) == {"converged", "max_iter"}  # no patience/time_limit parameters
+    assert allowed(SimulatedAnnealing()) == {"converged", "patience", "time_limit"}  # the §3.4 table
+    assert allowed(_Wrapper(SimulatedAnnealing())) == {
+        "converged",
+        "patience",
+        "time_limit",
+    }  # copies the inner's

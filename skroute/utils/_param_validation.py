@@ -1,15 +1,15 @@
 """Declarative validation of estimator hyper-parameters (SPEC §3.4, D23).
 
 A solver declares ``_parameter_constraints = {"alpha": [Interval(float, 0.0, 1.0, closed="neither")],
-"init": [Options(str, {"nearest_neighbour", "random"}), "array-like"], ...}``; :class:`BaseRouter.fit`
-calls :func:`validate_parameter_constraints` before solving. A list of constraints means "any of".
+"init": [Options(str, {"nearest_neighbour", "random"}), "array-like"], ...}``; ``BaseRouter.fit``
+calls ``validate_parameter_constraints`` before solving. A list of constraints means "any of".
 
 Accepted constraint spellings
 -----------------------------
-- :class:`Interval` — a number in a range, ``type`` in ``{int, float, Integral, Real}``.
-- :class:`Options` — one of a set of values of a given type.
+- ``Interval`` — a number in a range, ``type`` in ``{int, float, Integral, Real}``.
+- ``Options`` — one of a set of values of a given type.
 - ``"array-like"`` — anything with ``__len__``/``shape`` and ``__getitem__`` that is not a string or a dict.
-- ``"random_state"`` — ``None``, an int or a :class:`numpy.random.Generator`.
+- ``"random_state"`` — ``None``, an int or a ``numpy.random.Generator``.
 - ``"boolean"`` — a Python or numpy bool.
 - ``"verbose"`` — a non-negative int or a bool.
 - ``None`` — the value ``None``.

@@ -1,22 +1,23 @@
-"""The estimator contract: :class:`RouterTags`, :class:`BaseRouter`, :func:`clone`, :func:`is_router`.
+"""The estimator contract: ``RouterTags``, ``BaseRouter``, ``clone``, ``is_router``.
 
 How a solver is written (the template method)
 ---------------------------------------------
-Every solver subclasses :class:`BaseRouter` and follows four rules:
+Every solver subclasses [`BaseRouter`][skroute.base.BaseRouter] and follows four rules:
 
 1. ``__init__`` stores every argument verbatim as an attribute of the same name and
-   sets nothing else — that is what makes :meth:`~BaseRouter.get_params`,
-   :meth:`~BaseRouter.set_params`, :func:`clone` and the print-changed-only ``repr``
-   work without any registration.
-2. It declares ``_parameter_constraints`` (see :mod:`skroute.utils._param_validation`);
-   :meth:`~BaseRouter.fit` validates the hyper-parameters at fit time, never in ``__init__``.
-3. It overrides :meth:`~BaseRouter._get_tags` and returns a :class:`RouterTags` describing
+   sets nothing else — that is what makes [`get_params`][skroute.base.BaseRouter.get_params],
+   [`set_params`][skroute.base.BaseRouter.set_params], [`clone`][skroute.clone] and the
+   print-changed-only ``repr`` work without any registration.
+2. It declares ``_parameter_constraints`` (see ``skroute.utils._param_validation``);
+   [`fit`][skroute.base.BaseRouter.fit] validates the hyper-parameters at fit time, never
+   in ``__init__``.
+3. It overrides ``_get_tags()`` and returns a [`RouterTags`][skroute.base.RouterTags] describing
    what it can do. The defaults are the *honest* ones (D28): a solver that forgets the
    override is advertised as budget-unaware (it warns under a budget), non-stochastic,
    non-iterative and non-exact.
 4. It implements ``_solve(problem, rng) -> int64 array``: a permutation of ``range(problem.n)``
    with ``problem.depot`` at position 0, in **index space**. ``rng`` is a
-   :class:`numpy.random.Generator` when the solver is stochastic, else ``None``.
+   ``numpy.random.Generator`` when the solver is stochastic, else ``None``.
 
 Duties inside ``_solve``: iterative solvers (``tags.iterative``) set ``self.history_``
 (best-so-far cost after each outer iteration, monotone non-increasing), ``self.n_iter_``
@@ -265,7 +266,7 @@ class BaseRouter:
         for k, v in self.get_params(deep=False).items():
             default = sig[k].default
             same = (v is default) or (
-                isinstance(v, type(default)) and not isinstance(v, np.ndarray) and v == default
+                isinstance(v, type(default)) and not isinstance(v, np.ndarray) and _param_equal(v, default)
             )
             if not same:
                 parts.append(f"{k}={v!r}")
@@ -309,7 +310,8 @@ class BaseRouter:
         Parameters
         ----------
         X : (n, n) array-like, DataFrame, dict-of-dicts or RoutingProblem
-            Cost matrix (rows are origins). A ready :class:`RoutingProblem` must be passed alone.
+            Cost matrix (rows are origins). A ready [`RoutingProblem`][skroute.RoutingProblem] must be
+            passed alone.
         time_matrix : same kinds as X, optional, keyword-only
             Durations; required iff ``max_time_work`` is given.
         depot : label, optional
@@ -384,7 +386,13 @@ class BaseRouter:
         t0 = perf_counter()
         tour = self._solve(problem, rng)
         fit_time = perf_counter() - t0
-        tour = np.ascontiguousarray(tour, dtype=np.int64)
+        raw = np.asarray(tour)
+        if raw.dtype.kind not in "iu":  # a float tour would be silently truncated by the cast below (D2)
+            raise RuntimeError(
+                f"{name}._solve returned an invalid tour (bug in the solver): "
+                f"expected an integer array, got dtype {raw.dtype}"
+            )
+        tour = np.ascontiguousarray(raw, dtype=np.int64)
         if (
             tour.shape != (problem.n,)
             or tour[0] != problem.depot
@@ -405,8 +413,13 @@ class BaseRouter:
         return self
 
     def _reset_fitted(self) -> None:
-        """Delete every fitted (trailing-underscore) attribute so a refit starts clean."""
-        for k in [k for k in vars(self) if k.endswith("_") and not k.startswith("_")]:
+        """Delete every fitted (trailing-underscore) attribute so a refit starts clean.
+
+        Hyper-parameters are never fitted attributes, whatever their spelling: a knob stored as
+        ``lambda_`` or ``class_`` (the usual way round a keyword) survives the reset.
+        """
+        params = set(self._get_param_names())
+        for k in [k for k in vars(self) if k.endswith("_") and not k.startswith("_") and k not in params]:
             delattr(self, k)
 
     def _set_results(self, problem: RoutingProblem, tour: np.ndarray, fit_time: float) -> None:
@@ -430,10 +443,27 @@ class BaseRouter:
 
 
 def _param_equal(a: Any, b: Any) -> bool:
-    """Equality of two parameter values; ndarrays compare element-wise."""
+    """Equality of two parameter values that never raises.
+
+    ndarrays compare element-wise; lists, tuples and dicts are compared item by item (so a
+    list of warm-start tours works); anything whose ``==`` is ambiguous or unsupported falls
+    back to identity.
+    """
     if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
         return bool(np.array_equal(np.asarray(a), np.asarray(b)))
-    return bool(a == b)
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        if type(a) is not type(b) or len(a) != len(b):
+            return False
+        return all(_param_equal(x, y) for x, y in zip(a, b, strict=True))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_param_equal(a[k], b[k]) for k in a)
+    try:
+        return bool(a == b)
+    except (
+        ValueError,
+        TypeError,
+    ):  # e.g. a pandas object or another array-like with an ambiguous truth value
+        return a is b
 
 
 def clone(estimator: BaseRouter) -> BaseRouter:
@@ -469,7 +499,7 @@ def clone(estimator: BaseRouter) -> BaseRouter:
 
 
 def is_router(obj: Any) -> bool:
-    """Whether ``obj`` is a scikit-route estimator (an instance of :class:`BaseRouter`).
+    """Whether ``obj`` is a scikit-route estimator (an instance of [`BaseRouter`][skroute.base.BaseRouter]).
 
     Examples
     --------

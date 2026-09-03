@@ -26,7 +26,7 @@ def initial_tour(problem: RoutingProblem, init: Any, rng: np.random.Generator | 
         from the depot; ``"random"`` returns the depot followed by a random permutation
         of the other nodes (requires ``rng``); an array of labels — the ``tour_`` or
         ``route_`` of another solver, open, closed or multi-trip — is converted with
-        :meth:`RoutingProblem.to_index_tour`.
+        [`to_index_tour`][skroute.RoutingProblem.to_index_tour].
     rng : numpy.random.Generator or None
         The solver's generator; ``None`` for deterministic solvers.
 
@@ -38,8 +38,9 @@ def initial_tour(problem: RoutingProblem, init: Any, rng: np.random.Generator | 
     Raises
     ------
     ValueError
-        If ``init`` is an unknown string, or ``"random"`` is requested without ``rng``
-        (the solver is not stochastic), or the label array is not a valid tour.
+        If ``init`` is an unknown string or not iterable at all (``None``, a number), or
+        ``"random"`` is requested without ``rng`` (the solver is not stochastic), or the
+        label array is not a valid tour.
 
     Examples
     --------
@@ -66,5 +67,7 @@ def initial_tour(problem: RoutingProblem, init: Any, rng: np.random.Generator | 
                 raise ValueError("init='random' needs a random generator: this solver is not stochastic")
             rest = np.delete(np.arange(problem.n, dtype=np.int64), problem.depot)
             return np.concatenate(([problem.depot], rng.permutation(rest))).astype(np.int64)
+        raise ValueError("init must be 'nearest_neighbour', 'random' or an array of labels")
+    if not hasattr(init, "__iter__"):  # init=5 or init=None: the documented message, not a bare TypeError
         raise ValueError("init must be 'nearest_neighbour', 'random' or an array of labels")
     return problem.to_index_tour(init)
