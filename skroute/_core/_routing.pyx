@@ -680,14 +680,22 @@ cpdef double two_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[
 
 
 cdef bint _or_opt_try(const double[:, ::1] C, int64_t[::1] tour, int64_t[::1] pos, uint8_t[::1] dont_look,
-                      Py_ssize_t i, Py_ssize_t L, Py_ssize_t j, bint reverse,
-                      int64_t p, int64_t q, int64_t s0, int64_t sL, int64_t c, double* gain) noexcept nogil:
-    # Price the Or-opt move (i, L, j, reverse) if j is in its domain; apply it when it improves.
+                      Py_ssize_t i, Py_ssize_t L, Py_ssize_t j, bint reverse, double* gain) noexcept nogil:
+    # Price the Or-opt move (i, L, j, reverse) if it is in its domain (§3.5) and apply it when it
+    # improves. Everything is derived from the positions -- p = tour[i-1], S = tour[i..i+L-1],
+    # q = succ(S), the anchor c = tour[j] and d = succ(c) -- so the scale of the improvement test
+    # is exactly the three removed edges (p, s0), (sL, q), (c, d) and the six don't-look bits
+    # reset are exactly their endpoints, whichever side of a candidate the caller chose to insert on.
     cdef Py_ssize_t n = tour.shape[0], end = i + L - 1
-    cdef int64_t d
+    cdef int64_t p, q, s0, sL, c, d
     cdef double delta
-    if j >= i - 1 and j <= end:
+    if i < 1 or end > n - 1 or j < 0 or j > n - 1 or (j >= i - 1 and j <= end):
         return False
+    p = tour[i - 1]
+    s0 = tour[i]
+    sL = tour[end]
+    q = tour[end + 1] if end + 1 < n else tour[0]
+    c = tour[j]
     d = tour[j + 1] if j + 1 < n else tour[0]
     delta = or_opt_delta(C, tour, i, L, j, reverse)
     if not _improves(delta, C[p, s0] + C[sL, q] + C[c, d]):
@@ -706,58 +714,89 @@ cdef bint _or_opt_try(const double[:, ::1] C, int64_t[::1] tour, int64_t[::1] po
 cdef bint _or_opt_improve_node(const double[:, ::1] C, int64_t[::1] tour, int64_t[::1] pos,
                                const int64_t[:, ::1] cand, uint8_t[::1] dont_look, int64_t a,
                                int max_segment, bint allow_reverse, double* gain) noexcept nogil:
-    # Or-opt for the segments that START at node a (lengths 1..max_segment): each segment end is
-    # moved next to one of its candidates c when C[end, c] is below the edge removed at that end
-    # (Bentley's pruning; lists sorted ascending so the scan breaks at the first failure).
-    #   from s0's list: forward after c            (new edge c -> s0), or reversed before c (s0 -> c)
-    #   from sL's list: forward before c           (new edge sL -> c), or reversed after c (c -> sL)
-    # First-improvement: the first improving move is applied and True returned.
-    cdef Py_ssize_t n = tour.shape[0], K = cand.shape[1], i = pos[a], k, m, L, end, j
-    cdef int64_t p, q, s0 = a, sL, c
-    cdef double g1
-    if i == 0:
-        return False
-    p = tour[i - 1]
-    for L in range(1, max_segment + 1):
-        end = i + L - 1
-        if end > n - 1:
-            break
-        sL = tour[end]
-        q = tour[end + 1] if end + 1 < n else tour[0]
-        # ---- candidates of the segment start s0
-        g1 = C[p, s0]
+    # Or-opt moves that create a new edge at node a, each found in a's OWN candidate list with
+    # Bentley's pruning: the list is sorted ascending, so a scan breaks at the first candidate that
+    # is not shorter than the edge removed at a. Three roles of a, first improvement wins:
+    #   a = s0: the segment tour[i..i+L-1] starts at a, removed edge (pred a, a); candidates c with
+    #           C[a, c] < C[pred a, a] -- insert forward after c (new edge c -> a) or reversed before
+    #           c (a -> c).
+    #   a = sL: the segment tour[i-L+1..i] ends at a, removed edge (a, succ a); candidates c with
+    #           C[a, c] < C[a, succ a] -- insert forward before c (a -> c) or reversed after c (c -> a).
+    #           (For L == 1 both roles move the single node a, to different sides of c.)
+    #   a = anchor: candidates x with C[a, x] < C[a, succ a] -- insert right after a the segment
+    #           starting at x (forward, new edge a -> x) or ending at x (reversed); candidates x with
+    #           C[a, x] < C[pred a, a] -- insert right before a the segment ending at x (forward,
+    #           x -> a) or starting at x (reversed). The depot is never part of a segment (the domain
+    #           check of _or_opt_try) but is an anchor like any other node.
+    # An improving move has a new edge shorter than the removed edge at one of its six endpoints;
+    # the roles above cover four of them (s0, sL, c, d). The remaining two, p and q, would need the
+    # insertion point to be searched -- O(n) -- so the descent is exact up to that gap (see .pxd).
+    cdef Py_ssize_t n = tour.shape[0], K = cand.shape[1], i = pos[a], k, m, L, j
+    cdef int64_t c, prv, nxt
+    cdef double g_prev, g_next, cost_ac
+    nxt = tour[i + 1] if i + 1 < n else tour[0]
+    prv = tour[i - 1] if i > 0 else tour[n - 1]
+    g_next = C[a, nxt]
+    g_prev = C[prv, a]
+    if i > 0:
+        # ---- a = s0: segments starting at a, pruned against (pred a, a)
         for m in range(K):
-            c = cand[s0, m]
-            if c == s0:
+            c = cand[a, m]
+            if c == a:
                 continue
-            if C[s0, c] >= g1:
+            if C[a, c] >= g_prev:
                 break
             k = pos[c]
-            if k >= i and k <= end:
+            for L in range(1, max_segment + 1):
+                if i + L - 1 > n - 1:
+                    break
+                if _or_opt_try(C, tour, pos, dont_look, i, L, k, False, gain):
+                    return True
+                if allow_reverse and L > 1:
+                    j = k - 1 if k > 0 else n - 1
+                    if _or_opt_try(C, tour, pos, dont_look, i, L, j, True, gain):
+                        return True
+        # ---- a = sL: segments ending at a, pruned against (a, succ a)
+        for m in range(K):
+            c = cand[a, m]
+            if c == a:
                 continue
-            if _or_opt_try(C, tour, pos, dont_look, i, L, k, False, p, q, s0, sL, c, gain):
-                return True
-            if allow_reverse and L > 1:
+            if C[a, c] >= g_next:
+                break
+            k = pos[c]
+            for L in range(1, max_segment + 1):
+                if i - L + 1 < 1:
+                    break
                 j = k - 1 if k > 0 else n - 1
-                if _or_opt_try(C, tour, pos, dont_look, i, L, j, True, p, q, s0, sL, c, gain):
+                if _or_opt_try(C, tour, pos, dont_look, i - L + 1, L, j, False, gain):
                     return True
-        # ---- candidates of the segment end sL
-        g1 = C[sL, q]
-        for m in range(K):
-            c = cand[sL, m]
-            if c == sL:
-                continue
-            if C[sL, c] >= g1:
-                break
-            k = pos[c]
-            if k >= i and k <= end:
-                continue
-            j = k - 1 if k > 0 else n - 1
-            if _or_opt_try(C, tour, pos, dont_look, i, L, j, False, p, q, s0, sL, c, gain):
-                return True
-            if allow_reverse and L > 1:
-                if _or_opt_try(C, tour, pos, dont_look, i, L, k, True, p, q, s0, sL, c, gain):
+                if allow_reverse and L > 1:
+                    if _or_opt_try(C, tour, pos, dont_look, i - L + 1, L, k, True, gain):
+                        return True
+    # ---- a = anchor: segments starting or ending at a candidate, inserted right after or before a
+    for m in range(K):
+        c = cand[a, m]
+        if c == a:
+            continue
+        cost_ac = C[a, c]
+        if cost_ac >= g_next and cost_ac >= g_prev:
+            break
+        k = pos[c]
+        if cost_ac < g_next:
+            for L in range(1, max_segment + 1):
+                if _or_opt_try(C, tour, pos, dont_look, k, L, i, False, gain):
                     return True
+                if allow_reverse and L > 1:
+                    if _or_opt_try(C, tour, pos, dont_look, k - L + 1, L, i, True, gain):
+                        return True
+        if cost_ac < g_prev:
+            j = i - 1 if i > 0 else n - 1
+            for L in range(1, max_segment + 1):
+                if _or_opt_try(C, tour, pos, dont_look, k - L + 1, L, j, False, gain):
+                    return True
+                if allow_reverse and L > 1:
+                    if _or_opt_try(C, tour, pos, dont_look, k, L, j, True, gain):
+                        return True
     return False
 
 
@@ -766,13 +805,16 @@ cpdef double or_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[:
                             int max_segment, bint allow_reverse, int max_passes) noexcept nogil:
     """Or-opt descent with candidate lists and don't-look bits (symmetric matrices, plain TSP).
 
-    For every active node ``a`` and every segment ``tour[i..i+L-1]`` starting at ``a``
-    (``L = 1..max_segment``), the candidates of each segment end are scanned in ascending order
-    while ``C[end, c] < C[removed edge at that end]`` (Bentley's pruning) and the segment is
+    For every active node ``a`` the moves that create a new edge at ``a`` are searched in
+    ``a``'s candidate list, scanned in ascending order while ``C[a, c] < C[removed edge at
+    a]`` (Bentley's pruning): the segments ``tour[i..i+L-1]`` starting at ``a`` (removed edge
+    ``(pred a, a)``) and ending at ``a`` (removed ``(a, succ a)``), ``L = 1..max_segment``, are
     re-inserted next to ``c`` — after ``c`` or before it, forward or (``allow_reverse``)
-    reversed — whenever the O(1) delta improves. First-improvement; the bits of the six
-    touched nodes are reset on improvement and ``a``'s bit is set when nothing improves.
-    The depot (position 0) is never part of a segment.
+    reversed — and the segments starting or ending at ``c`` are inserted right after or right
+    before ``a`` (``a`` as the anchor; the depot can be an anchor). First-improvement; the
+    bits of the six touched nodes (both ends of the three removed edges) are reset on
+    improvement and ``a``'s bit is set when nothing improves. The depot (position 0) is never
+    part of a segment.
 
     Parameters
     ----------
@@ -796,13 +838,22 @@ cpdef double or_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[:
     Returns
     -------
     float
-        ``cost_after - cost_before`` (``<= 0``); ``0.0`` means nothing changed.
+        ``cost_after - cost_before`` (``<= 0``); ``0.0`` means nothing changed: no node whose
+        bit was active found an improving move in its candidate neighbourhood (see Notes).
 
     Notes
     -----
     Improvement test ``delta < -1e-9 * max(1, removed)`` over the three removed edges. One
     sweep is O(n * k * max_segment) delta evaluations plus O(|i - j| + L) per applied move.
     ``noexcept nogil``.
+
+    The result is a neighbour-list / don't-look-bit local optimum, not a full Or-opt one. Bits
+    are reset only for the six endpoints of an applied move, so a node whose bit is set can miss
+    a move made available by a later change elsewhere; and even with full lists and cleared
+    bits, no scan starts from the two nodes whose gap closes (the new edge ``(p, q)``), so a
+    move whose only short new edge is that one is invisible (an improving move always has a
+    new edge shorter than the removed edge at one of its six endpoints; the scans cover the
+    other four).
 
     References
     ----------

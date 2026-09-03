@@ -101,6 +101,12 @@ def two_opt_pairs(n: int) -> list[tuple[int, int]]:
     return [(i, j) for i in range(1, n - 1) for j in range(i + 1, n)]
 
 
+def edges(tour) -> set[frozenset[int]]:
+    """The undirected edges of a closed tour."""
+    t = [int(v) for v in tour]
+    return {frozenset((t[k], t[(k + 1) % len(t)])) for k in range(len(t))}
+
+
 def delta_tol(C: np.ndarray, tour: np.ndarray) -> float:
     """Absolute tolerance for an O(1) delta against a recompute-by-difference: the rounding of the two
     full sums scales with the tour cost (1e12-scaled instances lose ~1e-3 in absolute terms)."""
@@ -174,8 +180,8 @@ def instance_and_or_opt(draw, symmetric=None):
 
 
 @st.composite
-def instance_and_candidates(draw, symmetric=None, with_time=False):
-    inst = draw(instances(symmetric=symmetric, with_time=with_time))
+def instance_and_candidates(draw, symmetric=None, with_time=False, min_n=3):
+    inst = draw(instances(symmetric=symmetric, with_time=with_time, min_n=min_n))
     k = draw(st.integers(1, inst["n"] - 1))
     inst["cand"] = neighbours(inst["C"], k)
     return inst
@@ -455,6 +461,94 @@ def test_two_opt_descent_with_full_lists_and_cleared_bits_reaches_a_two_opt_loca
     cur = reference.tour_cost(C, t)
     for i, j in two_opt_pairs(n):
         assert reference.tour_cost(C, reference.two_opt_apply(t, i, j)) >= cur - 1e-9 * max(1.0, cur) - 1e-12
+
+
+def assert_only_gap_closing_or_opt_moves_remain(C: np.ndarray, tour: np.ndarray, allow_reverse: bool) -> None:
+    """The documented Or-opt neighbourhood: a move is found from any of its six endpoints except the two
+    whose gap closes (p, q). So with full lists and cleared bits, an Or-opt move still improving at
+    termination has none of its new edges at the segment ends or at the anchor shorter than the edge
+    removed there — otherwise one of the four scans (segment start, segment end, anchor after, anchor
+    before) would have applied it."""
+    n = len(tour)
+    cand = neighbours(C, n - 1)
+    t = tour.copy()
+    pos = np.empty(n, dtype=np.int64)
+    core.rebuild_pos(t, pos)
+    dlb = np.zeros(n, dtype=np.uint8)
+    for _ in range(10_000):
+        dlb[:] = 0
+        if core.or_opt_descent(C, t, pos, cand, dlb, 3, allow_reverse, 1) == 0.0:
+            break
+    cur = reference.tour_cost(C, t)
+    floor = cur - 1e-9 * max(1.0, cur) - 1e-12
+    for i, L, j in or_opt_moves(n):
+        for reverse in (False, True) if (allow_reverse and L > 1) else (False,):
+            if reference.tour_cost(C, reference.or_opt_apply(t, i, L, j, reverse)) >= floor:
+                continue
+            p, s0, sL, q = t[i - 1], t[i], t[i + L - 1], t[(i + L) % n]
+            c, d = t[j], t[(j + 1) % n]
+            x, y = (sL, s0) if reverse else (s0, sL)  # new edges (c, x) and (y, d)
+            removed_x, removed_y = (C[sL, q], C[p, s0]) if reverse else (C[p, s0], C[sL, q])
+            assert C[c, x] >= C[c, d] and C[c, x] >= removed_x, (t.tolist(), i, L, j, reverse)
+            assert C[y, d] >= C[c, d] and C[y, d] >= removed_y, (t.tolist(), i, L, j, reverse)
+
+
+@SETTINGS
+@given(instances(symmetric=True, min_n=5, max_n=10, kinds=("uniform", "euclidean")), st.booleans())
+def test_or_opt_descent_with_full_lists_and_cleared_bits_misses_only_gap_closing_moves(inst, allow_reverse):
+    assert_only_gap_closing_or_opt_moves_remain(inst["C"], inst["tour"], allow_reverse)
+
+
+def test_or_opt_descent_finds_the_move_seen_only_from_the_anchor():
+    """Regression: a segment-end scan alone cannot see this move (n = 10 Euclidean instance of the
+    review): at the tour it converged to, node 5 belonged right after the depot — its new edge
+    (depot, 5) is shorter than the depot's removed edge, but not shorter than the edges removed at 5.
+    Only a scan from the anchor (the depot's own candidate list) finds it."""
+    xy = np.array(
+        [
+            [45.501748315239986, 5.677436239291678],
+            [99.53616594289969, 88.86993067083327],
+            [91.6323934973403, 24.657553007363873],
+            [39.411025472496796, 22.717950091335336],
+            [12.49063821776657, 3.302392466573567],
+            [50.3336447986407, 12.313365606638971],
+            [17.630437136812716, 86.04756804576209],
+            [48.42427686339313, 18.370352102024935],
+            [66.98645598173123, 26.58648776948195],
+            [52.693720005005716, 28.295286786234442],
+        ]
+    )
+    C = np.ascontiguousarray(np.sqrt(((xy[:, None, :] - xy[None, :, :]) ** 2).sum(-1)))
+    start = np.array([0, 9, 4, 5, 3, 8, 2, 6, 7, 1], dtype=np.int64)
+    assert_only_gap_closing_or_opt_moves_remain(C, start, allow_reverse=False)
+    assert_only_gap_closing_or_opt_moves_remain(C, start, allow_reverse=True)
+
+
+@SETTINGS
+@given(instance_and_candidates(symmetric=True, min_n=4), st.integers(1, 3), st.booleans())
+def test_descents_reset_the_bits_of_every_endpoint_of_an_applied_move(inst, max_segment, allow_reverse):
+    """Don't-look bookkeeping (.pxd): after an applied move every node that lost a tour edge — the four
+    endpoints of a reversal, the six of a segment move — has its bit active again. Only node n - 1 is
+    active, so it is the only node processed in the single pass (a node reset by one of its moves is
+    never revisited in that pass); its own bit is set when it is done. Nodes outside the net-removed
+    edges may be active too (an edge removed by one move and restored by a later one)."""
+    C, tour, n, cand = inst["C"], inst["tour"], inst["n"], inst["cand"]
+    a = n - 1
+    for kernel in ("two_opt", "or_opt"):
+        t, pos, dlb = descent_buffers(inst)
+        dlb[:] = 1
+        dlb[a] = 0
+        if kernel == "two_opt":
+            gain = core.two_opt_descent(C, t, pos, cand, dlb, True, 1)
+        else:
+            gain = core.or_opt_descent(C, t, pos, cand, dlb, max_segment, allow_reverse, 1)
+        assert dlb[a] == 1
+        if gain == 0.0:
+            assert np.array_equal(t, tour) and dlb.all()
+            continue
+        lost = set().union(*(edges(tour) - edges(t)))
+        assert lost, "an applied move removes at least one edge"
+        assert all(dlb[v] == 0 for v in lost if v != a), (kernel, tour.tolist(), t.tolist(), dlb.tolist())
 
 
 # ----------------------------------------------------------------------------- generic descent

@@ -218,7 +218,16 @@ cpdef void rebuild_pos(const int64_t[::1] tour, int64_t[::1] pos) noexcept nogil
 # optimum for this move, nothing changed". A pass = one sweep over the nodes whose don't-look bit is active.
 # cand: int64 (n, k) candidate lists from RoutingProblem.neighbours(k); dont_look: uint8[n] (0 = active).
 # Both use Bentley's neighbour-list scan with the pruning `C[a, succ(a)] > C[a, c]` and reset the
-# don't-look bits of the touched endpoints on improvement. Stop at a local optimum or after max_passes.
+# don't-look bits of the touched endpoints on improvement (the four endpoints of a reversal, the six of
+# a segment move: both ends of the three removed edges). Stop at a local optimum or after max_passes.
+# "Local optimum" is the neighbour-list / don't-look-bit one: a move is found only from a node whose
+# bit is active and whose new edge is shorter than its removed edge, and bits are reset only for the
+# touched endpoints, so a node whose bit is set may miss a move that a later change elsewhere made
+# available. With full lists, clearing the bits before every pass makes two_opt_descent an exact
+# 2-opt local optimum; or_opt_descent additionally never scans from the two nodes whose gap closes
+# (p, q), so it may stop short of a full Or-opt optimum even then. or_opt_descent examines, for an
+# active node a, the segments starting and ending at a (a as a segment end) and the segments starting
+# or ending at a's candidates inserted next to a (a as the insertion anchor, the depot included).
 # The pos/cand/dont_look buffers are caller-owned and persist across calls (LocalSearch calls with
 # max_passes=1).
 
