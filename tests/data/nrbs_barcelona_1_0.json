@@ -1,0 +1,12 @@
+{
+  "cost": 446.59,
+  "route": [10000007, 47, 30, 1, 31, 5, 12, 26, 7, 65, 27, 91, 4, 25, 23, 59, 46, 44, 32, 10000007],
+  "provenance": {
+    "source": "scikit-route 1.0.0a2, skroute.heuristics.NRBS.NRBS at commit 533f320c2f50b57e1ca0858d6c613b475c2884a0 ('Remove dead 2020 artefacts and convert datasets to CSV', the last commit carrying the 1.0 tree; SPEC 4.2: git worktree add /tmp/skroute10 533f320)",
+    "interpreter": "CPython 3.11.13 (/opt/homebrew/bin/python3.11) with numpy 2.4.6, macOS 15 arm64, 2026-09-03",
+    "substitution": "skroute._utils._utils._cost (Cython 0.29, returns a C float = float32; it does not compile any more) replaced by a pure-Python float64 function with the 1.0 signature _cost(route, length_route, time_costs, fuel_costs, max_time_work, extra_cost, people): sequential sum of fuel_costs[route[i]][route[i+1]] for i < length_route-1, plus fuel_costs[route[0]][route[length_route-1]], times people (1), plus 0 extra trips -- the closed-tour cost in float64, i.e. tests/reference.tour_cost on the label route",
+    "instance": "Barcelona (19 places, depot 10000007) built with the 2.0 loader skroute.datasets.load_barcelona() (pairs_to_matrix over barcelona.csv) and converted with skroute.preprocessing.to_dict_of_dicts(bcn.cost, [int(x) for x in bcn.labels]); the dict-of-dicts was handed to the 1.0 code through a JSON dump because the 2.0 core is compiled for CPython 3.13 only (JSON round-trips float64 exactly)",
+    "command": "cost, route = NRBS(0.5, 0.5, 0.5, 0.5, 0.5).fit(10000007, ids, cost_dict)  # ids = the 19 labels in matrix row order (the depot first); route is the 1.0 return value: the Hamiltonian cycle read from ids[0] towards its first-attached neighbour, with the start node appended, i.e. a closed route comparable with est.route_",
+    "verification": "the 2.0 NRBS(0.5, 0.5, 0.5, 0.5, 0.5).fit(bcn.cost, labels=bcn.labels, depot=bcn.depot) reproduces this sequence and cost; the 446.59 quoted by the proposals is confirmed by this run, not copied"
+  }
+}
