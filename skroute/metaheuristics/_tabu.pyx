@@ -15,15 +15,20 @@ flip) is skipped; on the generic path (a budget and/or an asymmetric matrix) eve
 applied on ``scratch`` and priced with ``problem_cost``.
 
 Tabu attributes are the edges a move REMOVES (arcs when the matrix is asymmetric):
-``tabu_until[x, y] = it + tenure`` (both orientations when symmetric). A move is tabu when any
-edge it ADDS satisfies ``tabu_until[x, y] > it``, unless it beats the best cost so far
-(aspiration). When no admissible move exists the best move overall is applied so the search
-never stalls. The best tour is kept in a separate ``best`` buffer, written on strict
-improvement only.
+``tabu_until[x, y] = it + tenure + 1`` (both orientations when symmetric; saturated at
+``INT32_MAX``), so the edge is tabu at exactly the ``tenure`` following iterations
+``it + 1 .. it + tenure``. A move is tabu when any edge it ADDS satisfies
+``tabu_until[x, y] > it``, unless it beats the best cost so far (aspiration). On an asymmetric
+matrix a 2-opt reversal of ``tour[i..j]`` removes every arc of the span ``tour[i-1..j+1]`` and
+adds their reverses, so all of them are marked and checked (on a symmetric matrix the inner
+edges are unchanged and only the two boundary edges count). When no admissible move exists the
+best move overall is applied so the search never stalls. The best tour is kept in a separate
+``best`` buffer, written on strict improvement only; its cost is then recomputed from the tour,
+so ``state[1]`` (and ``history_``) is bit-identical to a fresh evaluation of ``best``.
 """
 
 from libc.math cimport fabs
-from libc.stdint cimport int32_t, int64_t
+from libc.stdint cimport INT32_MAX, int32_t, int64_t
 from libc.string cimport memcpy
 
 from skroute._core._routing cimport (
@@ -81,15 +86,31 @@ cdef inline void _mark(int32_t[:, ::1] until, int64_t x, int64_t y, int32_t valu
         until[y, x] = value
 
 
+cdef inline bint _two_opt_adds_tabu(const int64_t[::1] tour, const int32_t[:, ::1] until, int32_t it,
+                                    Py_ssize_t i, Py_ssize_t j, bint symmetric) noexcept nogil:
+    # Edges added by reversing tour[i..j]: (a, c) and (b, d); on an asymmetric matrix also the
+    # reversed inner arcs (tour[k+1], tour[k]), k in i..j-1 (undirected inner edges do not change).
+    cdef Py_ssize_t n = tour.shape[0], k
+    cdef int64_t a = tour[i - 1], b = tour[i], c = tour[j]
+    cdef int64_t d = tour[j + 1] if j + 1 < n else tour[0]
+    if _is_tabu(until, a, c, it) or _is_tabu(until, b, d, it):
+        return True
+    if symmetric:
+        return False
+    for k in range(i, j):
+        if _is_tabu(until, tour[k + 1], tour[k], it):
+            return True
+    return False
+
+
 cdef inline void _consider_two_opt(const double[:, ::1] C, const double[:, ::1] T, const int64_t[::1] tour,
                                    const int32_t[:, ::1] until, int32_t it, double cur, double best_cost,
                                    double max_time, double fixed_cost, int split, bint fast_path,
-                                   int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred,
+                                   bint symmetric, int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred,
                                    Py_ssize_t i, Py_ssize_t j, Move* adm, Move* any) noexcept nogil:
-    # Reverse tour[i..j], 1 <= i < j <= n-1: removes (a, b), (c, d); adds (a, c), (b, d).
+    # Reverse tour[i..j], 1 <= i < j <= n-1: removes (a, b), (c, d); adds (a, c), (b, d) -- and, on an
+    # asymmetric matrix, replaces every inner arc of the span by its reverse.
     cdef Py_ssize_t n = tour.shape[0]
-    cdef int64_t a = tour[i - 1], b = tour[i], c = tour[j]
-    cdef int64_t d = tour[j + 1] if j + 1 < n else tour[0]
     cdef double new
     if fast_path:
         new = cur + two_opt_delta(C, tour, i, j)
@@ -98,7 +119,7 @@ cdef inline void _consider_two_opt(const double[:, ::1] C, const double[:, ::1] 
         reverse_segment(scratch, i, j)
         new = problem_cost(C, T, scratch, max_time, fixed_cost, split, dp, pred)
     _record(any, 0, i, j, 0, new)
-    if _improves(new, best_cost) or not (_is_tabu(until, a, c, it) or _is_tabu(until, b, d, it)):
+    if _improves(new, best_cost) or not _two_opt_adds_tabu(tour, until, it, i, j, symmetric):
         _record(adm, 0, i, j, 0, new)
 
 
@@ -138,9 +159,11 @@ cdef bint _tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1
                      double max_time, double fixed_cost, int split, bint fast_path, bint symmetric,
                      bint or_opt, int64_t[::1] scratch, double[::1] dp, int64_t[::1] pred,
                      int64_t[::1] best, double[::1] state) noexcept nogil:
-    cdef Py_ssize_t n = tour.shape[0], K = cand.shape[1], p, q, m, L, i, j
+    cdef Py_ssize_t n = tour.shape[0], K = cand.shape[1], p, q, m, L, i, j, k
     cdef int64_t a, c, x0, x1, x2, x3, x4, x5
-    cdef int32_t value = it + tenure
+    # tabu at it + 1 .. it + tenure (exactly `tenure` iterations); saturated so a huge tenure is "for ever"
+    cdef int64_t mark = <int64_t>it + tenure + 1
+    cdef int32_t value = INT32_MAX if mark > INT32_MAX else <int32_t>mark
     cdef double cur, best_cost
     cdef Move adm, any, chosen
     adm.found = False
@@ -159,10 +182,10 @@ cdef bint _tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1
             # reversing tour[1..n-1] on a symmetric plain TSP only flips the orientation: not a move
             if q >= p + 2 and not (fast_path and p == 0 and q == n - 1):
                 _consider_two_opt(C, T, tour, until, it, cur, best_cost, max_time, fixed_cost, split,
-                                  fast_path, scratch, dp, pred, p + 1, q, &adm, &any)
+                                  fast_path, symmetric, scratch, dp, pred, p + 1, q, &adm, &any)
             if p >= q + 2 and not (fast_path and q == 0 and p == n - 1):
                 _consider_two_opt(C, T, tour, until, it, cur, best_cost, max_time, fixed_cost, split,
-                                  fast_path, scratch, dp, pred, q + 1, p, &adm, &any)
+                                  fast_path, symmetric, scratch, dp, pred, q + 1, p, &adm, &any)
             if or_opt:
                 for L in range(1, 4):
                     # segment starting at a, inserted after c
@@ -187,12 +210,17 @@ cdef bint _tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1
     i = chosen.i
     j = chosen.j
     if chosen.kind == 0:
-        x0 = tour[i - 1]
-        x1 = tour[i]
-        x2 = tour[j]
-        x3 = tour[j + 1] if j + 1 < n else tour[0]
-        _mark(until, x0, x1, value, symmetric)
-        _mark(until, x2, x3, value, symmetric)
+        if symmetric:
+            x0 = tour[i - 1]
+            x1 = tour[i]
+            x2 = tour[j]
+            x3 = tour[j + 1] if j + 1 < n else tour[0]
+            _mark(until, x0, x1, value, True)
+            _mark(until, x2, x3, value, True)
+        else:
+            # the reversal removes every arc of the span tour[i-1..j+1] (the inner ones change direction)
+            for k in range(i - 1, j + 1):
+                _mark(until, tour[k], tour[k + 1] if k + 1 < n else tour[0], value, False)
         reverse_segment_pos(tour, pos, i, j)
     else:
         L = chosen.L
@@ -208,6 +236,9 @@ cdef bint _tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1
         move_segment_pos(tour, pos, i, L, j, False)
     cur = chosen.cost
     if _improves(cur, best_cost):
+        # recomputed from the tour: the O(1) delta of the fast path carries a rounding error, and
+        # state[1] must be bit-identical to what the base class recomputes into ``cost_``
+        cur = problem_cost(C, T, tour, max_time, fixed_cost, split, dp, pred)
         best_cost = cur
         memcpy(&best[0], &tour[0], n * sizeof(int64_t))
     state[0] = cur
@@ -231,17 +262,21 @@ def tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
     cand : (n, k) int64, C-contiguous
         Candidate lists (``RoutingProblem.neighbours(k)``).
     until : (n, n) int32, C-contiguous
-        ``tabu_until[x, y]``: the edge/arc ``(x, y)`` is tabu while ``until[x, y] > it``.
+        ``tabu_until[x, y]``: the edge/arc ``(x, y)`` is tabu while ``until[x, y] > it``. The
+        applied move writes ``it + tenure + 1`` (saturated at ``INT32_MAX``) on every edge it
+        removes, so they are tabu at the ``tenure`` following iterations ``it + 1 .. it + tenure``.
     it : int
         Iteration counter (0-based).
     tenure : int >= 1
-        Tabu tenure of the edges removed by the applied move.
+        Tabu tenure of the edges removed by the applied move, in iterations.
     max_time, fixed_cost, split : float, float, int
         The objective, as in :func:`skroute._core._routing.problem_cost_py`.
     fast_path : bool
         ``True`` for a symmetric plain TSP (O(1) deltas); ``False`` for the full-evaluation path.
     symmetric : bool
-        Mark both orientations of a removed edge when ``True``.
+        Mark both orientations of a removed edge when ``True``. When ``False`` (asymmetric matrix)
+        a 2-opt reversal marks every arc of the reversed span and is tabu if any reversed inner
+        arc is tabu, not only the two boundary arcs.
     or_opt : bool
         Add the no-reversal Or-opt relocations (segment lengths 1..3) to the neighbourhood.
     scratch : (n,) int64, C-contiguous
@@ -252,7 +287,8 @@ def tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
         The best tour so far; overwritten on strict improvement of ``state[1]`` only.
     state : (2,) float64
         In: ``state[1]`` = best cost so far. Out: ``state[0]`` = current cost after the move,
-        ``state[1]`` = best cost so far.
+        ``state[1]`` = best cost so far, recomputed from the tour whenever ``best`` is written
+        (bit-identical to ``problem_cost`` of ``best``).
 
     Returns
     -------
