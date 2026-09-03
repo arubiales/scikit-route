@@ -43,6 +43,8 @@ _EXPORTS: dict[str, str] = {
     # construction
     # local search
     # metaheuristics
+    "Genetic": "skroute.metaheuristics",
+    "AntColony": "skroute.metaheuristics",
     # ensemble
 }
 
@@ -70,9 +72,12 @@ if TYPE_CHECKING:
     from .base import RouterTags as RouterTags
     from .base import clone as clone
     from .base import is_router as is_router
+
+    # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
+    from .metaheuristics import AntColony as AntColony
+    from .metaheuristics import Genetic as Genetic
     from .problem import RoutingProblem as RoutingProblem
     from .utils.estimator_checks import check_router as check_router
-    # SOLVER IMPORTS — appended by each solver work package (same names as its registry lines).
 
 
 def __getattr__(name: str) -> Any:

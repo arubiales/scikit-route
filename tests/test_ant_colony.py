@@ -1,0 +1,286 @@
+"""Acceptance tests of ``skroute.metaheuristics.AntColony`` (SPEC §4.4), beyond ``check_router``."""
+
+from __future__ import annotations
+
+import logging
+
+import numpy as np
+import pytest
+import reference
+from conftest import _euclid
+
+from skroute import RoutingProblem
+from skroute.metaheuristics import AntColony, _aco
+from skroute.metrics import route_cost
+
+
+def _assert_consistent(est, C, **kw):
+    assert est.cost_ == pytest.approx(route_cost(C, est.route_, **kw), rel=1e-9)
+    assert est.history_[-1] == pytest.approx(est.cost_)
+    assert est.n_iter_ == len(est.history_)
+    assert np.all(np.diff(est.history_) <= 1e-9 * max(1.0, float(np.abs(est.history_).max())))
+    assert est.stop_reason_ in {"max_iter", "patience", "time_limit"}
+
+
+# --------------------------------------------------------------------------- optimality (tiny, alicante)
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_reaches_optimum_on_tiny(tiny_instance, seed):
+    C, opt = tiny_instance["C"], tiny_instance["optimum"]
+    aco = AntColony(random_state=seed).fit(C)
+    assert aco.cost_ == pytest.approx(opt, rel=1e-9)
+    _assert_consistent(aco, C)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_reaches_optimum_on_tiny_without_polish(tiny_instance, seed):
+    C, opt = tiny_instance["C"], tiny_instance["optimum"]
+    aco = AntColony(random_state=seed, local_search=None).fit(C)
+    assert aco.cost_ == pytest.approx(opt, rel=1e-9)
+    _assert_consistent(aco, C)
+
+
+@pytest.mark.parametrize("split", ["greedy", "optimal"])
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_multi_trip_matches_brute_force(alicante, seed, split):
+    d, kw = alicante["bunch"], alicante["kwargs"]  # kw carries labels= and the LABEL depot
+    aco = AntColony(random_state=seed).fit(d.cost, time_matrix=d.time, split=split, **kw)
+    assert np.all(aco.trip_times_ <= kw["max_time_work"] + 1e-9)
+    assert aco.cost_ == pytest.approx(alicante["optimum"][split], rel=1e-9)
+    fixed = kw["extra_cost"] * kw["people"]
+    assert aco.cost_ == pytest.approx(
+        reference.problem_cost(
+            d.cost, d.time, aco.problem_.to_index_tour(aco.tour_), kw["max_time_work"], fixed, split
+        )
+    )
+    assert aco.n_trips_ == len(aco.trips_) >= 2
+
+
+# --------------------------------------------------------------------------- fast tier
+def test_fast_tier_gap(fast_instance):
+    C, opt, labels = fast_instance["C"], fast_instance["optimum"], fast_instance["labels"]
+    aco = AntColony(random_state=0).fit(C, labels=labels)
+    assert opt <= aco.cost_ + 1e-9
+    assert aco.cost_ / opt - 1 <= 0.08, f"gap {aco.cost_ / opt - 1:.4f} on {fast_instance['name']}"
+    assert int(aco.route_[0]) == int(aco.route_[-1]) == int(labels[0])
+
+
+# --------------------------------------------------------------------------- reproducibility
+def test_same_seed_is_bit_identical(small_euclidean):
+    C = small_euclidean["C"]
+    a, b = (AntColony(random_state=7).fit(C) for _ in range(2))
+    assert np.array_equal(a.tour_, b.tour_) and a.cost_ == b.cost_ and np.array_equal(a.history_, b.history_)
+    assert np.array_equal(a.pheromone_, b.pheromone_) and a.n_iter_ == b.n_iter_
+
+
+def test_seed_is_used(medium_euclidean):
+    # At n = 12 every polished ant reaches the optimum from iteration 0 with any seed, so history_, n_iter_
+    # and even pheromone_ are seed-independent there (the tour orientation is a coin flip); at n = 40 the
+    # iteration of the first hit and the early trail differ between seeds.
+    a40, c40 = (AntColony(random_state=s).fit(medium_euclidean["C"]) for s in (0, 1))
+    assert a40.n_iter_ != c40.n_iter_ or not np.array_equal(a40.history_, c40.history_)
+    assert not np.array_equal(a40.pheromone_, c40.pheromone_)
+
+
+def test_generator_is_advanced_and_equals_int_seed(small_euclidean):
+    C = small_euclidean["C"]
+    rng = np.random.default_rng(3)
+    before = rng.bit_generator.state
+    g = AntColony(random_state=rng).fit(C)
+    assert rng.bit_generator.state != before
+    assert np.array_equal(g.tour_, AntColony(random_state=3).fit(C).tour_)
+
+
+# --------------------------------------------------------------------------- edge sizes and asymmetric path
+@pytest.mark.parametrize("n", [3, 4])
+@pytest.mark.parametrize("asym", [False, True], ids=["sym", "asym"])
+@pytest.mark.parametrize("local_search", [("two_opt",), None], ids=["polish", "no-polish"])
+def test_smallest_sizes_reach_the_optimum(n, asym, local_search):
+    C, _ = _euclid(n, seed=n, asymmetric=asym)
+    aco = AntColony(random_state=0, local_search=local_search).fit(C)
+    assert aco.cost_ == pytest.approx(reference.brute_force(C)[0], rel=1e-9)
+    assert sorted(aco.tour_.tolist()) == list(range(n)) and aco.tour_[0] == 0
+    _assert_consistent(aco, C)
+
+
+def _two_opt_local_optimum(C, tour, cost):
+    n = len(tour)
+    for i in range(1, n - 1):
+        for j in range(i + 1, n):
+            if reference.tour_cost(C, reference.two_opt_apply(tour, i, j)) < cost - 1e-9 * max(1.0, cost):
+                return False
+    return True
+
+
+def test_generic_path_on_asymmetric_instance():
+    C, _ = _euclid(12, seed=12, asymmetric=True)
+    aco = AntColony(random_state=0, n_candidates=None).fit(C)
+    assert not aco.problem_.symmetric
+    tour = aco.problem_.to_index_tour(aco.tour_)
+    assert _two_opt_local_optimum(C, tour.tolist(), aco.cost_), (
+        "the asymmetric polish must reach a 2-opt optimum"
+    )
+    assert not np.allclose(aco.pheromone_, aco.pheromone_.T), "the trail is directional on an ATSP"
+    _assert_consistent(aco, C)
+
+
+def test_generic_path_under_budget_with_or_opt(alicante):
+    d, kw = alicante["bunch"], alicante["kwargs"]
+    aco = AntColony(random_state=1, local_search=("two_opt", "or_opt")).fit(d.cost, time_matrix=d.time, **kw)
+    assert aco.cost_ == pytest.approx(alicante["optimum"]["greedy"], rel=1e-9)
+    assert np.all(aco.trip_times_ <= kw["max_time_work"] + 1e-9)
+
+
+# --------------------------------------------------------------------------- pheromone and parameters
+def test_pheromone_is_bounded_and_symmetric(small_euclidean):
+    C = small_euclidean["C"]
+    aco = AntColony(random_state=0, rho=0.1).fit(C)
+    tau, n = aco.pheromone_, C.shape[0]
+    assert tau.shape == (n, n) and np.all(np.diag(tau) == 0.0)
+    tau_max = 1.0 / (0.1 * aco.cost_)
+    off = tau[~np.eye(n, dtype=bool)]
+    assert np.all(off <= tau_max + 1e-12) and np.all(off >= tau_max / (2 * n) - 1e-12)
+    assert np.allclose(tau, tau.T)
+    best = aco.problem_.to_index_tour(aco.tour_)
+    on_tour = tau[best, np.roll(best, -1)]
+    assert on_tour.mean() > off.mean(), "the best tour's arcs must carry more pheromone than average"
+
+
+def test_explicit_n_ants_and_full_candidate_lists(small_euclidean):
+    C = small_euclidean["C"]
+    aco = AntColony(n_ants=3, n_candidates=None, n_iter=20, patience=None, random_state=0).fit(C)
+    assert aco.n_iter_ == 20 and aco.stop_reason_ == "max_iter"
+    _assert_consistent(aco, C)
+
+
+def test_local_search_string_is_normalised(small_euclidean):
+    C = small_euclidean["C"]
+    a = AntColony(random_state=0, local_search="two_opt").fit(C)
+    b = AntColony(random_state=0, local_search=("two_opt",)).fit(C)
+    assert np.array_equal(a.tour_, b.tour_) and np.array_equal(a.history_, b.history_)
+
+
+@pytest.mark.parametrize("bad", ["both", ("two_opt", "swap"), (), ("three_opt",)])
+def test_invalid_local_search_raises(small_euclidean, bad):
+    with pytest.raises(ValueError, match="'local_search' parameter of AntColony"):
+        AntColony(local_search=bad).fit(small_euclidean["C"])
+
+
+@pytest.mark.parametrize(
+    ("params", "match"),
+    [
+        ({"rho": 1.0}, "The 'rho' parameter of AntColony must be a float in the range"),
+        ({"alpha": -1.0}, "The 'alpha' parameter of AntColony must be a float in the range"),
+        ({"n_ants": 0}, "The 'n_ants' parameter of AntColony must be an int in the range"),
+        ({"n_candidates": 0}, "The 'n_candidates' parameter of AntColony must be an int in the range"),
+    ],
+)
+def test_parameter_constraints(small_euclidean, params, match):
+    with pytest.raises(ValueError, match=match):
+        AntColony(**params).fit(small_euclidean["C"])
+
+
+# --------------------------------------------------------------------------- stop rules, history, logging
+def test_stop_reasons(small_euclidean):
+    C = small_euclidean["C"]
+    aco = AntColony(n_iter=4, patience=None, random_state=0).fit(C)
+    assert aco.n_iter_ == 4 and aco.stop_reason_ == "max_iter"
+    aco = AntColony(patience=3, random_state=0).fit(C)
+    assert aco.stop_reason_ == "patience" and aco.history_[-1] == pytest.approx(aco.history_[-4])
+    aco = AntColony(time_limit=1e-6, random_state=0).fit(C)
+    assert aco.stop_reason_ == "time_limit" and aco.n_iter_ == 1
+    _assert_consistent(aco, C)
+
+
+def test_history_is_best_so_far_without_polish(medium_euclidean):
+    C = medium_euclidean["C"]
+    aco = AntColony(local_search=None, n_iter=30, patience=None, random_state=0).fit(C)
+    assert np.all(np.diff(aco.history_) <= 1e-12) and aco.history_[-1] == pytest.approx(aco.cost_)
+    assert aco.history_[0] > aco.history_[-1], "the colony must learn on a 40-node instance"
+
+
+def test_verbose_logs_to_skroute_logger(small_euclidean, caplog):
+    with caplog.at_level(logging.INFO, logger="skroute"):
+        AntColony(n_iter=20, patience=None, random_state=0, verbose=1).fit(small_euclidean["C"])
+    records = [r for r in caplog.records if r.name == "skroute"]
+    assert len(records) == 11  # iterations 0, 2, ..., 18 (every max(1, 20 // 10) = 2) plus the summary line
+    with caplog.at_level(logging.INFO, logger="skroute"):
+        caplog.clear()
+        AntColony(n_iter=20, patience=None, random_state=0, verbose=2).fit(small_euclidean["C"])
+    assert len([r for r in caplog.records if r.name == "skroute"]) == 21
+
+
+def test_caller_data_untouched_and_labels(small_euclidean):
+    C = small_euclidean["C"]
+    before = C.copy()
+    names = [f"c{i}" for i in range(C.shape[0])]
+    aco = AntColony(random_state=0).fit(C, labels=names, depot="c4")
+    assert aco.depot_ == "c4" and aco.tour_[0] == "c4" and sorted(aco.tour_.tolist()) == sorted(names)
+    assert np.array_equal(C, before)
+
+
+def test_coincident_points_are_handled():
+    C, _ = _euclid(9, seed=9)
+    C[3, :] = C[4, :]
+    C[:, 3] = C[:, 4]
+    C[3, 4] = C[4, 3] = 0.0  # nodes 3 and 4 coincide: a zero off-diagonal distance
+    aco = AntColony(random_state=0).fit(C)
+    assert np.isfinite(aco.cost_) and np.all(np.isfinite(aco.pheromone_))
+    assert aco.cost_ == pytest.approx(reference.brute_force(C)[0], rel=1e-9)
+    tour = aco.problem_.to_index_tour(aco.tour_).tolist()
+    assert abs(tour.index(3) - tour.index(4)) == 1, "coincident nodes must be visited consecutively"
+
+
+# --------------------------------------------------------------------------- kernels
+def test_construct_tours_are_permutations_from_the_depot():
+    C, _ = _euclid(15, seed=15)
+    p = RoutingProblem(C, depot=6)
+    n, n_ants, k = p.n, 7, 4
+    choice = np.power(np.maximum(C, 1e-9), -2.0)
+    np.fill_diagonal(choice, 0.0)
+    u = np.random.default_rng(0).random((n_ants, n - 1))
+    tours = np.empty((n_ants, n), dtype=np.int64)
+    _aco.construct_tours(choice, p.neighbours(k), 6, u, tours, np.zeros(n, np.uint8), np.empty(k))
+    for row in tours:
+        assert row[0] == 6 and sorted(row.tolist()) == list(range(n))
+    # a short candidate list forces the fallback to "all unvisited nodes" on the last steps
+    tours2 = np.empty((n_ants, n), dtype=np.int64)
+    _aco.construct_tours(choice, p.neighbours(1), 6, u, tours2, np.zeros(n, np.uint8), np.empty(1))
+    for row in tours2:
+        assert row[0] == 6 and sorted(row.tolist()) == list(range(n))
+    # u == 0 everywhere picks the most attractive unvisited candidate at every step: the NN tour
+    tours3 = np.empty((1, n), dtype=np.int64)
+    _aco.construct_tours(
+        choice, p.neighbours(n - 1), 6, np.zeros((1, n - 1)), tours3, np.zeros(n, np.uint8), np.empty(n - 1)
+    )
+    nn = np.empty(n, dtype=np.int64)
+    from skroute._core import _routing as core
+
+    core.nearest_neighbour_tour(C, 6, nn)
+    assert tours3[0].tolist() == nn.tolist()
+
+
+def test_polish_and_evaluate_matches_reference_costs():
+    C, _ = _euclid(10, seed=10, asymmetric=True)
+    p = RoutingProblem(C)
+    n = p.n
+    rng = np.random.default_rng(1)
+    tours = np.stack([np.concatenate(([0], rng.permutation(np.arange(1, n)))) for _ in range(4)]).astype(
+        np.int64
+    )
+    costs = np.empty(4)
+    _aco.polish_and_evaluate(
+        p.cost, p.time_or_cost, tours, np.inf, 0.0, 0, 0, 0, p.neighbours(n - 1),
+        np.empty(n, np.int64), np.empty(n, np.int64), np.zeros(n, np.uint8), np.empty(n, np.int64),
+        np.empty(n), np.empty(n, np.int64), costs,
+    )  # fmt: skip
+    assert costs.tolist() == pytest.approx([reference.tour_cost(C, row) for row in tours.tolist()])
+    polished = tours.copy()
+    _aco.polish_and_evaluate(
+        p.cost, p.time_or_cost, polished, np.inf, 0.0, 0, 2, 1, p.neighbours(n - 1),
+        np.empty(n, np.int64), np.empty(n, np.int64), np.zeros(n, np.uint8), np.empty(n, np.int64),
+        np.empty(n), np.empty(n, np.int64), costs,
+    )  # fmt: skip
+    for row, c in zip(polished.tolist(), costs.tolist(), strict=True):
+        assert row[0] == 0 and sorted(row) == list(range(n))
+        assert c == pytest.approx(reference.tour_cost(C, row))
+        assert _two_opt_local_optimum(C, row, c)
