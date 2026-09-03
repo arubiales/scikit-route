@@ -68,10 +68,17 @@ def refresh_readme(path: Path = ROOT / "README.md", *, check: bool = False) -> b
 
 
 def _mkdocs_hook() -> None:
+    """Write the partial both as a real file (so ``include-markdown`` can read it from the docs
+    directory) and as a generated virtual page (so mkdocs tracks it); the real file is
+    git-ignored."""
     import mkdocs_gen_files
 
+    table = capability_table()
+    real = ROOT / "docs" / "user_guide" / "_capability_table.md"
+    real.parent.mkdir(parents=True, exist_ok=True)
+    real.write_text(table, encoding="utf-8")
     with mkdocs_gen_files.open("user_guide/_capability_table.md", "w") as handle:
-        handle.write(capability_table())
+        handle.write(table)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ site_url: https://arubiales.github.io/scikit-route/
 repo_url: https://github.com/arubiales/scikit-route
 repo_name: arubiales/scikit-route
 edit_uri: edit/main/docs/
+not_in_nav: |
+  user_guide/_capability_table.md
 copyright: Copyright &copy; 2020-2026 Alberto Rubiales. MIT License.
 
 theme:
