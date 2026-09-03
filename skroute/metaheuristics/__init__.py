@@ -7,12 +7,16 @@ multi-trip objective during their search. Solver packages append their exports a
 the import list and of ``__all__``, one line each (D29).
 """
 
+from ._ant_colony import AntColony
+from ._genetic import Genetic
 from ._simulated_annealing import SimulatedAnnealing
 from ._som import SOM
 from ._tabu_search import TabuSearch
 
 __all__ = [
     "SOM",
+    "AntColony",
+    "Genetic",
     "SimulatedAnnealing",
     "TabuSearch",
 ]

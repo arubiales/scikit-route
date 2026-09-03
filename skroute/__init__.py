@@ -57,7 +57,10 @@ _EXPORTS: dict[str, str] = {
     "SOM": "skroute.metaheuristics",
     "SimulatedAnnealing": "skroute.metaheuristics",
     "TabuSearch": "skroute.metaheuristics",  # ensemble
-}
+
+    "Genetic": "skroute.metaheuristics",
+    "AntColony": "skroute.metaheuristics",
+    # ensemble}
 
 # The five solver subpackages of D18: a registered name defined in one of them is a solver.
 _SOLVER_MODULES: frozenset[str] = frozenset(
@@ -105,6 +108,8 @@ if TYPE_CHECKING:
     from .metaheuristics import SimulatedAnnealing as SimulatedAnnealing
     from .metaheuristics import TabuSearch as TabuSearch
 
+    from .metaheuristics import AntColony as AntColony
+    from .metaheuristics import Genetic as Genetic
 
 def __getattr__(name: str) -> Any:
     """PEP 562: resolve a public name on first access and cache it on the module."""
