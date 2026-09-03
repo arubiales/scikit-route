@@ -185,10 +185,10 @@ class NRBS(BaseRouter):
         Exponent ``f`` of the distance in the connection score; larger values make the score
         closer to plain nearest-neighbour linking.
 
-    All five must be ``>= 0`` — a restriction new in 2.0: 1.0.0a2 validated only the type, so a
-    negative exponent was accepted there and raises ``ValueError`` here. Ints are accepted (1.0
-    rejected them and had no defaults; 1.0's misspelt ``distance_weigth`` is now
-    ``distance_weight``).
+        All five exponents must be ``>= 0`` — a restriction new in 2.0: 1.0.0a2 validated only
+        the type, so a negative exponent was accepted there and raises ``ValueError`` here. Ints
+        are accepted (1.0 rejected them and had no defaults; 1.0's misspelt ``distance_weigth``
+        is now ``distance_weight``).
 
     Attributes
     ----------
