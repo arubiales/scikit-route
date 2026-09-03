@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 
 import numpy as np
 import pytest
@@ -29,7 +30,7 @@ def test_reaches_optimum_on_tiny(tiny_instance, seed):
     sa = SimulatedAnnealing(random_state=seed).fit(C)
     assert sa.cost_ == pytest.approx(opt, rel=1e-9)
     assert sa.cost_ == pytest.approx(route_cost(C, sa.route_))
-    assert sa.history_[-1] == pytest.approx(sa.cost_) and np.all(np.diff(sa.history_) <= 1e-12)
+    assert sa.history_[-1] == sa.cost_ and np.all(np.diff(sa.history_) <= 1e-12)  # exact, not approx
     assert sa.stop_reason_ == "converged" and sa.n_iter_ == len(sa.history_)
 
 
@@ -73,6 +74,16 @@ def test_seeds_differ(small_euclidean, medium_euclidean):
     C40 = medium_euclidean["C"]
     a, b = SimulatedAnnealing(random_state=0).fit(C40), SimulatedAnnealing(random_state=1).fit(C40)
     assert not np.array_equal(a.tour_, b.tour_)
+
+
+@pytest.mark.parametrize("n", [12, 30])
+def test_history_last_is_bit_identical_to_cost(n):
+    # the kernel recomputes the best cost from the buffer at the end of a level that wrote it, so the
+    # accumulated O(1) deltas of the fast path never leak into history_
+    C, _ = _euclid(n, seed=n)
+    for seed in range(12):
+        sa = SimulatedAnnealing(random_state=seed).fit(C)
+        assert sa.history_[-1] == sa.cost_ == sa.problem_.evaluate(sa.problem_.to_index_tour(sa.tour_))
 
 
 def test_generator_is_advanced_and_reproduces_the_int_seed(small_euclidean):
@@ -121,6 +132,37 @@ def test_explicit_temperatures_are_honoured(small_euclidean):
     assert sa.n_iter_ == 4 and sa.stop_reason_ == "converged"
     one = SimulatedAnnealing(t0=1.0, t_min=2.0, random_state=0).fit(C)  # t_min above t0: one level runs
     assert one.n_iter_ == 1 and one.stop_reason_ == "converged"
+
+
+def test_non_finite_or_underflowing_temperatures_are_rejected(small_euclidean):
+    # the Interval constraints admit inf: t0=inf never cools (a hang without patience/time_limit) and a
+    # subnormal t0 makes t_min="auto" underflow to 0.0 (a math domain error in the level count)
+    C = small_euclidean["C"]
+    for kw in (
+        {"t0": math.inf},
+        {"t0": 1e-320},
+        {"t_min": math.inf},
+        {"t0": 1.0, "t_min": math.inf},
+        {"t0": 1e-320, "t_min": 1e-320},  # 1e-320 is subnormal: (1e-320 * 0.995) rounds, but t_min > 0 holds
+    ):
+        if kw == {"t0": 1e-320, "t_min": 1e-320}:
+            assert SimulatedAnnealing(**kw, random_state=0).fit(C).n_iter_ >= 1  # legal, finite: runs
+            continue
+        with pytest.raises(ValueError, match="finite temperature"):
+            SimulatedAnnealing(**kw, random_state=0).fit(C)
+    with pytest.raises(ValueError, match="'t0' parameter"):
+        SimulatedAnnealing(t0=math.nan).fit(C)
+    # finite extremes are fine and run the full schedule
+    for t0 in (1e-300, 1e300, sys.float_info.max):
+        assert SimulatedAnnealing(t0=t0, random_state=0).fit(C).n_iter_ == 1838
+
+
+def test_repeated_move_names_are_rejected(small_euclidean):
+    # mv ~ U{moves}: a repeated name would silently weight that move type
+    C = small_euclidean["C"]
+    for moves in (("two_opt", "two_opt", "swap"), ["swap", "swap"]):
+        with pytest.raises(ValueError, match="must not repeat"):
+            SimulatedAnnealing(moves=moves).fit(C)
 
 
 def test_time_limit_stops_after_one_level(small_euclidean):
@@ -313,6 +355,7 @@ def test_fast_and_generic_paths_agree_on_a_symmetric_instance():
         )
         assert state[0] == pytest.approx(reference.tour_cost(C, tour))
         assert state[1] == pytest.approx(reference.tour_cost(C, best))
+        assert state[1] == RoutingProblem(C).evaluate(best)  # recomputed from the buffer: bit-identical
         results.append((tour.copy(), best.copy(), state.copy()))
     (t1, b1, s1), (t2, b2, s2) = results
     assert np.array_equal(t1, t2) and np.array_equal(b1, b2)

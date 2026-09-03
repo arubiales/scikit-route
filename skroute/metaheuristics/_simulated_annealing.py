@@ -25,13 +25,16 @@ _N_CALIBRATION = 1000  # proposals sampled on the initial tour for t0="auto"
 
 
 def _normalise_moves(moves: Any) -> tuple[str, ...]:
-    """The ``moves`` parameter as a validated, non-empty tuple of move names (a string is a 1-tuple)."""
+    """The ``moves`` parameter as a validated, non-empty tuple of distinct names (a string is a 1-tuple)."""
     names = (moves,) if isinstance(moves, str) else tuple(moves)
     if not names:
         raise ValueError("moves must contain at least one of 'two_opt', 'or_opt', 'swap'")
     bad = [m for m in names if not (isinstance(m, str) and m in _MOVE_CODES)]
     if bad:
         raise ValueError(f"moves must be a tuple of names among 'two_opt', 'or_opt', 'swap'; got {bad!r}")
+    if len(set(names)) != len(names):
+        # every move type is proposed with the same probability: a repeated name would silently weight it
+        raise ValueError(f"moves must not repeat a move name; got {names!r}")
     return names
 
 
@@ -47,20 +50,22 @@ class SimulatedAnnealing(BaseRouter):
     Parameters
     ----------
     t0 : float > 0 or "auto", default "auto"
-        Initial temperature. ``"auto"`` prices 1000 random proposals on the initial tour and
-        sets ``t0 = -median(uphill deltas) / ln(0.5)``, so the median uphill move is accepted
-        with probability one half at the start (``t0 = 1.0`` if no proposal goes uphill).
+        Initial temperature (finite). ``"auto"`` prices 1000 random proposals on the initial
+        tour and sets ``t0 = -median(uphill deltas) / ln(0.5)``, so the median uphill move is
+        accepted with probability one half at the start (``t0 = 1.0`` if no proposal goes
+        uphill).
     t_min : float > 0 or "auto", default "auto"
-        Final temperature; the search stops (``"converged"``) once ``T < t_min``. ``"auto"``
-        is ``1e-4 * t0``, i.e. about ``ln(1e4) / -ln(alpha)`` levels (1838 at the default
-        ``alpha``).
+        Final temperature (finite); the search stops (``"converged"``) once ``T < t_min``.
+        ``"auto"`` is ``1e-4 * t0``, i.e. about ``ln(1e4) / -ln(alpha)`` levels (1838 at the
+        default ``alpha``); a ``t0`` so small that ``1e-4 * t0`` underflows to zero is rejected.
     alpha : float in (0, 1), default 0.995
         Geometric cooling factor applied after every level.
     n_moves : int >= 1 or None, default None
         Proposals per temperature level; ``None`` means ``10 * n``. An invalid random draw
         (see Notes) is a rejected proposal and counts towards ``n_moves``.
     moves : tuple of {"two_opt", "or_opt", "swap"}, default ("two_opt", "or_opt", "swap")
-        The move types proposed, each with the same probability. A single name is accepted.
+        The move types proposed, each with the same probability; a name must not repeat. A
+        single name is accepted.
     patience : int >= 1 or None, default None
         Levels without improvement of the best-so-far before stopping (``"patience"``). The
         count starts only once the current cost has first fallen below the initial cost: with
@@ -87,7 +92,8 @@ class SimulatedAnnealing(BaseRouter):
     t0_ : float
         The initial temperature actually used (the calibrated value under ``t0="auto"``).
     history_ : ndarray of shape (n_iter_,), float64
-        Best-so-far cost after each temperature level (monotone non-increasing).
+        Best-so-far cost after each temperature level (monotone non-increasing);
+        ``history_[-1]`` equals ``cost_`` exactly.
     n_iter_ : int
         Temperature levels run.
     stop_reason_ : {"converged", "patience", "time_limit"}
@@ -231,9 +237,21 @@ class SimulatedAnnealing(BaseRouter):
         else:
             t0 = float(self.t0)
         t_min = 1e-4 * t0 if self.t_min == "auto" else float(self.t_min)
+        # the Interval constraints exclude 0 and NaN but not inf; an infinite t0 never cools below
+        # t_min (inf * alpha == inf) and a subnormal t0 makes t_min="auto" underflow to 0.0
+        if not (0.0 < t0 < math.inf):
+            raise ValueError(f"t0 must be a positive finite temperature; got {t0!r}")
+        if not (0.0 < t_min < math.inf):
+            hint = " (t_min='auto' is 1e-4 * t0: pass a positive t_min or a larger t0)"
+            msg = f"t_min must be a positive finite temperature; got {t_min!r}"
+            raise ValueError(msg + hint if self.t_min == "auto" else msg)
         self.t0_ = t0
-        # expected number of levels, for the verbose cadence only (>= 1: one level always runs)
-        n_levels = max(1, math.ceil(math.log(t_min / t0) / math.log(self.alpha))) if t_min < t0 else 1
+        # expected number of levels, for the verbose cadence only (>= 1: one level always runs);
+        # log(t_min) - log(t0) instead of log(t_min / t0): the ratio may underflow, the logs cannot
+        if t_min < t0:
+            n_levels = max(1, math.ceil((math.log(t_min) - math.log(t0)) / math.log(self.alpha)))
+        else:
+            n_levels = 1
         every = max(1, n_levels // 10) if self.verbose == 1 else 1
 
         history: list[float] = []

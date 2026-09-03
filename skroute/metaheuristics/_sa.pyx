@@ -23,7 +23,9 @@ priced with the O(1) deltas of the core and applied in place on acceptance; othe
 move is applied on ``scratch`` and priced with ``problem_cost`` (exact on ATSP and under a
 budget), and the scratch is copied back on acceptance. The best tour lives in its own
 ``best`` buffer and is copied into on strict improvement only, so the tour and the best can
-never alias (the 1.0 bug).
+never alias (the 1.0 bug). When a level wrote ``best``, its cost is recomputed from the buffer
+once at the end of the level, so ``state[1]`` (hence ``history_``) is bit-identical to a fresh
+evaluation of ``best`` and never carries the rounding of the accumulated O(1) deltas.
 """
 
 from libc.math cimport exp, fabs, NAN
@@ -104,6 +106,7 @@ cdef Py_ssize_t _anneal_level(const double[:, ::1] C, const double[:, ::1] T, in
     cdef Py_ssize_t n = tour.shape[0], m = u.shape[0], s, i = 0, j = 0, L = 0, accepted = 0
     cdef size_t nbytes = n * sizeof(int64_t)
     cdef int64_t code
+    cdef bint best_written = False
     cdef double cur, best_cost, delta, new
     # The current cost is recomputed once per level (O(n), against 10n proposals) so the
     # accumulated O(1) deltas cannot drift away from the true cost of the tour.
@@ -121,6 +124,7 @@ cdef Py_ssize_t _anneal_level(const double[:, ::1] C, const double[:, ::1] T, in
                 accepted += 1
                 if _improves(cur, best_cost):
                     best_cost = cur
+                    best_written = True
                     memcpy(&best[0], &tour[0], nbytes)
         else:
             memcpy(&scratch[0], &tour[0], nbytes)
@@ -133,7 +137,12 @@ cdef Py_ssize_t _anneal_level(const double[:, ::1] C, const double[:, ::1] T, in
                 accepted += 1
                 if _improves(cur, best_cost):
                     best_cost = cur
+                    best_written = True
                     memcpy(&best[0], &tour[0], nbytes)
+    if best_written:
+        # one O(n) recompute per improving level: the best cost reported (history_) must be
+        # bit-identical to what the base class recomputes into ``cost_`` from the same buffer
+        best_cost = problem_cost(C, T, best, max_time, fixed_cost, split, dp, pred)
     state[0] = cur
     state[1] = best_cost
     return accepted
@@ -171,7 +180,8 @@ def anneal_level(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] to
         Caller-owned scratch of the optimal split (zero-length views are fine otherwise).
     state : (2,) float64
         In: ``state[1]`` = best cost so far. Out: ``state[0]`` = current cost after the level,
-        ``state[1]`` = best cost so far.
+        ``state[1]`` = best cost so far (recomputed from ``best`` when the level wrote it, so it is
+        bit-identical to ``problem_cost`` of ``best``).
 
     Returns
     -------
