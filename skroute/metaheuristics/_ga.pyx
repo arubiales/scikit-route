@@ -12,23 +12,9 @@ gene for gene.
 from libc.stdint cimport int64_t, uint8_t, uint64_t
 from libc.string cimport memset
 
-from skroute._core._routing cimport (
-    local_search_generic,
-    or_opt_descent,
-    problem_cost,
-    rebuild_pos,
-    two_opt_descent,
-)
+from skroute._core._routing cimport problem_cost
+from skroute.metaheuristics._memetic cimport memetic_polish
 
-# Move mask shared with local_search_generic: 1 = two_opt, 2 = or_opt.
-cdef int MOVE_TWO_OPT = 1
-cdef int MOVE_OR_OPT = 2
-# Local-search mode: 0 = none, 1 = symmetric plain TSP (O(1) deltas), 2 = generic full evaluation.
-cdef int LS_NONE = 0
-cdef int LS_SYMMETRIC = 1
-cdef int LS_GENERIC = 2
-# A descent "to convergence": the kernels stop at a local optimum long before this cap.
-cdef int MAX_PASSES = 1000000
 # FNV-1a style multiplier for the row hashes of the duplicate check (uint64 wrap-around).
 cdef uint64_t HASH_MULT = 1099511628211
 
@@ -182,36 +168,6 @@ cdef inline bint _is_duplicate(const int64_t[:, ::1] new_pop, Py_ssize_t upto, c
     return False
 
 
-cdef void _polish(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour, int64_t[::1] pos,
-                  const int64_t[:, ::1] cand, uint8_t[::1] dont_look, double max_time, double fixed_cost,
-                  int split, int ls_mode, int ls_moves, int64_t[::1] scratch_tour, double[::1] dp,
-                  int64_t[::1] pred) noexcept nogil:
-    # Memetic polish: the listed descents run to convergence (SPEC §4.3 accounting with an unbounded
-    # pass count), alternating until none improves. Don't-look bits are reset before every call
-    # because a finished descent leaves them all set.
-    cdef Py_ssize_t n = tour.shape[0]
-    cdef bint improved
-    if ls_mode == LS_NONE or ls_moves == 0:
-        return
-    rebuild_pos(tour, pos)
-    if ls_mode == LS_GENERIC:
-        local_search_generic(C, T, tour, pos, cand, max_time, fixed_cost, split, ls_moves, 3, MAX_PASSES,
-                             scratch_tour, dp, pred)
-        return
-    while True:
-        improved = False
-        if ls_moves & MOVE_TWO_OPT:
-            memset(&dont_look[0], 0, n)
-            if two_opt_descent(C, tour, pos, cand, dont_look, True, MAX_PASSES) < 0.0:
-                improved = True
-        if ls_moves & MOVE_OR_OPT:
-            memset(&dont_look[0], 0, n)
-            if or_opt_descent(C, tour, pos, cand, dont_look, 3, True, MAX_PASSES) < 0.0:
-                improved = True
-        if not improved or ls_moves == MOVE_TWO_OPT or ls_moves == MOVE_OR_OPT:
-            break  # a single descent already ended at its own local optimum
-
-
 cpdef double polish_tour(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour, int64_t[::1] pos,
                          const int64_t[:, ::1] cand, uint8_t[::1] dont_look, double max_time,
                          double fixed_cost, int split, int ls_mode, int ls_moves, int64_t[::1] scratch_tour,
@@ -221,9 +177,10 @@ cpdef double polish_tour(const double[:, ::1] C, const double[:, ::1] T, int64_t
     ``ls_mode``: 0 = no polish, 1 = symmetric plain TSP (``two_opt_descent``/``or_opt_descent``),
     2 = generic (``local_search_generic``, for multi-trip and asymmetric problems). ``ls_moves`` is
     the bit mask 1 = two_opt, 2 = or_opt. The other arguments are caller-owned scratch buffers.
+    The polish itself is ``_memetic.pxd``'s ``memetic_polish``, shared with the AntColony kernel.
     """
-    _polish(C, T, tour, pos, cand, dont_look, max_time, fixed_cost, split, ls_mode, ls_moves,
-            scratch_tour, dp, pred)
+    memetic_polish(C, T, tour, pos, cand, dont_look, max_time, fixed_cost, split, ls_mode, ls_moves,
+                   scratch_tour, dp, pred)
     return problem_cost(C, T, tour, max_time, fixed_cost, split, dp, pred)
 
 
@@ -297,8 +254,8 @@ cpdef Py_ssize_t ga_generation(
             n_dups += 1
         for k in range(m):
             tour[k + 1] = child[k]
-        _polish(C, T, tour, pos, cand, dont_look, max_time, fixed_cost, split, ls_mode, ls_moves,
-                scratch_tour, dp, pred)
+        memetic_polish(C, T, tour, pos, cand, dont_look, max_time, fixed_cost, split, ls_mode, ls_moves,
+                       scratch_tour, dp, pred)
         for k in range(m):
             child[k] = tour[k + 1]
             new_pop[r, k] = child[k]

@@ -87,7 +87,13 @@ class AntColony(BaseRouter):
     computed once per iteration as a dense ``(n, n)`` matrix, so an iteration costs
     O(n^2 + n_ants * n * k) plus the polish (O(n k) per ant on a symmetric plain instance,
     more under a budget or on an asymmetric matrix where every move is re-evaluated in O(n)).
-    Memory: two ``(n, n)`` float64 matrices besides the cost matrix.
+    Memory: three ``(n, n)`` float64 matrices besides the cost matrix — the heuristic
+    desirability ``(1 / C) ** beta``, the trail (``pheromone_``) and the transition weights,
+    all updated in place — plus the transient copy ``RoutingProblem.neighbours`` makes.
+
+    Zero off-diagonal costs (coincident points) are floored to a thousandth of the smallest
+    positive cost in the heuristic; the same floor bounds every ``1 / L`` of the trail, so a
+    zero-cost tour (all nodes coincident, a zero-cost cycle) is returned with a finite trail.
 
     Supports: symmetric and asymmetric matrices (the trail is directional on the latter),
     multi-trip objective; stochastic, iterative, budget-aware.
@@ -181,20 +187,24 @@ class AntColony(BaseRouter):
         max_time, fixed, split = problem.max_time_work, problem.fixed_cost, problem.split_code
         alpha, beta, rho = float(self.alpha), float(self.beta), float(self.rho)
 
-        # heuristic desirability (1 / C) ** beta; zero distances (coincident points) are floored so
-        # they stay finite and are still overwhelmingly preferred
-        off = C[~np.eye(n, dtype=bool)]
-        positive = off[off > 0]
-        floor = float(positive.min()) * 1e-3 if positive.size else 1.0
-        heur = np.power(np.maximum(C, floor), -beta)
+        # heuristic desirability (1 / C) ** beta, built in place in its own (n, n) buffer. Zero costs
+        # (coincident points) are floored to a thousandth of the smallest positive off-diagonal cost so
+        # they stay finite and are still overwhelmingly preferred; the same floor keeps every ``1 / L``
+        # below finite when a tour costs exactly 0 (all nodes coincident, or a zero-cost cycle).
+        heur = C.copy()
+        np.fill_diagonal(heur, np.inf)  # the diagonal is never read: keep it out of the minimum
+        smallest = float(np.min(heur, initial=np.inf, where=heur > 0))
+        floor = smallest * 1e-3 if np.isfinite(smallest) else 1.0
+        np.maximum(heur, floor, out=heur)
+        np.power(heur, -beta, out=heur)
         np.fill_diagonal(heur, 0.0)
 
         # trail: 1 / (rho * L_NN), bounded by the best-so-far cost from the first iteration on
         nn = initial_tour(problem, "nearest_neighbour", None)
         l_nn = float(problem.evaluate(nn))
-        tau = np.full((n, n), 1.0 / (rho * l_nn))
+        tau = np.full((n, n), 1.0 / (rho * max(l_nn, floor)))
         np.fill_diagonal(tau, 0.0)
-        choice = np.empty_like(tau)
+        choice = np.empty_like(tau)  # the transition weights tau ** alpha * heur, rebuilt in place
 
         i64, f64, u8 = np.int64, np.float64, np.uint8
         tours = np.empty((n_ants, n), dtype=i64)
@@ -208,7 +218,8 @@ class AntColony(BaseRouter):
         history: list[float] = []
         since, reason = 0, "max_iter"
         for it in range(int(self.n_iter)):
-            np.multiply(np.power(tau, alpha), heur, out=choice)
+            np.power(tau, alpha, out=choice)
+            choice *= heur
             u = rng.random((n_ants, n - 1))  # one uniform per construction step (D10)
             construct_tours(choice, cand, depot, u, tours, visited, w)
             polish_and_evaluate(
@@ -227,12 +238,12 @@ class AntColony(BaseRouter):
                 dep_tour, dep_cost = best, best_cost
             else:
                 dep_tour, dep_cost = tours[ib], float(costs[ib])
-            delta = 1.0 / dep_cost
+            delta = 1.0 / max(dep_cost, floor)
             heads, tails = dep_tour, np.roll(dep_tour, -1)
             tau[heads, tails] += delta
             if problem.symmetric:
                 tau[tails, heads] += delta
-            tau_max = 1.0 / (rho * best_cost)
+            tau_max = 1.0 / (rho * max(best_cost, floor))
             np.clip(tau, tau_max / (2.0 * n), tau_max, out=tau)
             np.fill_diagonal(tau, 0.0)
             if self.verbose and it % every == 0:
