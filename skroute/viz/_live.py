@@ -46,6 +46,15 @@ def in_notebook() -> bool:
     return shell is not None and getattr(shell, "kernel", None) is not None
 
 
+def inline_backend() -> bool:
+    """Whether the code runs under a Jupyter kernel with the ``inline`` matplotlib backend."""
+    if not in_notebook():
+        return False
+    import matplotlib
+
+    return "inline" in matplotlib.get_backend().lower()
+
+
 def display_figure(fig: Any, *, clear: bool) -> None:
     """``IPython.display.display(fig, clear=clear)`` — only called once ``in_notebook()`` is true."""
     from IPython.display import display
@@ -98,6 +107,14 @@ class LivePlot:
     calls ``plt.show()`` — in a script the window appears through ``plt.pause``, so add
     ``plt.show()`` after ``fit`` to keep it open; in Jupyter the figure is refreshed in place.
 
+    One instance can watch several fits: a ``"start"`` that begins a new run (after the previous
+    ``"end"``) opens a fresh figure and forgets a pending ``stop()``; the nested ``"start"`` and
+    ``"end"`` of the restarts a ``MultiStart(n_jobs=1)`` forwards reset the lines in place, so
+    every restart is drawn from scratch and its final route stays only until the next one begins.
+    In a script the figure is left open after ``fit`` (``plt.close(live.fig)`` when watching many
+    runs); under ``%matplotlib inline`` it is closed after the final display, so the cell shows
+    the last picture once.
+
     Parameters
     ----------
     coords : (n, 2) array-like
@@ -105,8 +122,9 @@ class LivePlot:
         ``map=True``: latitude, longitude).
     backend : {"matplotlib", "plotly"}, default "matplotlib"
         ``"matplotlib"`` draws in a matplotlib figure (interactive backends show a window;
-        headless ``Agg`` works silently); ``"plotly"`` draws in a ``FigureWidget`` updated in
-        place inside a notebook, or in a plain ``Figure`` shown once at ``"end"`` elsewhere.
+        headless ``Agg`` works silently: the artists are updated on every kept iteration and
+        rendered once at ``"end"``); ``"plotly"`` draws in a ``FigureWidget`` updated in place
+        inside a notebook, or in a plain ``Figure`` shown once at ``"end"`` elsewhere.
     map : bool, default False
         Draw on OpenStreetMap tiles (Plotly ``Scattermap``; requires ``backend="plotly"`` and
         coordinates as ``(latitude, longitude)``).
@@ -129,14 +147,18 @@ class LivePlot:
     n_events : int
         Events received so far.
     n_redraws : int
-        Times the picture was refreshed (start, the kept iterations and end).
+        Times the picture was refreshed (start, the kept iterations, the start of every nested
+        restart and end).
 
     Notes
     -----
     Redraws happen on the thread that runs ``fit``: matplotlib is not thread-safe, which is why
-    ``MultiStart`` forwards the callback only with ``n_jobs=1``. Calling :meth:`stop` — from another
-    cell or thread — makes the callback return ``True`` at the next event, which asks the solver
-    to stop after its current iteration (``stop_reason_ == "callback"``).
+    ``MultiStart`` forwards the callback only with ``n_jobs=1``. Calling ``stop()`` makes the
+    callback return ``True`` at the next event, which asks the solver to stop after its current
+    iteration (``stop_reason_ == "callback"``). With a desktop window keep ``fit`` on the main
+    thread and call ``stop()`` from a key handler on ``live.fig``; running ``fit`` in a worker
+    thread and stopping it from another cell is safe under ``%matplotlib inline`` and with the
+    plotly backend, whose redraws are IPython display calls rather than GUI drawing.
 
     Examples
     --------
@@ -190,16 +212,28 @@ class LivePlot:
         self.n_redraws = 0
         self._stop = False
         self._n_iterations = 0
+        self._depth = 0  # "start" events minus "end" events: > 1 inside the restarts of a MultiStart
         self._view: _MatplotlibView | Any = None
 
     def stop(self) -> None:
-        """Ask the solver to stop: the callback returns ``True`` at its next event."""
+        """Ask the solver to stop: the callback returns ``True`` at its next event (reset by a new run)."""
         self._stop = True
 
     def __call__(self, event: Any) -> bool:
-        """Handle one event; returns ``True`` once :meth:`stop` was called."""
+        """Handle one event; returns ``True`` once ``stop()`` was called."""
         self.n_events += 1
         stage = event.stage
+        if stage == "start":
+            if self._view is not None and (self._depth == 0 or event.problem is not self._view.problem):
+                # A new fit reusing this instance: forget the previous run (a fresh figure is created
+                # below; the old one stays open for the caller) and the stop request that ended it.
+                self._view, self._depth, self._stop = None, 0, False
+            self._n_iterations = 0  # the ``every`` phase starts again with every run
+            self._depth += 1
+            if self._view is not None:  # a nested run (the next restart of a MultiStart): redraw from scratch
+                self._view.restart(event)
+                self.n_redraws += 1
+                return self._stop
         if self._view is None:  # "start", or a callback attached to a run already in progress
             self._view = self._make_view(event)
             self._view.start(event)
@@ -213,7 +247,8 @@ class LivePlot:
                 self._view.update(event)
                 self.n_redraws += 1
         elif stage == "end":
-            self._view.finish(event)
+            self._depth = max(0, self._depth - 1)
+            self._view.finish(event, last=self._depth == 0)
             self.n_redraws += 1
         return self._stop
 
@@ -259,26 +294,41 @@ class _MatplotlibView:
         self._set_title(event)
         self._flush()
 
-    def update(self, event: Any) -> None:
+    def restart(self, event: Any) -> None:
+        """A nested ``"start"`` (the next restart of a MultiStart): the previous restart's route goes."""
+        self._clear_final()
+        self.current.set_data([], [])
+        self.best.set_data([], [])
         self._set_tours(event)
         self._set_title(event)
         self._flush()
 
-    def finish(self, event: Any) -> None:
+    def update(self, event: Any) -> None:
+        self._clear_final()  # a route left by an inner "end" never stays under the live lines
+        self._set_tours(event)
+        self._set_title(event)
+        self._flush()
+
+    def finish(self, event: Any, *, last: bool = True) -> None:
+        """Draw the final route; ``last`` is false for the ``"end"`` of a restart inside a MultiStart."""
         assert self.ax is not None
         self.current.set_data([], [])
         self.best.set_data([], [])
-        for line in self.final_lines:
-            line.remove()
+        self._clear_final()
         tour = event.best_tour if event.best_tour is not None else event.tour
         trips = closed_trips(self.problem, tour) if tour is not None else []
         self.final_lines = draw_trips(
             self.ax, self.xy, trips, colors_for_trips(len(trips), True), linewidth=2.2
         )
         self._set_title(event)
-        self._flush()
+        self._flush(final=last)
 
     # ----- helpers
+    def _clear_final(self) -> None:
+        for line in self.final_lines:
+            line.remove()
+        self.final_lines = []
+
     def _polyline(self, tour: Any) -> tuple[np.ndarray, np.ndarray]:
         idx = route_index(self.problem, tour)
         return self.xy[idx, 0], self.xy[idx, 1]
@@ -293,13 +343,22 @@ class _MatplotlibView:
         assert self.ax is not None
         self.ax.set_title(status_line(self.owner.title or str(event.solver), event), fontsize=10)
 
-    def _flush(self) -> None:
+    def _flush(self, *, final: bool = False) -> None:
         assert self.fig is not None
         if self.inline:
             display_figure(self.fig, clear=True)
+            if final:
+                # The inline backend displays every open pyplot figure again when the cell ends, so the
+                # last picture would appear twice; the Figure object stays reachable as ``LivePlot.fig``.
+                pyplot().close(self.fig)
             return
-        self.fig.canvas.draw_idle()
-        if self.notebook:
+        if self.notebook:  # ipympl and the like: a canvas updated in place
+            self.fig.canvas.draw_idle()
             self.fig.canvas.flush_events()
         elif self.interactive:
+            self.fig.canvas.draw_idle()
             pyplot().pause(self.owner.pause)
+        elif final:
+            # Headless (Agg): nobody sees the frames and draw_idle() is a full ~10 ms raster render
+            # there, so the artists are only updated during the run and rendered once at the end.
+            self.fig.canvas.draw_idle()

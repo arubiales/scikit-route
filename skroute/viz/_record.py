@@ -50,8 +50,14 @@ class RecordedEvent:
     extra : dict
         Solver-specific facts (``temperature``, ``tenure``, ``generation``...).
     problem : RoutingProblem or None
-        The instance of the run (a reference, shared by every event), so a recorded event can be
-        drawn with [`plot_route`][skroute.viz.plot_route] like a live one.
+        The instance the event belongs to (a reference, shared by the events of one run), so a
+        recorded event can be drawn with [`plot_route`][skroute.viz.plot_route] like a live one.
+    trips : list of ndarray
+        ``best_tour`` decoded into closed label trips ``[depot, ..., depot]`` with the problem's
+        split rule, as ``RouteEvent.trips``; ``[]`` without a tour (or a problem).
+    route : ndarray or None
+        ``best_tour`` as driven — depot, trip 1, depot, ..., depot — as ``RouteEvent.route``;
+        ``None`` without a tour.
     """
 
     solver: str
@@ -64,6 +70,22 @@ class RecordedEvent:
     extra: dict[str, Any] = field(default_factory=dict)
     problem: Any = None
 
+    @property
+    def trips(self) -> list[np.ndarray]:
+        """``best_tour`` decoded into closed label trips ``[depot, ..., depot]``; ``[]`` without a tour."""
+        if self.best_tour is None or self.problem is None:
+            return []
+        labels = np.asarray(self.problem.labels)
+        return [labels[trip] for trip in closed_trips(self.problem, self.best_tour)]
+
+    @property
+    def route(self) -> np.ndarray | None:
+        """``best_tour`` as driven — depot, trip 1, depot, ..., depot — or ``None`` without a tour."""
+        trips = self.trips
+        if not trips:
+            return None
+        return np.concatenate([trips[0]] + [t[1:] for t in trips[1:]])
+
 
 def _copy_tour(tour: Any) -> np.ndarray | None:
     return None if tour is None else np.array(tour, copy=True)
@@ -73,10 +95,15 @@ class Recorder:
     """Record the events of a run to replay them later: an animation, a Plotly slider or a history plot.
 
     Pass an instance as ``fit(..., callback=rec)``. Nothing is drawn during the run; the events
-    are copied into :attr:`events` (label-space tours included unless ``keep_tours=False``) and
-    the run can then be replayed with :meth:`animate` (a matplotlib ``FuncAnimation``, savable as
-    a GIF or MP4), :meth:`to_plotly` (a figure with frames and a slider, optionally on
-    OpenStreetMap tiles) or summarised with :meth:`plot_history`.
+    are copied into ``events`` (label-space tours included unless ``keep_tours=False``) and the
+    run can then be replayed with ``animate`` (a matplotlib ``FuncAnimation``, savable as a GIF or
+    MP4), ``to_plotly`` (a figure with frames and a slider, optionally on OpenStreetMap tiles) or
+    summarised with ``plot_history``.
+
+    A recorder accumulates: handed to a second ``fit`` it appends that run's events (each event
+    keeps a reference to its own problem, and ``every`` counts from the run's first iteration
+    again). The replays draw every kept event on one set of coordinates, so build a new recorder
+    per instance you want to replay.
 
     Parameters
     ----------
@@ -91,7 +118,7 @@ class Recorder:
     events : list of RecordedEvent
         The kept events, in order.
     problem : RoutingProblem or None
-        The instance of the run, taken from the first event.
+        The instance of the latest run recorded (every event also carries its own).
     costs : ndarray of shape (n_events,), float64
         ``cost`` of every kept event (``nan`` when the solver reported none).
     best_costs : ndarray of shape (n_events,), float64
@@ -99,7 +126,7 @@ class Recorder:
     iterations : ndarray of shape (n_events,), int64
         ``iteration`` of every kept event.
     n_frames : int
-        Kept events that carry a best tour — the frames :meth:`animate` and :meth:`to_plotly` draw.
+        Kept events that carry a best tour — the frames ``animate`` and ``to_plotly`` draw.
 
     Examples
     --------
@@ -129,8 +156,16 @@ class Recorder:
 
     def __call__(self, event: Any) -> None:
         """Store a copy of ``event`` (subject to ``every``); never asks the solver to stop."""
-        if self.problem is None:
-            self.problem = event.problem
+        problem = getattr(event, "problem", None)
+        if (
+            event.stage == "start"
+        ):  # a new run (or a restart forwarded by MultiStart): its instance, ``every`` from 1
+            self.problem = problem
+            self._n_iterations = 0
+        elif self.problem is None:
+            self.problem = problem
+        if problem is None:
+            problem = self.problem
         if event.stage == "iteration":
             self._n_iterations += 1
             if (self._n_iterations - 1) % self.every:
@@ -146,7 +181,7 @@ class Recorder:
                 tour=_copy_tour(event.tour) if keep else None,
                 best_tour=_copy_tour(event.best_tour) if keep else None,
                 extra=dict(event.extra or {}),
-                problem=self.problem,
+                problem=problem,
             )
         )
 
@@ -168,7 +203,7 @@ class Recorder:
 
     @property
     def n_frames(self) -> int:
-        """Kept events with a best tour: the number of frames of :meth:`animate` and :meth:`to_plotly`."""
+        """Kept events with a best tour: the number of frames of ``animate`` and ``to_plotly``."""
         return sum(1 for e in self.events if e.best_tour is not None)
 
     def _frames(self) -> list[RecordedEvent]:
@@ -203,12 +238,17 @@ class Recorder:
         Returns
         -------
         anim : matplotlib.animation.FuncAnimation
-            One frame per kept event with a best tour (:attr:`n_frames`). Save it with
+            One frame per kept event with a best tour (``n_frames``). Save it with
             ``anim.save("run.gif", writer="pillow", dpi=80)`` or ``anim.save("run.mp4")`` (ffmpeg);
-            in a notebook show it with ``IPython.display.HTML(anim.to_jshtml())``.
+            in a notebook show it with ``IPython.display.HTML(anim.to_jshtml())``. In a script the
+            figure stays open, so ``plt.show()`` plays the animation; under ``%matplotlib inline``
+            it is closed right away (the animation keeps its own reference), so the cell does not
+            end with a stray empty picture.
         """
         plt = pyplot()
         from matplotlib.animation import FuncAnimation
+
+        from ._live import inline_backend
 
         frames = self._frames()
         problem = self.problem
@@ -225,7 +265,7 @@ class Recorder:
                 line.remove()
             lines.clear()
             ev = frames[k]
-            trips = closed_trips(problem, ev.best_tour)
+            trips = closed_trips(problem if ev.problem is None else ev.problem, ev.best_tour)
             lines.extend(draw_trips(ax, xy, trips, colors_for_trips(len(trips), trip_colors), linewidth=2.0))
             parts = [ev.solver, f"iteration {ev.iteration}"]
             if math.isfinite(ev.best_cost):
@@ -233,7 +273,10 @@ class Recorder:
             ax.set_title(" | ".join(parts), fontsize=10)
             return lines
 
-        return FuncAnimation(fig, draw, frames=len(frames), interval=interval, blit=False, repeat=True)
+        anim = FuncAnimation(fig, draw, frames=len(frames), interval=interval, blit=False, repeat=True)
+        if inline_backend():
+            plt.close(fig)  # else the kernel displays the empty figure again when the cell ends
+        return anim
 
     def to_plotly(self, coords: Any, *, map: bool = False) -> Any:
         """Replay the run as a Plotly figure with one frame per kept event and a slider.

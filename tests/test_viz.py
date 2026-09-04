@@ -1,9 +1,11 @@
 """``skroute.viz`` (D30): static plots, the live callback, the recorder and the Plotly map tools.
 
-The callback protocol (``RouteEvent``, ``fit(callback=)``) is written in parallel, so the callbacks
-are driven here by ``FakeEvent`` -- a frozen dataclass with exactly the D30 fields and properties --
-emitted by ``fake_run``, a scripted descent that produces ``start``, iterations with an improving
-``best_cost`` and ``end``, and stops early when the callback returns ``True``.
+Two protocols drive the callbacks. ``fake_run`` emits ``FakeEvent`` -- a frozen dataclass with exactly
+the D30 fields and properties -- from a scripted descent (``start``, iterations with an improving
+``best_cost``, ``end``; it stops early when the callback returns ``True``), which keeps the unit tests
+fast and their expectations exact. The "real protocol" section then runs the solvers themselves through
+``fit(callback=)`` -- ``RouteEvent``, the restarts ``MultiStart(n_jobs=1)`` forwards, ``stop()`` mid-run,
+a reused callback -- the event shapes a fake cannot promise to reproduce.
 
 Every figure is drawn on the Agg backend (forced at import); ``plt.pause``/``fig.show`` never run.
 """
@@ -33,7 +35,14 @@ from matplotlib.animation import FuncAnimation
 from PIL import Image
 
 import skroute
-from skroute import BruteForce, IteratedLocalSearch, RoutingProblem
+from skroute import (
+    BruteForce,
+    IteratedLocalSearch,
+    MultiStart,
+    NearestNeighbour,
+    RoutingProblem,
+    SimulatedAnnealing,
+)
 from skroute.datasets import load_barcelona, load_tsp
 from skroute.utils import initial_tour
 from skroute.viz import LivePlot, RecordedEvent, Recorder, plot_history, plot_route, plot_route_map
@@ -279,6 +288,13 @@ def test_plot_route_errors(ils, two_trips, dj_problem):
         plot_route(IteratedLocalSearch(), SQUARE)
     with pytest.raises(ValueError, match="1-D integer array"):
         plot_route([0.5, 1.0], SQUARE)
+    for lonely in ([0], [0, 0], [2]):  # no node besides the depot: a clear error, not an IndexError
+        with pytest.raises(ValueError, match="no node besides the depot"):
+            plot_route(lonely, SQUARE)
+    with pytest.raises(ValueError, match="negative"):
+        plot_route([0, 1, -1], SQUARE)  # -1 must not silently draw the last row
+    with pytest.raises(ValueError, match=r"\(n, 2\).*dict"):
+        plot_route([0, 1, 2, 3], {0: (0.0, 0.0)})
 
 
 # --------------------------------------------------------------------------- plot_history
@@ -303,6 +319,42 @@ def test_plot_history_estimator_events_and_recorder(ils, dj_problem):
     assert plot_history([nan_event, *events[1:3]]).lines[0].get_xdata().tolist() == [1, 2]
     assert plot_history([]).get_title() == "Best-so-far cost"
     assert rec.plot_history().get_ylabel() == "Best cost"
+
+
+def test_plot_history_rejects_estimators_without_history(dj):
+    with pytest.raises(skroute.exceptions.NotFittedError):
+        plot_history(IteratedLocalSearch())
+    nn = NearestNeighbour().fit(dj.distance_matrix())
+    with pytest.raises(ValueError, match="NearestNeighbour has no history_"):
+        plot_history(nn)
+
+
+def test_plot_history_counts_iterations_across_restarts(dj_problem):
+    """Events forwarded by MultiStart restart ``iteration`` at 1: the x axis must not run backwards."""
+    outer = FakeEvent("MultiStart", "start", 0, math.nan, math.nan, None, None, dj_problem, {"n_restarts": 2})
+    inner = []
+    for restart in (0, 1):
+        events, _ = fake_run(lambda ev: None, dj_problem, n_iter=3, seed=restart)
+        inner += [
+            FakeEvent(
+                e.solver,
+                e.stage,
+                e.iteration,
+                e.cost,
+                e.best_cost,
+                e.tour,
+                e.best_tour,
+                e.problem,
+                {**e.extra, "restart": restart},
+            )
+            for e in events
+        ]
+    ax = plot_history([outer, *inner])
+    assert ax.lines[0].get_xdata().tolist() == [1, 2, 3, 4, 5, 6]
+    assert ax.get_xlabel() == "Iteration (all restarts)"
+    assert ax.get_title() == "MultiStart: best-so-far cost"
+    plain = plot_history(inner[:5])  # the restart key alone: still counted across restarts
+    assert plain.lines[0].get_xdata().tolist() == [1, 2, 3]
 
 
 # --------------------------------------------------------------------------- LivePlot (matplotlib)
@@ -388,6 +440,63 @@ def test_liveplot_attached_mid_run_and_multi_trip_end(two_trips):
     final = live.ax.lines[2:]
     assert len(final) == len(events[-1].trips) >= 1
     assert "FakeDescent | iteration 2" in live.ax.get_title()
+    live(events[1])  # an iteration after an "end" without a new "start": the final route must not stay
+    assert len(live.ax.lines) == 2 and live._view.final_lines == []
+
+
+def test_liveplot_nested_start_resets_the_drawing_in_place(dj_problem, dj):
+    """The start/end of every restart a MultiStart forwards redraw from scratch in the same figure."""
+    outer = FakeEvent("MultiStart", "start", 0, math.nan, math.nan, None, None, dj_problem, {"n_restarts": 2})
+    live = LivePlot(dj.coords, every=2)
+    assert live(outer) is False and live.ax.get_title() == "MultiStart | iteration 0 | n_restarts 2"
+    fig = live.fig
+    for restart in (0, 1):
+        events, _ = fake_run(lambda ev: None, dj_problem, n_iter=3, seed=restart)
+        for ev in events:
+            live(
+                FakeEvent(
+                    *[
+                        getattr(ev, f)
+                        for f in (
+                            "solver",
+                            "stage",
+                            "iteration",
+                            "cost",
+                            "best_cost",
+                            "tour",
+                            "best_tour",
+                            "problem",
+                        )
+                    ],
+                    {**ev.extra, "restart": restart},
+                )
+            )
+            if ev.stage == "iteration":
+                assert len(live.ax.lines) == 2, "the previous restart's final route is gone"
+                assert f"restart {restart}" in live.ax.get_title()
+        assert len(live.ax.lines) == 3 and live.fig is fig  # this restart's final route, same figure
+    assert live.n_events == 11 and live.n_redraws == 1 + 2 * (1 + 2 + 1)  # every=2: iterations 1 and 3
+    assert len(plt.get_fignums()) == 1
+
+
+def test_liveplot_headless_renders_once(monkeypatch, dj_problem, dj):
+    """On Agg nobody sees the frames: the artists are updated at every event, the raster drawn at ``end``."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    draws: list[int] = []
+    original = FigureCanvasAgg.draw
+
+    def counting_draw(self):
+        draws.append(1)
+        return original(self)
+
+    monkeypatch.setattr(FigureCanvasAgg, "draw", counting_draw)
+    live = LivePlot(dj.coords)
+    events, _ = fake_run(live, dj_problem, n_iter=20)
+    assert live.n_redraws == 22 and len(draws) == 1
+    np.testing.assert_allclose(
+        live.ax.lines[2].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
+    )
 
 
 def test_liveplot_validation(dj):
@@ -406,7 +515,7 @@ def test_liveplot_validation(dj):
         LivePlot([[0.0, np.nan], [1.0, 1.0]])
 
 
-def test_liveplot_jupyter_inline_redraws_through_display(monkeypatch, dj_problem, dj):
+def test_liveplot_jupyter_inline_redraws_through_display(monkeypatch, tmp_path, dj_problem, dj):
     calls: list[bool] = []
     ipython = types.ModuleType("IPython")
     ipython.get_ipython = lambda: types.SimpleNamespace(kernel=object())  # a Jupyter kernel shell
@@ -418,11 +527,20 @@ def test_liveplot_jupyter_inline_redraws_through_display(monkeypatch, dj_problem
     live = LivePlot(dj.coords)
     fake_run(live, dj_problem, n_iter=4)
     assert calls == [True] * 6  # every redraw replaces the cell output
-    # a non-inline notebook backend (ipympl) redraws the canvas in place instead
+    # ... and the figure is closed at the end, or the kernel would display it a second time
+    assert live.fig.number not in plt.get_fignums() and len(live.ax.lines) == 3
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=2)
+    anim = rec.animate(dj.coords, figsize=(2, 2))
+    assert plt.get_fignums() == []  # animate() closed its figure too; saving still works
+    anim.save(tmp_path / "inline.gif", writer="pillow", dpi=20)
+    assert (tmp_path / "inline.gif").stat().st_size > 0
+    # a non-inline notebook backend (ipympl) redraws the canvas in place instead, and keeps the figure
     calls.clear()
     monkeypatch.setattr(matplotlib, "get_backend", lambda: "module://ipympl.backend_nbagg")
-    fake_run(LivePlot(dj.coords), dj_problem, n_iter=2)
-    assert calls == []
+    live = LivePlot(dj.coords)
+    fake_run(live, dj_problem, n_iter=2)
+    assert calls == [] and live.fig.number in plt.get_fignums()
 
 
 def test_liveplot_never_pauses_on_a_non_interactive_backend(monkeypatch, dj_problem, dj):
@@ -512,6 +630,11 @@ def test_recorder_stores_copies(dj_problem):
     assert kept.best_tour is not seen.best_tour and np.array_equal(kept.best_tour, seen.best_tour)
     assert kept.extra == {"temperature": 1.0 / 3} and kept.extra is not seen.extra
     assert rec.n_frames == 10
+    # the copies decode like live events (D30's route and trips)
+    assert kept.route.tolist() == seen.route.tolist()
+    assert [t.tolist() for t in kept.trips] == [t.tolist() for t in seen.trips]
+    bare = RecordedEvent("X", "start", 0, math.nan, math.nan, None, None)
+    assert bare.trips == [] and bare.route is None
 
 
 def test_recorder_every_and_keep_tours(dj_problem):
@@ -582,6 +705,30 @@ def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
     assert [s.label for s in fig.layout.sliders[0].steps] == ["0", "1", "3", "5", "6"]
     assert [b.label for b in fig.layout.updatemenus[0].buttons] == ["Play", "Pause"]
     assert fig.frames[-1].layout.title.text.startswith("FakeDescent | iteration 6 | best ")
+    nested = Recorder()
+    for restart in (0, 1):
+        events, _ = fake_run(lambda ev: None, dj_problem, n_iter=2, seed=restart)
+        for e in events:
+            nested(
+                FakeEvent(
+                    e.solver,
+                    e.stage,
+                    e.iteration,
+                    e.cost,
+                    e.best_cost,
+                    e.tour,
+                    e.best_tour,
+                    e.problem,
+                    {**e.extra, "restart": restart},
+                )
+            )
+    steps = nested.to_plotly(dj.coords).layout.sliders[0].steps
+    assert [s.label for s in steps] == ["0:0", "0:1", "0:2", "0:2", "1:0", "1:1", "1:2", "1:2"]
+    assert (
+        nested.to_plotly(dj.coords)
+        .frames[0]
+        .layout.title.text.startswith("FakeDescent | restart 0 | iteration 0")
+    )
     np.testing.assert_allclose(
         np.column_stack([fig.frames[-1].data[0].x, fig.frames[-1].data[0].y]),
         closed_xy(dj_problem, dj.coords, rec.events[-1].best_tour),
@@ -593,6 +740,169 @@ def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
         "scattermap"
     ] * 3 and on_map.layout.map.style == "open-street-map"
     assert len(on_map.frames) == 4 and on_map.frames[0].data[0].type == "scattermap"
+
+
+# --------------------------------------------------------------------------- the real protocol
+def test_real_liveplot_counts_events_and_redraws(dj):
+    live = LivePlot(dj.coords, every=50)
+    sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=live)
+    assert live.n_events == sa.n_iter_ + 2  # start, one event per level, end
+    assert live.n_redraws == 2 + math.ceil(sa.n_iter_ / 50)
+    final = live.ax.lines[2:]
+    assert len(final) == 1
+    np.testing.assert_allclose(final[0].get_xydata(), closed_xy(sa.problem_, dj.coords, sa.tour_))
+    assert live.ax.get_title().startswith(f"SimulatedAnnealing | iteration {sa.n_iter_} | cost ")
+    assert f"best {sa.cost_:.6g}" in live.ax.get_title()
+
+
+def test_real_liveplot_stop_mid_run(dj):
+    live = LivePlot(dj.coords)
+
+    def watch(ev):
+        out = live(ev)
+        if ev.stage == "iteration" and ev.iteration == 7:
+            live.stop()  # honoured at the next event: the solver stops after iteration 8
+        return out
+
+    sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=watch)
+    assert (sa.stop_reason_, sa.n_iter_, live.n_events) == ("callback", 8, 10)
+
+
+def test_real_liveplot_reused_for_a_second_fit_starts_afresh(dj):
+    """A new fit with the same LivePlot: fresh figure, no stale route, ``every`` phase and stop() reset."""
+    C = dj.distance_matrix()
+    live = LivePlot(dj.coords, every=3)
+    drawn: list[int] = []
+    stop_once = [True]
+
+    def watch(ev):
+        before = live.n_redraws
+        out = live(ev)
+        if ev.stage == "iteration" and live.n_redraws > before:
+            drawn.append(ev.iteration)
+        if ev.stage == "iteration" and ev.iteration == 4 and stop_once:
+            stop_once.clear()
+            live.stop()
+        return out
+
+    first = IteratedLocalSearch(n_iter=10, patience=None, random_state=0).fit(
+        C, labels=dj.labels, callback=watch
+    )
+    assert first.stop_reason_ == "callback" and first.n_iter_ == 5 and drawn == [1, 4]
+    fig1 = live.fig
+    drawn.clear()
+    second = IteratedLocalSearch(n_iter=7, patience=None, random_state=1).fit(
+        C, labels=dj.labels, callback=watch
+    )
+    assert second.stop_reason_ == "max_iter" and second.n_iter_ == 7, "the old stop request is forgotten"
+    assert drawn == [1, 4, 7], "the every phase starts again"
+    assert live.fig is not fig1 and len(live.ax.lines) == 3  # a fresh figure: current, best, one final route
+    np.testing.assert_allclose(
+        live.ax.lines[2].get_xydata(), closed_xy(second.problem_, dj.coords, second.tour_)
+    )
+    assert len(fig1.axes[0].lines) == 3 and len(plt.get_fignums()) == 2  # the first figure is left as it was
+    wi = load_tsp("wi29")
+    with pytest.raises(ValueError, match="coords has 38 rows but the problem has 29 nodes"):
+        IteratedLocalSearch(n_iter=1, patience=None).fit(
+            wi.distance_matrix(), labels=wi.labels, callback=live
+        )
+
+
+def test_real_liveplot_under_multistart(dj):
+    """MultiStart(n_jobs=1) forwards every restart's events: each restart is drawn from scratch."""
+    live = LivePlot(dj.coords, every=2)
+    lines_seen: list[int] = []
+
+    def spy(ev):
+        out = live(ev)
+        if ev.stage == "iteration" and ev.extra.get("restart", 0) > 0:
+            lines_seen.append(len(live.ax.lines))  # never the previous restart's final route underneath
+        return out
+
+    ms = MultiStart(IteratedLocalSearch(n_iter=3, patience=None), n_restarts=3, random_state=0).fit(
+        dj.distance_matrix(), labels=dj.labels, callback=spy
+    )
+    assert live.n_events == 2 + 3 * 5  # its own start/end + 3 x (start, 3 iterations, end)
+    assert live.n_redraws == 2 + 3 * 4  # every=2 counts from 1 in each restart: iterations 1 and 3
+    assert lines_seen == [2] * 6
+    assert len(plt.get_fignums()) == 1, "one figure for the whole ensemble"
+    final = live.ax.lines[2:]
+    assert len(final) == 1
+    np.testing.assert_allclose(final[0].get_xydata(), closed_xy(ms.problem_, dj.coords, ms.tour_))
+    assert live.ax.get_title().startswith("MultiStart | ")
+
+
+def test_real_liveplot_plotly_under_multistart_shows_once(monkeypatch, dj):
+    shown: list[Any] = []
+    monkeypatch.setattr("plotly.basedatatypes.BaseFigure.show", lambda self, *a, **k: shown.append(self))
+    live = LivePlot(dj.coords, backend="plotly")
+    ms = MultiStart(IteratedLocalSearch(n_iter=2, patience=None), n_restarts=2, random_state=0).fit(
+        dj.distance_matrix(), labels=dj.labels, callback=live
+    )
+    assert shown == [live.fig]  # not once per restart
+    best = live.fig.data[3]
+    np.testing.assert_allclose(np.column_stack([best.x, best.y]), closed_xy(ms.problem_, dj.coords, ms.tour_))
+
+
+def test_real_recorder_matches_the_fit(dj):
+    rec = Recorder(every=10)
+    sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=rec)
+    assert rec.problem is sa.problem_ and len(rec) == 2 + math.ceil(sa.n_iter_ / 10)
+    assert rec.iterations[-1] == sa.n_iter_ and rec.best_costs[-1] == sa.cost_
+    last = rec.events[-1]
+    assert np.array_equal(last.best_tour, sa.tour_)
+    assert last.route.tolist() == sa.route_.tolist()
+    assert [t.tolist() for t in last.trips] == [t.tolist() for t in sa.trips_]
+    assert np.all(np.diff(rec.best_costs) <= 0)
+
+
+def test_real_recorder_reused_keeps_each_runs_problem(dj):
+    rec = Recorder(every=2)
+    IteratedLocalSearch(n_iter=3, patience=None, random_state=0).fit(
+        dj.distance_matrix(), labels=dj.labels, callback=rec
+    )
+    b = load_barcelona()
+    ils = IteratedLocalSearch(n_iter=3, patience=None, random_state=0).fit(
+        b.cost, labels=b.labels, callback=rec
+    )
+    assert rec.iterations.tolist() == [0, 1, 3, 3] * 2, "every counts from the new run's first iteration"
+    assert rec.problem is ils.problem_ and rec.events[0].problem.n == 38 and rec.events[-1].problem.n == 19
+    assert len(plot_route(rec.events[-1], b.coords).lines) == 1  # decoded with its own problem
+    assert rec.events[-1].route.tolist() == ils.route_.tolist()
+
+
+def test_real_plot_history_and_slider_over_multistart_events(dj):
+    rec = Recorder()
+    MultiStart(IteratedLocalSearch(n_iter=4, patience=None), n_restarts=2, random_state=0).fit(
+        dj.distance_matrix(), labels=dj.labels, callback=rec
+    )
+    assert rec.iterations.tolist() == [0, 0, 1, 2, 3, 4, 4, 0, 1, 2, 3, 4, 4, 0]
+    ax = rec.plot_history()
+    assert ax.lines[0].get_xdata().tolist() == list(range(1, 9))
+    assert (ax.get_xlabel(), ax.get_title()) == ("Iteration (all restarts)", "MultiStart: best-so-far cost")
+    steps = rec.to_plotly(dj.coords).layout.sliders[0].steps
+    assert [s.label for s in steps] == [f"{r}:{i}" for r in (0, 1) for i in (0, 1, 2, 3, 4, 4)] + ["0"]
+
+
+def test_real_plot_route_of_a_multi_trip_event(two_trips):
+    X = {a: {b: C4[i, j] for j, b in enumerate("dabc")} for i, a in enumerate("dabc")}
+    T = {a: {b: H4[i, j] for j, b in enumerate("dabc")} for i, a in enumerate("dabc")}
+    events: list[Any] = []
+    rec = Recorder()
+    est = BruteForce().fit(
+        X,
+        time_matrix=T,
+        depot="d",
+        max_time_work=4.0,
+        extra_cost=3.0,
+        callback=lambda e: (events.append(e), rec(e))[1],
+    )
+    assert [e.stage for e in events] == ["start", "end"] and est.n_trips_ == 2
+    ax = plot_route(events[-1], SQUARE)
+    assert [len(line.get_xdata()) for line in ax.lines] == [len(t) for t in est.trips_]
+    assert ax.get_title() == "BruteForce | cost 41 | 2 trips"
+    assert [t.tolist() for t in rec.events[-1].trips] == [t.tolist() for t in events[-1].trips]
+    assert rec.events[-1].route.tolist() == events[-1].route.tolist() == est.route_.tolist()
 
 
 # --------------------------------------------------------------------------- plot_route_map

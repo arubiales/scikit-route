@@ -46,8 +46,9 @@ _OSM = "open-street-map"
 
 # --------------------------------------------------------------------------- geometry
 def auto_zoom(latlon: np.ndarray) -> float:
-    """A map zoom that frames the points: 360 degrees at zoom 0, halving per level (the route fills about
-    three quarters of a 700-pixel map)."""
+    """A map zoom that frames the points: 360 degrees of longitude across 512 pixels at zoom 0 (the
+    MapLibre convention behind Plotly's ``map``, not the 256-pixel one of Leaflet), halving per level, so
+    the route fills about three quarters of a 700-pixel map."""
     lat, lon = latlon[:, 0], latlon[:, 1]
     span_lat = float(lat.max() - lat.min())
     span_lon = float(lon.max() - lon.min()) * math.cos(math.radians(float(lat.mean())))
@@ -214,12 +215,20 @@ class PlotlyLiveView:
             self.fig = go.Figure(data=traces, layout=layout)
         self._set(event)
 
+    def restart(self, event: Any) -> None:
+        """A nested ``"start"`` (the next restart of a MultiStart): the previous restart's route goes."""
+        ctx = self.fig.batch_update() if self.widget else nullcontext()
+        with ctx:
+            _assign(self.fig.data[3], _polyline(self.xy, [], map=self.owner.map))
+        self._set(event)
+
     def update(self, event: Any) -> None:
         self._set(event)
 
-    def finish(self, event: Any) -> None:
+    def finish(self, event: Any, *, last: bool = True) -> None:
+        """Draw the final route; outside a notebook the figure is shown once, at the outermost ``"end"``."""
         self._set(event, final=True)
-        if not self.widget:
+        if last and not self.widget:
             self.fig.show()
 
     # ----- helpers
@@ -262,7 +271,7 @@ def recorder_figure(rec: Recorder, frames: list[RecordedEvent], coords: Any, *, 
     cls = _trace_cls(go, map=map)
 
     def line(ev: RecordedEvent) -> Any:
-        trips = closed_trips(problem, ev.best_tour)
+        trips = closed_trips(problem if ev.problem is None else ev.problem, ev.best_tour)
         return cls(
             mode="lines",
             line={"width": 3, "color": BEST_COLOR},
@@ -271,9 +280,16 @@ def recorder_figure(rec: Recorder, frames: list[RecordedEvent], coords: Any, *, 
             **_polyline(xy, trips, map=map),
         )
 
+    def step(ev: RecordedEvent) -> str:
+        """The slider label: the iteration, prefixed by the restart index inside a MultiStart."""
+        restart = (ev.extra or {}).get("restart")
+        return str(ev.iteration) if restart is None else f"{restart}:{ev.iteration}"
+
     def label(ev: RecordedEvent) -> str:
         best = f" | best {format_number(ev.best_cost)}" if math.isfinite(ev.best_cost) else ""
-        return f"{ev.solver} | iteration {ev.iteration}{best}"
+        restart = (ev.extra or {}).get("restart")
+        where = f"restart {restart} | " if restart is not None else ""
+        return f"{ev.solver} | {where}iteration {ev.iteration}{best}"
 
     traces = [*_base_traces(go, xy, depot, labels, map=map), line(frames[0])]
     fig = go.Figure(data=traces, layout=_layout(go, xy, label(frames[0]), map=map, zoom=None))
@@ -314,7 +330,7 @@ def recorder_figure(rec: Recorder, frames: list[RecordedEvent], coords: Any, *, 
                 "currentvalue": {"prefix": "iteration ", "visible": True},
                 "pad": {"t": 30},
                 "steps": [
-                    {"label": str(ev.iteration), "method": "animate", "args": [[str(k)], frame_args]}
+                    {"label": step(ev), "method": "animate", "args": [[str(k)], frame_args]}
                     for k, ev in enumerate(frames)
                 ],
             }
