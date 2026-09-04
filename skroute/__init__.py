@@ -38,6 +38,7 @@ _EXPORTS: dict[str, str] = {
     "RoutingProblem": "skroute.problem",
     "BaseRouter": "skroute.base",
     "RouterTags": "skroute.base",
+    "RouteEvent": "skroute.base",
     "clone": "skroute.base",
     "is_router": "skroute.base",
     "check_router": "skroute.utils.estimator_checks",
@@ -102,6 +103,7 @@ if TYPE_CHECKING:
     from . import problem as problem
     from . import utils as utils
     from .base import BaseRouter as BaseRouter
+    from .base import RouteEvent as RouteEvent
     from .base import RouterTags as RouterTags
     from .base import clone as clone
     from .base import is_router as is_router

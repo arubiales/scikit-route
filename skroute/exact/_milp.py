@@ -109,6 +109,14 @@ class MILP(BaseRouter):
     Complexity: NP-hard in the worst case; in practice a few dozen solves of an LP-sized
     programme. Memory O(n²) for the variables and constraints.
 
+    Callback events (D30): ``"start"`` has no tour; every cut round emits one ``"iteration"``
+    (its index is the solve number) whose ``extra`` carries ``edges`` (the support of the
+    solution as ``(label, label)`` pairs), ``n_components``, ``lower_bound``, ``objective`` (the
+    solve's objective in the units of ``C``) and ``n_cuts`` (constraints added so far); ``tour``
+    is ``None`` until the support is a single Hamiltonian cycle. A callback returning ``True``
+    ends the cut loop like a time-out (``is_optimal_`` is ``False`` unless that very round had
+    already proven the tour).
+
     Supports: symmetric and asymmetric matrices; plain TSP only (raises under a budget);
     deterministic.
 
@@ -186,6 +194,7 @@ class MILP(BaseRouter):
         n_solves = n_cuts = 0
         best_tour: np.ndarray | None = None
         proven = False
+        self._emit("start", 0, None, math.nan)  # D30: no tour before the first integral cycle
         while True:
             options: dict[str, Any] = {"mip_rel_gap": float(self.mip_rel_gap)}
             if self.time_limit is not None:
@@ -212,8 +221,24 @@ class MILP(BaseRouter):
                 n_components,
                 lower,
             )
+            tour = (
+                _extract_tour(iu[selected], ju[selected], n, depot, symmetric) if n_components == 1 else None
+            )
+            if self._callback is not None:
+                # D30: one event per cut round — the LP support as label pairs, the tour once it is a cycle
+                lab = problem.labels
+                self._emit(
+                    "iteration",
+                    n_solves,
+                    tour,
+                    None,
+                    edges=list(zip(lab[iu[selected]].tolist(), lab[ju[selected]].tolist(), strict=True)),
+                    n_components=int(n_components),
+                    lower_bound=float(lower),
+                    objective=float(res.fun / scale),
+                    n_cuts=int(n_cuts),
+                )
             if n_components == 1:
-                tour = _extract_tour(iu[selected], ju[selected], n, depot, symmetric)
                 if tour is not None:
                     best_tour = tour
                     proven = res.status == 0
@@ -238,6 +263,8 @@ class MILP(BaseRouter):
             constraints.append(LinearConstraint(A, -np.inf, np.asarray(ub)))
             n_cuts += len(ub)
             if res.status != 0:  # a time-limited solve: the budget is spent
+                break
+            if self._stop_requested:  # D30: a stop request ends the search like a time-out
                 break
         if best_tour is None:
             best_tour = _fallback_tour(problem)

@@ -22,20 +22,39 @@ Every solver subclasses [`BaseRouter`][skroute.base.BaseRouter] and follows four
 Duties inside ``_solve``: iterative solvers (``tags.iterative``) set ``self.history_``
 (best-so-far cost after each outer iteration, monotone non-increasing), ``self.n_iter_``
 (``== len(history_)``) and ``self.stop_reason_`` (one of ``"converged"``, ``"max_iter"``,
-``"patience"``, ``"time_limit"`` — the subset each solver documents); exact solvers
-(``tags.exact``) set ``self.is_optimal_``. Everything else — the label-space ``tour_``,
+``"patience"``, ``"time_limit"``, ``"callback"`` — the subset each solver documents); exact
+solvers (``tags.exact``) set ``self.is_optimal_``. Everything else — the label-space ``tour_``,
 ``route_``, ``trips_``, the recomputed ``cost_`` (D2), ``trip_costs_``, ``trip_times_``,
 ``fit_time_`` — is set by the base class, which also validates the returned tour and
 raises ``RuntimeError`` on a solver bug. Assign ``history_`` as an array
 (``np.asarray(history)``): ``fit`` converts a list, but the attribute is typed as an ndarray.
+
+Progress callbacks (D30)
+------------------------
+``fit(..., callback=f)`` makes the solver report its progress: ``f`` receives one
+[`RouteEvent`][skroute.base.RouteEvent] per event and may return ``True`` to ask the solver to
+stop after the current outer iteration (``stop_reason_ = "callback"``). Inside ``_solve`` a
+solver calls ``self._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)``
+with **index-space** tours; the base class converts them to labels, builds the event and calls
+the callback — and returns at once when no callback is set, so the fit path carries no overhead.
+The duties: emit ``"start"`` once (iteration 0, with the initial tour when the search starts from
+one), ``"iteration"`` once per outer iteration exactly where ``history_`` is appended (the tour
+the solver is working on, the best-so-far, their costs, and solver-specific facts in ``extra``),
+and after every iteration event break out of the loop with ``stop_reason_ = "callback"`` when
+``self._stop_requested`` is set. **Never emit ``"end"``**: the base class does, after the
+returned tour has been validated and priced, so the end event carries exactly ``tour_`` and
+``cost_``; a solver that emits no ``"start"`` gets a synthetic one (no tour) as well, so a
+construction or exact solver need not call ``_emit`` at all.
 """
 
 from __future__ import annotations
 
 import inspect
 import logging
+import math
 import warnings
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from itertools import pairwise
 from time import perf_counter
 from typing import Any
@@ -46,7 +65,9 @@ from .problem import RoutingProblem
 from .utils._param_validation import validate_parameter_constraints
 from .utils.validation import check_random_state
 
-__all__ = ["BaseRouter", "RouterTags", "clone", "is_router"]
+__all__ = ["BaseRouter", "RouteEvent", "RouterTags", "clone", "is_router"]
+
+_STAGES = ("start", "iteration", "end")
 
 log = logging.getLogger("skroute")
 
@@ -106,6 +127,133 @@ class RouterTags:
     max_nodes: int | None = None  # hard cap on n (BruteForce, HeldKarp, MILP)
 
 
+def _decode_trips(
+    problem: RoutingProblem, tour: np.ndarray, starts: np.ndarray | None = None
+) -> list[np.ndarray]:
+    """Closed label trips ``[depot, ..., depot]`` of a valid index tour under the problem's split rule.
+
+    The one decoder behind ``trips_``/``route_`` and ``RouteEvent.trips``/``RouteEvent.route``.
+    """
+    if starts is None:
+        starts = problem.trip_starts(tour)
+    lab = problem.labels
+    d = lab[problem.depot : problem.depot + 1]  # 1-element array, keeps the label dtype
+    return [np.concatenate((d, lab[tour[a:b]], d)) for a, b in pairwise(starts)]
+
+
+def _join_trips(trips: list[np.ndarray]) -> np.ndarray:
+    """The route as driven — depot, trip 1, depot, trip 2, ..., depot — from closed trips."""
+    return np.concatenate([trips[0]] + [t[1:] for t in trips[1:]])
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class RouteEvent:
+    """One progress report of a running solver, handed to the ``callback`` of ``fit`` (D30).
+
+    Parameters
+    ----------
+    solver : str
+        Class name of the solver that emitted the event (``"SimulatedAnnealing"``). Inside a
+        ``MultiStart`` the inner solvers report under their own name, with ``extra["restart"]``.
+    stage : {"start", "iteration", "end"}
+        ``"start"`` once before the first outer iteration, ``"iteration"`` once per outer
+        iteration (where ``history_`` grows), ``"end"`` once with the final result.
+    iteration : int
+        Outer iteration index: 0 at ``"start"``, ``1, 2, ...`` for the iterations, and the last
+        iteration index at ``"end"``.
+    cost : float
+        Objective of ``tour`` as the solver knows it; ``nan`` when there is no tour yet.
+    best_cost : float
+        Objective of ``best_tour``; ``nan`` when there is none yet. Non-increasing over the
+        events of one fit; at ``"end"`` it equals the recomputed ``cost_``.
+    tour : ndarray of shape (n,) or None
+        The solver's CURRENT solution as a label-space open giant tour, depot first — the tour it
+        is working on (the annealing walker, the candidate of an iterated local search, the best
+        individual of a generation...); ``None`` when the solver has no tour yet (``MILP`` before
+        its first integral solution, a construction heuristic at ``"start"``).
+    best_tour : ndarray of shape (n,) or None
+        The best-so-far tour in the same format; at ``"end"`` exactly ``tour_``.
+    problem : RoutingProblem
+        The instance being solved (``est.problem_`` after the fit): labels, coordinates, budget.
+    extra : dict
+        Solver-specific facts: ``temperature`` (SimulatedAnnealing), ``tenure`` (TabuSearch),
+        ``generation``/``n_evaluations`` (Genetic), ``kick`` (IteratedLocalSearch),
+        ``moves_applied`` (the descents), ``radius``/``learning_rate`` (SOM), ``n_ants``
+        (AntColony), ``edges``/``n_components``/``lower_bound`` (MILP's current LP support),
+        ``restart`` (added by ``MultiStart`` to every forwarded event). Each solver's docstring
+        lists its keys.
+
+    Notes
+    -----
+    Events are frozen and compare by identity. The arrays are copies: a solver's buffers keep
+    changing after the callback returns, the event does not. ``route`` and ``trips`` decode
+    ``best_tour`` with the problem's own split rule (the one ``fit`` uses for ``route_`` and
+    ``trips_``), so a multi-trip instance is drawn trip by trip.
+
+    Examples
+    --------
+    A deterministic descent on four nodes: one event per stage, and the ``"end"`` event carries
+    the fitted tour.
+
+    >>> import numpy as np
+    >>> from skroute import TwoOpt
+    >>> C = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
+    >>> events = []
+    >>> est = TwoOpt().fit(C, callback=events.append)
+    >>> [e.stage for e in events]
+    ['start', 'iteration', 'end']
+    >>> events[-1]
+    RouteEvent(solver='TwoOpt', stage='end', iteration=1, best_cost=22)
+    >>> events[-1].best_tour.tolist() == est.tour_.tolist(), events[-1].route.tolist()
+    (True, [0, 1, 2, 3, 0])
+
+    Returning ``True`` stops an iterative solver after the current outer iteration:
+
+    >>> from skroute import SimulatedAnnealing
+    >>> sa = SimulatedAnnealing(random_state=0).fit(C, callback=lambda e: e.stage == "iteration")
+    >>> sa.n_iter_, sa.stop_reason_
+    (1, 'callback')
+    """
+
+    solver: str
+    stage: str
+    iteration: int
+    cost: float
+    best_cost: float
+    tour: np.ndarray | None
+    best_tour: np.ndarray | None
+    problem: RoutingProblem
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def trips(self) -> list[np.ndarray]:
+        """``best_tour`` decoded into closed label trips ``[depot, ..., depot]``; ``[]`` without a tour."""
+        if self.best_tour is None:
+            return []
+        return _decode_trips(self.problem, self.problem.to_index_tour(self.best_tour))
+
+    @property
+    def route(self) -> np.ndarray | None:
+        """``best_tour`` as driven — depot, trip 1, depot, ..., depot — or ``None`` without a tour."""
+        trips = self.trips
+        return _join_trips(trips) if trips else None
+
+    def __repr__(self) -> str:
+        return (
+            f"RouteEvent(solver={self.solver!r}, stage={self.stage!r}, "
+            f"iteration={self.iteration}, best_cost={self.best_cost:.6g})"
+        )
+
+
+@dataclass
+class _CallbackState:
+    """Bookkeeping of one watched fit: the problem (for label conversion) and what was emitted so far."""
+
+    problem: RoutingProblem
+    started: bool = False
+    last_iteration: int = 0
+
+
 class BaseRouter:
     """Base class of every solver.
 
@@ -146,7 +294,8 @@ class BaseRouter:
     n_iter_ : int
         Iterative solvers only: outer iterations actually run.
     stop_reason_ : str
-        Iterative solvers only: ``"converged" | "max_iter" | "patience" | "time_limit"``.
+        Iterative solvers only: ``"converged" | "max_iter" | "patience" | "time_limit" |
+        "callback"`` — the last one when the ``callback`` of ``fit`` returned ``True`` (D30).
     is_optimal_ : bool
         Exact solvers only.
 
@@ -202,6 +351,13 @@ class BaseRouter:
     n_iter_: int
     stop_reason_: str
     is_optimal_: bool
+
+    # Callback plumbing (D30): ``fit`` sets these for its duration only (the class defaults keep a
+    # bare ``_solve`` call working) and resets ``_stop_requested``, which ``_emit`` raises when the
+    # callback returns True and every iterative solver honours at its next outer-iteration boundary.
+    _callback: Callable[[RouteEvent], Any] | None = None
+    _callback_state: _CallbackState | None = None
+    _stop_requested: bool = False
 
     # ---------- scikit-learn parameter protocol ----------
     @classmethod
@@ -304,6 +460,7 @@ class BaseRouter:
         extra_cost: float = 0.0,
         people: int = 1,
         split: str = "greedy",
+        callback: Callable[[RouteEvent], Any] | None = None,
     ) -> BaseRouter:
         """Solve the instance and store the result in trailing-underscore attributes.
 
@@ -311,7 +468,7 @@ class BaseRouter:
         ----------
         X : (n, n) array-like, DataFrame, dict-of-dicts or RoutingProblem
             Cost matrix (rows are origins). A ready [`RoutingProblem`][skroute.RoutingProblem] must be
-            passed alone.
+            passed alone (``callback`` is not a problem argument and may accompany it).
         time_matrix : same kinds as X, optional, keyword-only
             Durations; required iff ``max_time_work`` is given.
         depot : label, optional
@@ -328,11 +485,26 @@ class BaseRouter:
             Multiplies ``extra_cost`` only.
         split : {"greedy", "optimal"}, default "greedy"
             Decoder of the giant tour into trips.
+        callback : callable, optional
+            Called with one [`RouteEvent`][skroute.base.RouteEvent] at ``"start"``, after every
+            outer iteration and at ``"end"`` (D30). Return ``True`` to stop an iterative solver
+            after the current outer iteration (``stop_reason_ = "callback"``); any other return
+            value continues. ``skroute.viz`` offers ready-made callbacks that draw the search live.
 
         Returns
         -------
         self
+
+        Raises
+        ------
+        TypeError
+            If ``callback`` is neither callable nor ``None``.
         """
+        if callback is not None and not callable(callback):
+            raise TypeError(
+                "callback must be a callable taking one RouteEvent and returning None or a bool, "
+                f"or None; got {type(callback).__name__}"
+            )
         if isinstance(X, RoutingProblem):
             if (
                 time_matrix is not None
@@ -383,34 +555,132 @@ class BaseRouter:
             )
         rng = check_random_state(getattr(self, "random_state", None)) if tags.stochastic else None
         self._reset_fitted()
-        t0 = perf_counter()
-        tour = self._solve(problem, rng)
-        fit_time = perf_counter() - t0
-        raw = np.asarray(tour)
-        if raw.dtype.kind not in "iu":  # a float tour would be silently truncated by the cast below (D2)
-            raise RuntimeError(
-                f"{name}._solve returned an invalid tour (bug in the solver): "
-                f"expected an integer array, got dtype {raw.dtype}"
-            )
-        tour = np.ascontiguousarray(raw, dtype=np.int64)
-        if (
-            tour.shape != (problem.n,)
-            or tour[0] != problem.depot
-            or not np.array_equal(np.sort(tour), np.arange(problem.n))
-        ):
-            raise RuntimeError(
-                f"{name}._solve returned an invalid tour (bug in the solver): "
-                "expected a permutation of range(n) starting at the depot index"
-            )
-        if tags.iterative:
-            for attr in ("history_", "n_iter_", "stop_reason_"):
-                if not hasattr(self, attr):
-                    raise RuntimeError(f"{name}._solve must set {attr} (bug in the solver)")
-            self.history_ = np.asarray(self.history_, dtype=np.float64)
-        if tags.exact and not hasattr(self, "is_optimal_"):
-            raise RuntimeError(f"{name}._solve must set is_optimal_ (bug in the solver)")
-        self._set_results(problem, tour, fit_time)
+        # the callback lives on the instance for the duration of this fit only (D30)
+        self._callback = callback
+        self._callback_state = _CallbackState(problem) if callback is not None else None
+        self._stop_requested = False
+        try:
+            t0 = perf_counter()
+            tour = self._solve(problem, rng)
+            fit_time = perf_counter() - t0
+            raw = np.asarray(tour)
+            if raw.dtype.kind not in "iu":  # a float tour would be silently truncated by the cast (D2)
+                raise RuntimeError(
+                    f"{name}._solve returned an invalid tour (bug in the solver): "
+                    f"expected an integer array, got dtype {raw.dtype}"
+                )
+            tour = np.ascontiguousarray(raw, dtype=np.int64)
+            if (
+                tour.shape != (problem.n,)
+                or tour[0] != problem.depot
+                or not np.array_equal(np.sort(tour), np.arange(problem.n))
+            ):
+                raise RuntimeError(
+                    f"{name}._solve returned an invalid tour (bug in the solver): "
+                    "expected a permutation of range(n) starting at the depot index"
+                )
+            if tags.iterative:
+                for attr in ("history_", "n_iter_", "stop_reason_"):
+                    if not hasattr(self, attr):
+                        raise RuntimeError(f"{name}._solve must set {attr} (bug in the solver)")
+                self.history_ = np.asarray(self.history_, dtype=np.float64)
+            if tags.exact and not hasattr(self, "is_optimal_"):
+                raise RuntimeError(f"{name}._solve must set is_optimal_ (bug in the solver)")
+            self._set_results(problem, tour, fit_time)
+            if callback is not None:
+                # the "end" event is the base class's: it carries the validated tour and the recomputed
+                # cost_, so it can never disagree with the fitted attributes (D2); a solver that emitted
+                # no "start" (construction, exact) gets a synthetic one first
+                state = self._callback_state
+                assert state is not None
+                if not state.started:
+                    self._emit("start", 0, None, math.nan)
+                self._emit("end", state.last_iteration, tour, self.cost_)
+        finally:
+            self.__dict__.pop("_callback", None)
+            self.__dict__.pop("_callback_state", None)
         return self
+
+    def _emit(
+        self,
+        stage: str,
+        iteration: int,
+        tour_idx: Any,
+        cost: float | None,
+        best_tour_idx: Any = None,
+        best_cost: float | None = None,
+        **extra: Any,
+    ) -> None:
+        """Report progress to the ``callback`` of the running ``fit`` (D30); a no-op without one.
+
+        Parameters
+        ----------
+        stage : {"start", "iteration", "end"}
+            Solvers emit ``"start"`` and ``"iteration"``; ``fit`` itself emits ``"end"``.
+        iteration : int
+            Outer iteration index (0 at ``"start"``).
+        tour_idx : array-like of int or None
+            The current tour in index space, depot first; ``None`` when there is no tour yet.
+        cost : float or None
+            Its objective as the solver knows it; ``None`` prices ``tour_idx`` with the problem's
+            decoder (``nan`` when there is no tour).
+        best_tour_idx : array-like of int or None, default None
+            The best-so-far tour; ``None`` means "the current tour".
+        best_cost : float or None, default None
+            Its objective; ``None`` means ``cost`` when the best tour is the current one, else the
+            problem's price of ``best_tour_idx``.
+        **extra
+            Solver-specific facts, stored verbatim in ``RouteEvent.extra``.
+
+        Notes
+        -----
+        Returns immediately when no callback is set, so a solver may call it unconditionally at
+        every outer iteration; only work that exists solely to feed the event (building an extra,
+        assembling a tour array) should sit behind ``if self._callback is not None``. The tours are
+        converted with ``problem.to_label_tour`` (a copy). An ``"iteration"`` emitted before any
+        ``"start"`` is preceded by a synthetic start without a tour. When the callback returns
+        ``True`` (a Python or numpy bool — any other value is ignored) ``_stop_requested`` is set,
+        and the solver honours it at the end of its outer iteration.
+        """
+        callback = self._callback
+        if callback is None:
+            return
+        state = self._callback_state
+        assert state is not None  # set together with _callback by fit
+        if stage not in _STAGES:
+            raise ValueError(f"stage must be one of {_STAGES}, got {stage!r}")
+        if stage == "start":
+            state.started = True
+        elif not state.started:
+            self._emit("start", 0, None, math.nan)
+        if stage == "iteration":
+            state.last_iteration = int(iteration)
+        problem = state.problem
+        tour = None if tour_idx is None else problem.to_label_tour(tour_idx)
+        if cost is None:
+            cost = math.nan if tour_idx is None else float(problem.evaluate(tour_idx))
+        if best_tour_idx is None:
+            best_tour = tour
+            if best_cost is None:
+                best_cost = cost
+        else:
+            best_tour = problem.to_label_tour(best_tour_idx)
+            if best_cost is None:
+                best_cost = float(problem.evaluate(best_tour_idx))
+        event = RouteEvent(
+            type(self).__name__,
+            stage,
+            int(iteration),
+            float(cost),
+            float(best_cost),
+            tour,
+            best_tour,
+            problem,
+            extra,
+        )
+        result = callback(event)
+        if isinstance(result, (bool, np.bool_)) and bool(result):
+            self._stop_requested = True
 
     def _reset_fitted(self) -> None:
         """Delete every fitted (trailing-underscore) attribute so a refit starts clean.
@@ -426,14 +696,13 @@ class BaseRouter:
         """Translate the validated index tour into the label-space fitted attributes."""
         starts = problem.trip_starts(tour)
         lab = problem.labels
-        d = lab[problem.depot : problem.depot + 1]  # 1-element array, keeps the label dtype
         self.problem_ = problem
         self.n_nodes_ = problem.n
         self.labels_ = lab.copy()
         self.depot_ = lab[problem.depot]
         self.tour_ = lab[tour]
-        self.trips_ = [np.concatenate((d, lab[tour[a:b]], d)) for a, b in pairwise(starts)]
-        self.route_ = np.concatenate([self.trips_[0]] + [t[1:] for t in self.trips_[1:]])
+        self.trips_ = _decode_trips(problem, tour, starts)
+        self.route_ = _join_trips(self.trips_)
         self.n_trips_ = len(self.trips_)
         self.trip_costs_ = problem.trip_costs(tour, starts)
         if problem.multi_trip:

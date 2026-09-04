@@ -70,8 +70,8 @@ class TabuSearch(BaseRouter):
         ``cost_`` exactly.
     n_iter_ : int
         Iterations run.
-    stop_reason_ : {"max_iter", "patience", "time_limit"}
-        Why the search stopped.
+    stop_reason_ : {"max_iter", "patience", "time_limit", "callback"}
+        Why the search stopped (``"callback"``: the ``callback`` of ``fit`` returned ``True``).
 
     See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
@@ -101,6 +101,10 @@ class TabuSearch(BaseRouter):
     **Complexity.** O(n * n_candidates) O(1) delta evaluations per iteration on the symmetric
     plain path (about 14 moves per candidate pair); O(n^2 * n_candidates) on the generic path
     (O(n) per move), which is meant for instances of a few hundred nodes.
+
+    **Callback events (D30).** ``"start"`` carries the ``init`` tour; every iteration emits one
+    ``"iteration"`` whose ``tour`` is the walker (which may have moved uphill) and ``best_tour``
+    the best buffer, with ``extra["tenure"]`` the tenure applied in that iteration.
 
     **Supports:** symmetric and asymmetric matrices, the multi-trip objective (both split
     rules); stochastic, iterative, budget-aware.
@@ -202,6 +206,7 @@ class TabuSearch(BaseRouter):
         best = tour.copy()  # separate buffer: the kernel copies into it, never aliases it
         cost0 = float(problem.evaluate(tour))
         state = np.array([cost0, cost0], dtype=np.float64)
+        self._emit("start", 0, tour, cost0)  # D30
 
         # robust tabu search: one tenure per iteration, pre-drawn (D10) in chunks so that a huge
         # n_iter stopped by patience/time_limit costs no memory; an int is a fixed tenure, clamped
@@ -259,6 +264,13 @@ class TabuSearch(BaseRouter):
                     state[1],
                     tenure,
                 )
+            if (
+                self._callback is not None
+            ):  # D30: the walker (which may have moved uphill) and the best buffer
+                self._emit("iteration", done, tour, float(state[0]), best, float(state[1]), tenure=tenure)
+            if self._stop_requested:
+                reason = "callback"
+                break
             if self.time_limit is not None and perf_counter() - started > self.time_limit:
                 reason = "time_limit"
                 break

@@ -124,10 +124,11 @@ class SOM(BaseRouter):
         Epochs actually run (``== len(history_)``).
     n_samples_ : int
         Samples actually drawn (``<= n_iter``).
-    stop_reason_ : {"converged", "max_iter"}
+    stop_reason_ : {"converged", "max_iter", "callback"}
         ``"converged"`` when, at the end of an epoch, ``radius < 1`` or
-        ``learning_rate < 1e-3``; ``"max_iter"`` after ``n_iter`` samples. This solver has no
-        ``time_limit`` or ``patience`` parameter and never emits those values.
+        ``learning_rate < 1e-3``; ``"max_iter"`` after ``n_iter`` samples; ``"callback"`` when
+        the ``callback`` of ``fit`` returned ``True``. This solver has no ``time_limit`` or
+        ``patience`` parameter and never emits those values.
 
     See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_``
     and the other fitted attributes every solver shares.
@@ -151,6 +152,11 @@ class SOM(BaseRouter):
     O(``n * n_units``) in blocks of bounded memory, plus one O(n) evaluation. With the defaults
     the radius reaches one ring position after roughly ``ln(0.8 n) / 0.0003`` samples, so a
     run usually stops by ``"converged"`` well before the 100 epochs.
+
+    **Callback events (D30).** ``"start"`` has no tour (the ring has not been decoded yet), with
+    the ``extra`` keys ``radius``, ``learning_rate`` and ``n_units``; every epoch emits one
+    ``"iteration"`` whose ``tour`` is the epoch's decoded ring and ``best_tour`` the best epoch's,
+    with ``radius`` and ``learning_rate`` (after the epoch's decay) and ``n_samples``.
 
     **Supports:** symmetric and asymmetric cost matrices (the matrix only prices the decoded
     tours), coordinates required; stochastic; iterative. **Multi-trip:** not budget-aware (D6):
@@ -262,6 +268,8 @@ class SOM(BaseRouter):
         # comes from rng, pre-drawn in batches: the initial weights here, one index vector per epoch).
         weights = rng.random((m, 2)) * xy.max(axis=0)
         positions = np.arange(m, dtype=np.float64)
+        # D30: no tour exists before the first epoch decodes the ring
+        self._emit("start", 0, None, np.nan, radius=radius, learning_rate=lr, n_units=m)
 
         history: list[float] = []
         best_cost = np.inf
@@ -289,6 +297,22 @@ class SOM(BaseRouter):
             if best_tour is None or cost < best_cost - 1e-9 * max(1.0, abs(best_cost)):
                 best_cost, best_tour = cost, tour
             history.append(best_cost)
+            if self._callback is not None:
+                # D30: the epoch's decoded ring is the current tour, the best epoch's tour the best-so-far
+                self._emit(
+                    "iteration",
+                    k + 1,
+                    tour,
+                    cost,
+                    best_tour,
+                    best_cost,
+                    radius=radius,
+                    learning_rate=lr,
+                    n_samples=n_samples,
+                )
+            if self._stop_requested:
+                reason = "callback"
+                break
             if radius < _RADIUS_FLOOR or lr < _LR_FLOOR:
                 reason = "converged"
             if self.verbose >= 2 or (self.verbose and (k % every == 0 or reason == "converged")):

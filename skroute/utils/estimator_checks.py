@@ -3,7 +3,7 @@
 ``check_router(estimator)`` takes an **unfitted instance**, builds its own small instances
 (n = 6 symmetric Euclidean with coordinates, n = 6 asymmetric, n = 3 and n = 4 symmetric and
 asymmetric, n = 12 and n = 40 for reproducibility, and the Alicante multi-trip bunch from
-``skroute.datasets``) and runs the structural checks 1-11 and 13 of §6. Every sub-check is a
+``skroute.datasets``) and runs the structural checks 1-11, 13 and 14 of §6. Every sub-check is a
 separately callable function ``fn(estimator)`` that raises ``AssertionError`` prefixed with its
 check number; ``check_router.checks`` is the list of ``(name, fn)`` pairs, which
 ``tests/test_common.py`` exposes as parametrised tests over ``skroute.all_solvers()``. The
@@ -40,29 +40,30 @@ from typing import Any
 
 import numpy as np
 
-from ..base import BaseRouter, RouterTags, _param_equal, clone
+from ..base import BaseRouter, RouteEvent, RouterTags, _param_equal, clone
 from ..exceptions import InfeasibleProblemError, NotFittedError
 from ..problem import RoutingProblem
 from .validation import check_is_fitted
 
 __all__ = ["CheckSkipped", "check_router"]
 
-_STOP_REASONS = {"converged", "max_iter", "patience", "time_limit"}
-# The documented subsets of the fitted-attribute table (SPEC §3.4, D9), by class name. A class that is
-# not listed may emit any reason its parameters allow (no ``patience``/``time_limit`` parameter -> never
-# that value); a wrapper with an estimator parameter (MultiStart) copies the best estimator's value.
+_STOP_REASONS = {"converged", "max_iter", "patience", "time_limit", "callback"}
+# The documented subsets of the fitted-attribute table (SPEC §3.4, D9), by class name, each joined by
+# "callback" (D30: every iterative solver may be stopped by the callback of fit). A class that is not
+# listed may emit any reason its parameters allow (no ``patience``/``time_limit`` parameter -> never that
+# value); a wrapper with an estimator parameter (MultiStart) copies the best estimator's value.
 _ALLOWED_STOP_REASONS: dict[str, frozenset[str]] = {
-    "TwoOpt": frozenset({"converged", "max_iter"}),
-    "OrOpt": frozenset({"converged", "max_iter"}),
-    "LocalSearch": frozenset({"converged", "max_iter"}),
-    "SOM": frozenset({"converged", "max_iter"}),
-    "IteratedLocalSearch": frozenset({"max_iter", "patience", "time_limit"}),
-    "TabuSearch": frozenset({"max_iter", "patience", "time_limit"}),
-    "Genetic": frozenset({"max_iter", "patience", "time_limit"}),
-    "AntColony": frozenset({"max_iter", "patience", "time_limit"}),
-    "SimulatedAnnealing": frozenset({"converged", "patience", "time_limit"}),
-    "EnsembleGenetic": frozenset({"max_iter", "patience", "time_limit"}),
-    "EnsembleSimulatedAnnealing": frozenset({"converged", "patience", "time_limit"}),
+    "TwoOpt": frozenset({"converged", "max_iter", "callback"}),
+    "OrOpt": frozenset({"converged", "max_iter", "callback"}),
+    "LocalSearch": frozenset({"converged", "max_iter", "callback"}),
+    "SOM": frozenset({"converged", "max_iter", "callback"}),
+    "IteratedLocalSearch": frozenset({"max_iter", "patience", "time_limit", "callback"}),
+    "TabuSearch": frozenset({"max_iter", "patience", "time_limit", "callback"}),
+    "Genetic": frozenset({"max_iter", "patience", "time_limit", "callback"}),
+    "AntColony": frozenset({"max_iter", "patience", "time_limit", "callback"}),
+    "SimulatedAnnealing": frozenset({"converged", "patience", "time_limit", "callback"}),
+    "EnsembleGenetic": frozenset({"max_iter", "patience", "time_limit", "callback"}),
+    "EnsembleSimulatedAnnealing": frozenset({"converged", "patience", "time_limit", "callback"}),
 }
 
 
@@ -903,6 +904,211 @@ def check_smallest_sizes(estimator: BaseRouter) -> None:
                 )
 
 
+def _check_label_tour(tour: Any, problem: RoutingProblem, number: int, what: str) -> None:
+    """A label-space open giant tour of ``problem``: n labels of the label dtype, depot first, each once."""
+    _assert(
+        isinstance(tour, np.ndarray) and tour.shape == (problem.n,),
+        number,
+        f"{what} must be a 1-D label array of shape (n,), got {type(tour).__name__}",
+    )
+    _assert(
+        tour.dtype == problem.labels.dtype, number, f"{what} must have the label dtype {problem.labels.dtype}"
+    )
+    labels = tour.tolist()
+    _assert(
+        labels[0] == problem.depot_label,
+        number,
+        f"{what} must start at the depot label {problem.depot_label!r}",
+    )
+    try:
+        index = sorted(problem.index_of(x) for x in labels)
+    except ValueError:
+        raise AssertionError(
+            f"check {number}: {what} carries a label that is not a label of the problem"
+        ) from None
+    _assert(index == list(range(problem.n)), number, f"{what} must visit every label exactly once")
+
+
+def check_callback_protocol(estimator: BaseRouter) -> None:
+    """14. ``fit(callback=...)`` (D30): a non-callable raises ``TypeError``; the callback receives
+    ``RouteEvent`` objects forming ``start, iteration*, end`` per emitting solver, with valid label tours,
+    strictly increasing iterations, a non-increasing ``best_cost`` that ends at ``cost_`` with ``tour_``, and
+    one iteration event per entry of ``history_``; recording does not change the result; nothing survives
+    the fit; returning ``True`` stops an iterative solver after one outer iteration with
+    ``stop_reason_ == "callback"``."""
+    tags = estimator._get_tags()
+    name = type(estimator).__name__
+    C, xy = _euclid(6, seed=6)
+    for bad in (42, "draw", object()):
+        try:
+            _fit(_fresh(estimator), C, coords=xy, callback=bad)
+        except TypeError as exc:
+            _assert(
+                "callback" in str(exc), 14, f"the TypeError must name the callback argument, got {str(exc)!r}"
+            )
+        else:
+            raise AssertionError(f"check 14: fit(callback={bad!r}) must raise TypeError (not callable)")
+    plain = _fit(_fresh(estimator), C, coords=xy)
+    _assert(
+        "_callback" not in vars(plain) and plain._callback is None,
+        14,
+        "a fit without callback must leave no _callback attribute behind",
+    )
+    events: list[RouteEvent] = []
+    est = _fit(_fresh(estimator), C, coords=xy, callback=events.append)
+    _assert(
+        "_callback" not in vars(est) and est._callback is None, 14, "the callback must not survive the fit"
+    )
+    _assert(
+        np.array_equal(est.tour_, plain.tour_) and est.cost_ == plain.cost_,
+        14,
+        "a recording callback must not change the result of the fit",
+    )
+    _assert(events, 14, "fit must emit events when a callback is given")
+    for e in events:
+        _assert(
+            isinstance(e, RouteEvent),
+            14,
+            f"the callback must receive RouteEvent objects, got {type(e).__name__}",
+        )
+        _assert(
+            isinstance(e.solver, str) and e.solver, 14, "RouteEvent.solver must be the emitting class's name"
+        )
+        _assert(
+            e.stage in ("start", "iteration", "end"),
+            14,
+            f"RouteEvent.stage must be start/iteration/end, got {e.stage!r}",
+        )
+        _assert(
+            isinstance(e.iteration, int) and e.iteration >= 0, 14, "RouteEvent.iteration must be an int >= 0"
+        )
+        _assert(e.stage != "start" or e.iteration == 0, 14, "a start event must have iteration 0")
+        _assert(
+            isinstance(e.cost, float) and isinstance(e.best_cost, float),
+            14,
+            "cost and best_cost must be floats",
+        )
+        _assert(isinstance(e.extra, dict), 14, "RouteEvent.extra must be a dict")
+        _assert(e.problem is est.problem_, 14, "RouteEvent.problem must be the RoutingProblem being solved")
+        for what, tour, cost in (("tour", e.tour, e.cost), ("best_tour", e.best_tour, e.best_cost)):
+            if tour is None:
+                _assert(math.isnan(cost), 14, f"the cost of a missing {what} must be nan, got {cost}")
+            else:
+                _check_label_tour(tour, e.problem, 14, f"RouteEvent.{what}")
+                _assert(math.isfinite(cost), 14, f"the cost of a {what} must be finite, got {cost}")
+        if math.isfinite(e.cost) and math.isfinite(e.best_cost):
+            _assert(
+                e.cost >= e.best_cost - 1e-9 * max(1.0, abs(e.best_cost)),
+                14,
+                f"the current cost {e.cost} cannot beat the best-so-far {e.best_cost}",
+            )
+        _assert(repr(e).startswith("RouteEvent("), 14, "repr(event) must work and name the class")
+    # one stream per emitting solver: the estimator's own events and, for a wrapper, each forwarded restart
+    streams: dict[tuple[str, Any], list[RouteEvent]] = {}
+    for e in events:
+        streams.setdefault((e.solver, e.extra.get("restart")), []).append(e)
+    for (solver, restart), seq in streams.items():
+        where = solver if restart is None else f"{solver} (restart {restart})"
+        stages = [e.stage for e in seq]
+        _assert(
+            stages[0] == "start"
+            and stages[-1] == "end"
+            and stages.count("start") == 1
+            and stages.count("end") == 1
+            and all(s == "iteration" for s in stages[1:-1]),
+            14,
+            f"{where}: the events must be start, iteration*, end; got {stages[:3]}...{stages[-2:]}",
+        )
+        its = [e.iteration for e in seq if e.stage == "iteration"]
+        _assert(
+            all(a < b for a, b in itertools.pairwise(its)),
+            14,
+            f"{where}: iteration indices must strictly increase",
+        )
+        _assert(
+            seq[-1].iteration >= (its[-1] if its else 0),
+            14,
+            f"{where}: the end event cannot precede the last iteration",
+        )
+        bests = [e.best_cost for e in seq if math.isfinite(e.best_cost)]
+        tol = 1e-9 * max(1.0, max((abs(b) for b in bests), default=0.0))
+        _assert(
+            all(b <= a + tol for a, b in itertools.pairwise(bests)),
+            14,
+            f"{where}: best_cost must be non-increasing",
+        )
+        _assert(seq[-1].best_tour is not None, 14, f"{where}: the end event must carry the final tour")
+    _assert((name, None) in streams, 14, f"no events were emitted under the estimator's own name {name!r}")
+    own = streams[(name, None)]
+    end = own[-1]
+    _assert(
+        np.array_equal(end.best_tour, est.tour_) and np.array_equal(end.tour, est.tour_),  # type: ignore[arg-type]
+        14,
+        "the end event's tour and best_tour must be tour_",
+    )
+    _assert(
+        math.isclose(end.best_cost, est.cost_, rel_tol=1e-9)
+        and math.isclose(end.cost, est.cost_, rel_tol=1e-9),
+        14,
+        f"the end event's best_cost {end.best_cost} must equal cost_ {est.cost_}",
+    )
+    parallel = _has_param(estimator, "n_jobs") and estimator.get_params(deep=False)["n_jobs"] not in (None, 1)
+    forwarded = [e for e in events if "restart" in e.extra]
+    _assert(
+        all(isinstance(e.extra["restart"], int) and e.extra["restart"] >= 0 for e in forwarded),
+        14,
+        "extra['restart'] must be the int index of the restart",
+    )
+    iters = [e for e in own if e.stage == "iteration"]
+    if tags.iterative:
+        if iters:
+            _assert(
+                len(iters) == est.n_iter_,
+                14,
+                f"one iteration event per outer iteration: {len(iters)} events for n_iter_={est.n_iter_}",
+            )
+            for k, (e, h) in enumerate(zip(iters, est.history_.tolist(), strict=True)):
+                _assert(
+                    math.isclose(e.best_cost, h, rel_tol=1e-9),
+                    14,
+                    f"iteration event {k}: best_cost={e.best_cost} but history_[{k}]={h}",
+                )
+        else:
+            _assert(
+                parallel or forwarded,
+                14,
+                "an iterative solver must emit one iteration event per outer iteration "
+                "(a wrapper: forward the events of its restarts with extra['restart'])",
+            )
+    if tags.iterative and not parallel:
+        seen: list[RouteEvent] = []
+
+        def stop_at_first_iteration(event: RouteEvent) -> bool:
+            seen.append(event)
+            return event.stage == "iteration"
+
+        est = _fit(_fresh(estimator), C, coords=xy, callback=stop_at_first_iteration)
+        _check_fitted_structure(est, 6, 14)
+        _assert(
+            est.stop_reason_ == "callback",
+            14,
+            f"returning True from the callback must stop with 'callback', got {est.stop_reason_!r}",
+        )
+        _assert(
+            est.n_iter_ == 1,
+            14,
+            f"a stop requested at the first iteration must leave n_iter_ == 1, got {est.n_iter_}",
+        )
+        own_iters = [
+            e for e in seen if e.stage == "iteration" and e.solver == name and "restart" not in e.extra
+        ]
+        _assert(len(own_iters) <= 1, 14, "no iteration event may follow a stop request")
+        _assert(seen[-1].stage == "end" and seen[-1].solver == name, 14, "the end event must follow a stop")
+    else:  # not iterative (or a parallel wrapper that forwards nothing): a True answer must be harmless
+        est = _fit(_fresh(estimator), C, coords=xy, callback=lambda event: True)
+        _check_fitted_structure(est, 6, 14)
+
+
 _CHECKS: list[tuple[str, Callable[[BaseRouter], None]]] = [
     ("1_init_and_params", check_init_and_params),
     ("2_not_fitted", check_not_fitted),
@@ -916,6 +1122,7 @@ _CHECKS: list[tuple[str, Callable[[BaseRouter], None]]] = [
     ("10_iterative_contract", check_iterative_contract),
     ("11_stochastic_reproducibility", check_stochastic_reproducibility),
     ("13_smallest_sizes", check_smallest_sizes),
+    ("14_callback_protocol", check_callback_protocol),
 ]
 
 
@@ -946,8 +1153,9 @@ def check_router(estimator: BaseRouter) -> None:
     -----
     The checks: 1 parameter protocol, 2 not fitted, 3 fitted attributes, 4 recomputed cost,
     5 input kinds, 6 invalid inputs, 7 tags, 8 multi-trip, 9 no printing, 10 iterative
-    contract, 11 reproducibility, 13 smallest sizes. ``check_router.checks`` lists them as
-    ``(name, fn)`` pairs; the tolerance checks (12) live in ``tests/test_common.py``.
+    contract, 11 reproducibility, 13 smallest sizes, 14 callback protocol (D30).
+    ``check_router.checks`` lists them as ``(name, fn)`` pairs; the tolerance checks (12) live
+    in ``tests/test_common.py``.
 
     Examples
     --------

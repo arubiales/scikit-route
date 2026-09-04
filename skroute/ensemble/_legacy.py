@@ -44,6 +44,7 @@ class _EnsembleBase(BaseRouter):
 
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
         assert rng is not None  # stochastic tag: the base class always hands a Generator
+        self._emit("start", 0, None, np.nan, n_restarts=self._n_restarts())  # D30
         ms = MultiStart(
             self._inner(),
             n_restarts=self._n_restarts(),
@@ -51,9 +52,10 @@ class _EnsembleBase(BaseRouter):
             prefer="threads",
             random_state=rng,  # the whole run consumes exactly the outer random_state
             verbose=self.verbose,  # type: ignore[attr-defined]
-        ).fit(problem)
+        ).fit(problem, callback=self._callback)  # D30: the inner MultiStart forwards it when n_jobs is 1
         for attr in _COPIED:
             setattr(self, attr, getattr(ms, attr))
+        self._stop_requested = ms._stop_requested
         return problem.to_index_tour(ms.tour_)
 
 
@@ -120,8 +122,8 @@ class EnsembleGenetic(_EnsembleBase):
         Best-so-far cost per generation of the winning run.
     n_iter_ : int
         Generations run by the winning run.
-    stop_reason_ : {"max_iter", "patience", "time_limit"}
-        Why the winning run stopped.
+    stop_reason_ : {"max_iter", "patience", "time_limit", "callback"}
+        Why the winning run stopped (``"callback"``: the ``callback`` of ``fit`` stopped the ensemble).
 
     See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
@@ -133,6 +135,11 @@ class EnsembleGenetic(_EnsembleBase):
     parameters are explicit so that ``get_params``/``set_params``/``clone`` work without a
     nested estimator; ``EnsembleGenetic(n_genetics=k, random_state=s, **knobs)`` returns exactly
     what ``MultiStart(Genetic(**knobs), n_restarts=k, random_state=s)`` returns.
+
+    **Callback events (D30).** ``"start"`` (no tour, ``extra["n_restarts"]``) and ``"end"`` under
+    this class's name, the inner ``MultiStart``'s own pair, and — when ``n_jobs`` is ``None`` or
+    ``1`` — every event of every inner run under ``"Genetic"`` with ``extra["restart"]``; a
+    ``True`` answer stops the running restart and the launch of the next ones.
 
     **Supports:** symmetric and asymmetric matrices, the multi-trip objective (both split
     rules); stochastic, iterative, budget-aware.
@@ -273,8 +280,8 @@ class EnsembleSimulatedAnnealing(_EnsembleBase):
         Best-so-far cost per temperature level of the winning run.
     n_iter_ : int
         Temperature levels run by the winning run.
-    stop_reason_ : {"converged", "patience", "time_limit"}
-        Why the winning run stopped.
+    stop_reason_ : {"converged", "patience", "time_limit", "callback"}
+        Why the winning run stopped (``"callback"``: the ``callback`` of ``fit`` stopped the ensemble).
 
     See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
@@ -286,6 +293,12 @@ class EnsembleSimulatedAnnealing(_EnsembleBase):
     neighbours=250, delta=0.78, tol=1.29``). ``EnsembleSimulatedAnnealing(n_simulateds=k,
     random_state=s, **knobs)`` returns exactly what
     ``MultiStart(SimulatedAnnealing(**knobs), n_restarts=k, random_state=s)`` returns.
+
+    **Callback events (D30).** ``"start"`` (no tour, ``extra["n_restarts"]``) and ``"end"`` under
+    this class's name, the inner ``MultiStart``'s own pair, and — when ``n_jobs`` is ``None`` or
+    ``1`` — every event of every inner run under ``"SimulatedAnnealing"`` with
+    ``extra["restart"]``; a ``True`` answer stops the running restart and the launch of the next
+    ones.
 
     **Supports:** symmetric and asymmetric matrices, the multi-trip objective (both split
     rules); stochastic, iterative, budget-aware.
