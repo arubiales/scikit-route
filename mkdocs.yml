@@ -47,6 +47,7 @@ nav:
       - Choosing a solver: user_guide/choosing_a_solver.md
       - Multi-trip routing: user_guide/multi_trip.md
       - Warm starts and ensembles: user_guide/warm_starts_and_ensembles.md
+      - Live visualisation: user_guide/visualisation.md
   - API reference:
       - Base and problem: api/base.md
       - Exact solvers: api/exact.md
@@ -61,6 +62,7 @@ nav:
       - Datasets: api/datasets.md
       - Preprocessing: api/preprocessing.md
       - Utilities: api/utils.md
+      - Visualisation: api/viz.md
   - Benchmarks: benchmarks.md
   - Migration from 1.0: migration.md
   - Contributing:

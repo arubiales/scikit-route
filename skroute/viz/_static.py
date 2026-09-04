@@ -131,7 +131,7 @@ def resolve(obj: Any, coords: Any) -> tuple[np.ndarray, list[np.ndarray], int, n
             obj.cost_,
         )
     if is_event(obj):
-        problem = obj.problem
+        problem = getattr(obj, "problem", None)
         if problem is None:
             raise ValueError("the event carries no RoutingProblem; nothing to decode")
         xy = _problem_coords(problem, coords)

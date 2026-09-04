@@ -46,14 +46,15 @@ _OSM = "open-street-map"
 
 # --------------------------------------------------------------------------- geometry
 def auto_zoom(latlon: np.ndarray) -> float:
-    """A map zoom that frames the points: 360 degrees of longitude at zoom 0, halving per level."""
+    """A map zoom that frames the points: 360 degrees at zoom 0, halving per level (the route fills about
+    three quarters of a 700-pixel map)."""
     lat, lon = latlon[:, 0], latlon[:, 1]
     span_lat = float(lat.max() - lat.min())
     span_lon = float(lon.max() - lon.min()) * math.cos(math.radians(float(lat.mean())))
     span = max(span_lat, span_lon)
     if span <= 0.0:
         return 12.0
-    return float(np.clip(math.log2(360.0 / span) - 1.0, 1.0, 18.0))
+    return float(np.clip(math.log2(360.0 / span), 1.0, 18.0))
 
 
 def _center(latlon: np.ndarray) -> dict[str, float]:

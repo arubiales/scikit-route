@@ -29,7 +29,7 @@ __all__ = ["RecordedEvent", "Recorder"]
 
 @dataclass(frozen=True)
 class RecordedEvent:
-    """The copy of a progress event a [`Recorder`][skroute.viz.Recorder] keeps (the problem is stored once).
+    """The copy of a progress event a [`Recorder`][skroute.viz.Recorder] keeps.
 
     Attributes
     ----------
@@ -49,6 +49,9 @@ class RecordedEvent:
         Label-space best-so-far tour (same conventions).
     extra : dict
         Solver-specific facts (``temperature``, ``tenure``, ``generation``...).
+    problem : RoutingProblem or None
+        The instance of the run (a reference, shared by every event), so a recorded event can be
+        drawn with [`plot_route`][skroute.viz.plot_route] like a live one.
     """
 
     solver: str
@@ -59,6 +62,7 @@ class RecordedEvent:
     tour: np.ndarray | None
     best_tour: np.ndarray | None
     extra: dict[str, Any] = field(default_factory=dict)
+    problem: Any = None
 
 
 def _copy_tour(tour: Any) -> np.ndarray | None:
@@ -142,6 +146,7 @@ class Recorder:
                 tour=_copy_tour(event.tour) if keep else None,
                 best_tour=_copy_tour(event.best_tour) if keep else None,
                 extra=dict(event.extra or {}),
+                problem=self.problem,
             )
         )
 
