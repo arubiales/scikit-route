@@ -49,7 +49,8 @@ class NearestNeighbour(BaseRouter):
     ``(label, label)`` pairs (``k`` pairs at event ``k``); ``"end"`` carries the finished tour. The
     walk itself runs in the kernel, so the trace is replayed afterwards from the returned tour and
     costs O(n²) Python work only when a callback is set; a callback returning ``True`` silences the
-    remaining trace events (the result is the same with or without a callback).
+    remaining trace events — every step when it answers at ``"start"`` (the result is the same with
+    or without a callback).
 
     References
     ----------
@@ -91,6 +92,9 @@ class NearestNeighbour(BaseRouter):
 
     def _emit_trace(self, problem: RoutingProblem, tour: np.ndarray) -> None:
         """D31: replay the walk one appended node per ``"iteration"`` event (``extra["edges"]``)."""
+        self._emit("start", 0, None, math.nan)  # explicit: a True answered here silences every step
+        if self._stop_requested:
+            return
         lab = problem.labels[tour].tolist()
         edges: list[tuple[object, object]] = []
         for k in range(1, problem.n):

@@ -75,7 +75,8 @@ class Insertion(BaseRouter):
     the finished tour. The kernel records the insertion order (the node placed and the node it was
     placed after, two stores per step) only when a callback is set, and the estimator then replays
     it on a Python list in O(n²); without a callback nothing is recorded or replayed and the tour is
-    bit-identical. A callback returning ``True`` silences the remaining trace events.
+    bit-identical. A callback returning ``True`` silences the remaining trace events (every step when
+    it answers at ``"start"``).
 
     References
     ----------
@@ -124,6 +125,9 @@ class Insertion(BaseRouter):
 
     def _emit_trace(self, problem: RoutingProblem, order: np.ndarray, after: np.ndarray) -> None:
         """D31: replay the recorded insertion order, one closed partial cycle per ``"iteration"`` event."""
+        self._emit("start", 0, None, math.nan)  # explicit: a True answered here silences every step
+        if self._stop_requested:
+            return
         lab = problem.labels.tolist()
         cycle = [problem.depot]  # index space, depot first, closed implicitly on the depot
         for k, (node, prev) in enumerate(zip(order.tolist(), after.tolist(), strict=True), start=1):
