@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "modernization/**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -93,7 +93,8 @@ jobs:
       - name: Install the sdist in a fresh environment and smoke-test it
         run: |
           python -m venv /tmp/sdist-venv
-          /tmp/sdist-venv/bin/python -m pip install dist/*.tar.gz pytest hypothesis pandas pytest-github-actions-annotate-failures
+          SDIST=$(ls dist/*.tar.gz)
+          /tmp/sdist-venv/bin/python -m pip install "scikit-route[test] @ file://$PWD/$SDIST" pytest-github-actions-annotate-failures
           # leave the checkout: from the workspace root ``import skroute`` would pick up the source tree
           cd /tmp
           /tmp/sdist-venv/bin/python -c "import skroute, sys; assert 'site-packages' in skroute.__file__, skroute.__file__; print(skroute.__version__); skroute.IteratedLocalSearch"

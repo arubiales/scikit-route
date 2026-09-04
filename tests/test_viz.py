@@ -8,6 +8,8 @@ emitted by ``fake_run``, a scripted descent that produces ``start``, iterations 
 Every figure is drawn on the Agg backend (forced at import); ``plt.pause``/``fig.show`` never run.
 """
 
+# ruff: noqa: E402  (the optional matplotlib/pillow imports come after pytest.importorskip)
+
 from __future__ import annotations
 
 import math
@@ -21,10 +23,12 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+
+matplotlib = pytest.importorskip("matplotlib", reason="skroute.viz needs the optional 'viz' extra")
+pytest.importorskip("PIL", reason="pillow ships with matplotlib; needed to save GIFs")
+import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from PIL import Image
 
