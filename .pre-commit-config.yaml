@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+        args: ["--unsafe"]  # mkdocs.yml uses !!python/name tags for the emoji extension
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=1500"]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.16.6
+    hooks:
+      - id: cython-lint
+  - repo: local
+    hooks:
+      - id: readme-capability-table
+        name: README capability table is up to date
+        entry: python docs/gen_pages.py --readme --check
+        language: system
+        pass_filenames: false
+        files: ^(README\.md|docs/gen_pages\.py|skroute/.*\.py)$

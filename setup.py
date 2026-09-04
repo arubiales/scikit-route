@@ -1,65 +1,54 @@
-import os
-from setuptools import setup, find_packages
-from setuptools.extension import Extension
+"""Build script for the Cython extensions only; all metadata lives in pyproject.toml.
+
+Every ``.pyx`` under ``skroute/`` becomes an extension module of the same dotted
+name. The compiler directives below apply to all of them (SPEC §3.5).
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 from Cython.Build import cythonize
-import Cython.Compiler.Options
-Cython.Compiler.Options.annotate = True
+from setuptools import Extension, setup
 
-extensions = cythonize([
-    Extension(
-        "skroute.heuristics.brute._base_brute_force._base_brute_force",
-        sources=["skroute/heuristics/brute/_base_brute_force/_base_brute_force.pyx"]),
-    Extension(
-        "skroute.metaheuristics.genetics._base_genetics._utils_genetic",
-        sources=["skroute/metaheuristics/genetics/_base_genetics/_utils_genetic.pyx"]),
-    Extension(
-        "skroute._utils._utils",
-        sources=["skroute/_utils/_utils.pyx"]),
-    Extension(
-        "skroute.metaheuristics.genetics._base_genetics._base_genetic",
-        sources=["skroute/metaheuristics/genetics/_base_genetics/_base_genetic.pyx"]),
-    Extension(
-        "skroute.metaheuristics.simulated_annealing._base_simulated_annealing._base_simulated_annealing",
-        sources=["skroute/metaheuristics/simulated_annealing/_base_simulated_annealing/_base_simulated_annealing.pyx"]),
-    Extension(
-        "skroute.metaheuristics.simulated_annealing._base_simulated_annealing._utils_sa",
-        sources=["skroute/metaheuristics/simulated_annealing/_base_simulated_annealing/_utils_sa.pyx"]),
-    ])
+ROOT = Path(__file__).parent
+PACKAGE = ROOT / "skroute"
 
-HERE = os.path.abspath(os.path.dirname(__file__))
+DIRECTIVES = {
+    "language_level": 3,
+    "boundscheck": False,
+    "wraparound": False,
+    "cdivision": True,
+    "initializedcheck": False,
+    "nonecheck": False,
+    "embedsignature": True,
+}
+
+if sys.platform == "win32":
+    EXTRA_COMPILE_ARGS = ["/O2"]
+else:
+    EXTRA_COMPILE_ARGS = ["-O3"]
 
 
-with open(os.path.join(HERE, "README.md")) as fid:
-    README = fid.read()
+def _module_name(path: Path) -> str:
+    return ".".join(path.relative_to(ROOT).with_suffix("").parts)
 
-with open(os.path.join(HERE, "requirements.txt")) as f:
-    REQUIREMENTS = f.read().splitlines()
+
+extensions = [
+    Extension(
+        _module_name(pyx),
+        sources=[str(pyx.relative_to(ROOT))],
+        extra_compile_args=EXTRA_COMPILE_ARGS,
+    )
+    for pyx in sorted(PACKAGE.rglob("*.pyx"))
+]
 
 setup(
-    name="scikit-route", 
-    version="1.0.0a2", 
-    description="Compute Routes easy and fast",
-    long_description=README, 
-    long_description_content_type="text/markdown",  
-    url="https://github.com/arubiales/scikit-route", 
-    author="Alberto Rubiales", 
-    author_email="al.rubiales.b@gmail.com", 
-    license="MIT", 
-    classifiers=[ 
-        "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9"
-    ],
-    packages=find_packages(),
-    setup_requires=[
-        'setuptools>=18.0',
-        "cython"
-    ],
-    install_requires=REQUIREMENTS,
-    ext_modules = extensions,
-    include_package_data=True,
-    package_data={"": ["datasets/_data/_latitude_longitude/*.tsp", "datasets/*.txt", "datasets/_data/_money_cost/*.pkl"]},
+    ext_modules=cythonize(
+        extensions,
+        compiler_directives=DIRECTIVES,
+        include_path=[str(ROOT)],
+        annotate=False,
+    ),
 )

@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use scikit-route in your work, please cite it as below."
+title: "scikit-route: route optimisation with a scikit-learn flavoured API"
+type: software
+authors:
+  - family-names: Rubiales
+    given-names: Alberto
+    email: al.rubiales.b@gmail.com
+version: 2.0.0
+date-released: 2026-09-03
+license: MIT
+repository-code: "https://github.com/arubiales/scikit-route"
+url: "https://arubiales.github.io/scikit-route/"
+keywords:
+  - travelling salesman problem
+  - vehicle routing
+  - metaheuristics
+  - simulated annealing
+  - genetic algorithm
+  - tabu search
+  - local search
+  - operations research

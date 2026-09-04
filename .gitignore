@@ -15,3 +15,13 @@ _*.html
 /*.egg-info
 /scikit-route-venv
 /wheelhouse
+
+.venv*/
+*.pyd
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+htmlcov/
+docs/user_guide/_capability_table.md

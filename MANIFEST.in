@@ -1,9 +1,6 @@
-include *.txt
-include *.md
-recursive-include skroute *.pyx
-recursive-include skroute *.pxd
-recursive-include skroute *.pxi
-recursive-include skroute *.csv
-recursive-include skroute *.pkl
-recursive-include skroute *.tsp
-recursive-include skroute *.txt
+include LICENSE README.md CHANGELOG.md pyproject.toml setup.py
+recursive-include skroute *.pyx *.pxd *.pyi py.typed
+recursive-include skroute/datasets/_data *.tsp *.csv
+recursive-include skroute/datasets/_descr *.md
+prune skroute/**/__pycache__
+global-exclude *.so *.pyd *.c *.html *.pkl
