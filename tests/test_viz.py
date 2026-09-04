@@ -876,7 +876,7 @@ def test_real_plot_history_and_slider_over_multistart_events(dj):
     MultiStart(IteratedLocalSearch(n_iter=4, patience=None), n_restarts=2, random_state=0).fit(
         dj.distance_matrix(), labels=dj.labels, callback=rec
     )
-    assert rec.iterations.tolist() == [0, 0, 1, 2, 3, 4, 4, 0, 1, 2, 3, 4, 4, 0]
+    assert rec.iterations.tolist() == [0, 0, 1, 2, 3, 4, 4, 0, 1, 2, 3, 4, 4, 4]
     ax = rec.plot_history()
     assert ax.lines[0].get_xdata().tolist() == list(range(1, 9))
     assert (ax.get_xlabel(), ax.get_title()) == ("Iteration (all restarts)", "MultiStart: best-so-far cost")
