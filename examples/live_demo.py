@@ -32,9 +32,18 @@ if importlib.util.find_spec("skroute") is None:  # development checkout without 
 import skroute
 from skroute.datasets import load_barcelona, load_tsp
 from skroute.viz import LivePlot, Recorder
-from skroute.viz._live import backend_is_interactive  # the probe LivePlot itself uses for plt.pause
 
 log = logging.getLogger("skroute")
+
+# matplotlib's non-interactive backends: no window, so nothing for plt.show() to keep open
+HEADLESS_BACKENDS = {"agg", "cairo", "pdf", "pgf", "ps", "svg", "template"}
+
+
+def interactive_backend() -> bool:
+    """Whether matplotlib's current backend can show a window (``plt.show()`` needs one to keep open)."""
+    import matplotlib
+
+    return matplotlib.get_backend().lower() not in HEADLESS_BACKENDS
 
 
 def load(name: str) -> tuple:
@@ -100,6 +109,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.map and args.instance != "barcelona":
         parser.error("--map needs --instance barcelona (the only bundled instance with latitude/longitude)")
+    if args.map and args.record:
+        parser.error("--record draws plain axes with matplotlib; it cannot be combined with --map")
     if args.map and args.backend != "plotly":
         args.backend = "plotly"
     if args.speed is not None and args.speed <= 0:
@@ -107,6 +118,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     skroute.set_log_level("INFO")
     cost, labels, xy, latlon = load(args.instance)
+    # On a map everything is (lat, lon): the fit too, so a structure reported in the units of the
+    # coordinates (SOM's ring) lands on the tiles.
+    coords = latlon if args.map else xy
     solvers = {cls.__name__: cls for cls in skroute.all_solvers()}  # the classes that take no arguments
     if args.solver not in solvers:
         parser.error(f"unknown solver {args.solver!r}; choose one of {sorted(solvers)}")
@@ -127,7 +141,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.record or args.speed is not None:
         rec = Recorder(every=args.every)
-        est.fit(cost, labels=labels, coords=xy, callback=rec)
+        est.fit(cost, labels=labels, coords=coords, callback=rec)
         log.info(
             "%s on %s: cost %.2f in %.2f s, %d events kept (%d frames)",
             args.solver,
@@ -142,7 +156,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             log.info("written %s (%.0f kB)", out, out.stat().st_size / 1024)
             return 0
         live = rec.replay(
-            latlon if args.map else xy,
+            coords,
             speed=args.speed,
             backend=args.backend,
             show=args.show,
@@ -152,14 +166,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.info("replayed %d events at %gx", live.n_events, args.speed)
     else:
         live = LivePlot(
-            latlon if args.map else xy,
+            coords,
             backend=args.backend,
             map=args.map,
             every=args.every,
             show=args.show,
             trail=args.trail,
         )
-        est.fit(cost, labels=labels, coords=xy, callback=live)
+        est.fit(cost, labels=labels, coords=coords, callback=live)
         log.info(
             "%s on %s: cost %.2f in %.2f s (%s), %d events, %d redraws",
             args.solver,
@@ -170,7 +184,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             live.n_events,
             live.n_redraws,
         )
-    if args.backend == "matplotlib" and backend_is_interactive():  # headless (Agg): nothing to keep open
+    if args.backend == "matplotlib" and interactive_backend():  # headless (Agg): nothing to keep open
         import matplotlib.pyplot as plt
 
         plt.show()  # LivePlot never blocks; keep the final picture on screen until it is closed

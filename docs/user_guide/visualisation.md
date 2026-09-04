@@ -78,10 +78,11 @@ without `labels=`; a repeated depot separates trips) and any `RouteEvent`:
 On the `"start"` event it opens the figure; on every `every`-th `"iteration"` event it
 redraws the **current** tour — the attempt the solver is working on — as a thin light
 line and the **best** tour so far as a thick one, and puts the solver, the iteration,
-both costs and the solver's own facts (the temperature of an annealer, the tenure of a
-tabu search...) in the title; on `"end"` it draws the final route with trip colours. It
-refreshes the window with `plt.pause`, so it never blocks and never calls `plt.show()` —
-add that yourself after `fit` to keep the window open.
+both costs and one fact of the solver's own — its most informative scalar: the
+temperature of an annealer, the tenure of a tabu search... — in the title; on `"end"` it
+draws the final route with trip colours. It refreshes the window with `plt.pause`, so it
+never blocks and never calls `plt.show()` — add that yourself after `fit` to keep the
+window open.
 
 ```python
 >>> import matplotlib.pyplot as plt
@@ -138,7 +139,8 @@ that fits the matplotlib backend:
 - `%matplotlib widget` (ipympl) — the canvas is updated in place, the way a desktop
   window is.
 - `LivePlot(coords, backend="plotly")` — a Plotly `FigureWidget` displayed once and
-  updated in place; `map=True` puts it on OpenStreetMap tiles. Needs
+  updated in place; `map=True` puts it on OpenStreetMap tiles (and selects this backend
+  by itself). Needs
   `scikit-route[viz-map]` and `anywidget` (Plotly's widget dependency); without a
   kernel the plotly backend builds a plain `Figure` and shows it once at `"end"`.
 
@@ -170,32 +172,37 @@ True
 
 Four ways to play it back:
 
-- **`replay`** drives a `LivePlot` through the recorded events, waiting between two of
-  them for their recorded gap divided by `speed`: `rec.replay(coords, speed=10)` shows a
-  30-second run in three seconds, in a window or a notebook, exactly as it looked live.
+- **`replay`** drives a `LivePlot` through the recorded events on the recorded clock
+  divided by `speed`: `rec.replay(coords, speed=10)` shows a 30-second run in three
+  seconds, in a window or a notebook, as it looked live — the time a redraw takes is
+  absorbed by the waits that follow, a gap over two seconds is cut down to two, and where
+  nothing is shown before `"end"` (the `Agg` backend) the events are drawn back to back.
   It returns the `LivePlot` (so `live.fig` holds the final picture); `every=`, `show=`,
   `trail=` and the other `LivePlot` options pass through.
 - **`animate`** builds the same frames as a matplotlib `FuncAnimation`: `plt.show()`
   plays it, `IPython.display.HTML(anim.to_jshtml())` embeds it in a notebook. With
   `speed=` (the default, `1.0`, is real time) every frame waits its recorded gap divided
   by `speed`, clipped to `[10, 2000]` ms so a burst of iterations never flashes past and a
-  slow step never freezes the replay; `fps=` plays one frame per kept event at a fixed
-  rate instead; `interval=` fixes the delay in milliseconds; `hold=` is the pause on the
-  final picture before the loop restarts. `rec.frame_delays(speed=...)` returns the
-  per-frame delays in milliseconds.
+  slow step never freezes the replay (the floor is per frame: a run denser than a hundred
+  kept frames per replayed second stretches rather than speeds up — thin it with
+  `Recorder(every=)`); `fps=` plays one frame per kept event at a fixed rate instead;
+  `interval=` fixes the delay in milliseconds; `hold=` is the pause on the final picture
+  before the loop restarts. `rec.frame_delays(speed=...)` returns the per-frame delays in
+  milliseconds.
 - **`save`** writes the animation: a `.gif` through pillow, an `.mp4` (or any format
   ffmpeg writes) through matplotlib's ffmpeg writer — a clear `RuntimeError` names ffmpeg
   when it is missing. `fps=` is the frame rate of the file; `speed=` turns it into a
-  time-lapse (each frame is held for its recorded gap divided by `speed`, rounded to
-  whole frames; a GIF folds repeated frames, so the time-lapse costs no extra bytes); the
-  coordinates default to those of the fit.
+  time-lapse (each frame is held for its recorded gap divided by `speed`, clipped to
+  `[10, 2000]` ms like `frame_delays` and rounded to whole frames; a GIF folds repeated
+  frames, so the time-lapse costs no extra bytes); the coordinates default to those of
+  the fit.
 - **`to_plotly`** gives a figure with one frame per kept event, Play/Pause buttons, a
   speed menu — 0.5x, 1x, 2x, 4x and 8x of `fps` — and a slider over the iterations;
   `map=True` puts it on OpenStreetMap tiles.
 
 ```python
 >>> live = rec.replay(xy, speed=1e9)  # no waiting at that speed: the three events, drawn in turn
->>> live.n_events, len(live._view.final_lines)
+>>> live.n_events, len(live.ax.lines) - 4  # after the four fixed artists: the final route, one trip
 (3, 1)
 >>> rec.frame_delays(speed=1e9).tolist()  # microsecond gaps at 1e9x: clipped to the 10 ms floor
 [10.0, 10.0, 10.0]
@@ -250,7 +257,9 @@ of the partial structure they hold: the growing path of `NearestNeighbour`, the 
 cycle of `Insertion` after each insertion, the current trips of `ClarkeWright` after each
 merge, the edge set of `NRBS` after each connection, the LP support of `MILP` after each
 cut round. `LivePlot` and `Recorder` draw those edges as orange segments — with no tour to
-show, the edges *are* the picture — and `plot_route` draws a single step:
+show, the edges *are* the picture — and `plot_route` draws a single step (`MILP` also
+reports `edge_weights`, the LP value of each support edge, so its support is drawn as the
+weighted trails of the next section):
 
 <p align="center">
   <img src="../../images/construction_demo.gif" alt="Farthest insertion growing the tour of Djibouti one city at a time" width="480">
@@ -283,7 +292,8 @@ Two more `extra` keys describe structures that are not tours. `AntColony` report
 strength of its `3n` strongest trails after each iteration — which `LivePlot` and
 `Recorder` draw under the tours as segments whose width and opacity grow with the weight,
 so the strong trails stand out and the weak ones fade (Plotly, which cannot vary the width
-along a trace, keeps the trails above a quarter of the strongest). `SOM` reports
+along a trace, draws at one width the trails whose weight reaches a quarter of the
+strongest one's — `MILP`'s fractional edges included). `SOM` reports
 `extra["ring"]`, an `(m, 2)` array with the positions of its neurons in the units of
 `problem.coords` after each epoch, drawn as a closed teal polyline with small markers —
 the elastic ring closing on the cities while the decoded tour (thin) and the best epoch's
@@ -349,7 +359,7 @@ In a notebook with `%matplotlib inline` or `backend="plotly"` the redraws are
 The five road-cost tables of [`skroute.datasets`][skroute.datasets.load_barcelona]
 carry `(latitude, longitude)` coordinates. [`plot_route_map`][skroute.viz.plot_route_map]
 draws a solution on OpenStreetMap tiles with Plotly's `Scattermap`, and `map=True` does
-the same for `LivePlot(backend="plotly")`, `Recorder.replay(backend="plotly")` and
+the same for `LivePlot`, `Recorder.replay` (both then draw with the plotly backend) and
 `Recorder.to_plotly`:
 
 ```python
@@ -387,14 +397,16 @@ facts. The keys of the `"iteration"` events (each solver's docstring is the refe
 | `IteratedLocalSearch` | `kick`, `accepted`, `current_cost` | the cut positions of the kicks applied (a list of tuples), whether the candidate replaced the current tour, the current tour's cost |
 | `TwoOpt`, `OrOpt`, `LocalSearch` | `moves_applied`, `gain` | the listed moves whose descent changed the tour (a list; `"start"` carries `moves`, the ones listed), the iteration's total cost change (`<= 0`) |
 | `SOM` | `radius`, `learning_rate`, `n_samples`, `ring` | neighbourhood radius and learning rate after the epoch's decay, samples presented (`"start"` also `n_units`); the neurons' positions after the epoch, `(n_units, 2)` in the units of `coords` (D31) |
-| `MILP` | `edges`, `n_components`, `lower_bound`, `objective`, `n_cuts` | the LP support as `(label, label)` pairs (a list), its connected components, the bound, the solve's objective, constraints added so far — one event per cut round |
-| `NearestNeighbour`, `Insertion`, `ClarkeWright`, `NRBS` | `edges` | one event per construction step with `tour=None` and nan costs: the partial path, cycle, trips or edge set held so far (D31) |
+| `MILP` | `edges`, `edge_weights`, `n_components`, `lower_bound`, `objective`, `n_cuts` | the LP support as `(label, label)` pairs (a list) and the solver's value of each support edge in `[0, 1]` (D31: drawn as weighted trails), its connected components, the bound, the solve's objective, constraints added so far — one event per cut round |
+| `NearestNeighbour`, `Insertion`, `ClarkeWright`, `NRBS` | `edges` (`ClarkeWright` also `n_trips`, `NRBS` also `n_edges`) | one event per construction step with `tour=None` and nan costs: the partial path, cycle, trips (and their count) or edge set (and its size) held so far (D31) |
 | `MultiStart`, `EnsembleSimulatedAnnealing`, `EnsembleGenetic` | `restart` on every forwarded inner event; `n_restarts` on their own `"start"` | index of the restart that emitted the event |
 | `BruteForce`, `HeldKarp` | — | `"start"` and `"end"` only |
 
-`LivePlot` puts the scalar values — `bool`, `int`, `float`, `str` — in the title and
-skips lists such as `kick` and `moves_applied`; the three structures are drawn instead and
-counted in the title. The rows are facts of the solvers, not of this page:
+`LivePlot` puts one scalar fact — `bool`, `int`, `float` or `str`: `temperature`, `tenure`,
+`mean_cost`, `generation`, `iteration_best`, `radius`, `lower_bound`... the first present in
+that order of preference, else the first scalar of `extra` (`restart` is always shown) — in
+the title and never lists such as `kick` and `moves_applied`; the three structures are drawn
+instead and counted in the title. The rows are facts of the solvers, not of this page:
 
 ```python
 >>> def iteration_keys(solver):
@@ -407,6 +419,11 @@ counted in the title. The rows are facts of the solvers, not of this page:
 ['accepted', 'n_moves', 'temperature']
 >>> iteration_keys(TwoOpt())
 ['gain', 'moves_applied']
+>>> from skroute import MILP, NRBS, ClarkeWright
+>>> iteration_keys(ClarkeWright()), iteration_keys(NRBS())
+(['edges', 'n_trips'], ['edges', 'n_edges'])
+>>> iteration_keys(MILP())
+['edge_weights', 'edges', 'lower_bound', 'n_components', 'n_cuts', 'objective']
 
 ```
 
