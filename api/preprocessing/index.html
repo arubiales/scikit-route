@@ -1,0 +1,3604 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Route optimisation (TSP and multi-trip routing) with a scikit-learn flavoured API and a Cython core">
+      
+      
+      
+        <link rel="canonical" href="https://arubiales.github.io/scikit-route/api/preprocessing/">
+      
+      
+        <link rel="prev" href="../datasets/">
+      
+      
+        <link rel="next" href="../utils/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Preprocessing - scikit-route</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#preprocessing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="scikit-route" class="md-header__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scikit-route
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Preprocessing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting_started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user_guide/problem_model/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../base/" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration from 1.0
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="scikit-route" class="md-nav__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    scikit-route
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/problem_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The problem model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/choosing_a_solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/multi_trip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-trip routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/warm_starts_and_ensembles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warm starts and ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Base and problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exact solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Construction heuristics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulated_annealing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulated annealing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tabu_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tabu search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../genetic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genetic algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ant_colony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ant colony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../som/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-organising map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ensemble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tsplib-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TSPLIB metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#distances-from-coordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distances from coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.distance_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        distance_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.euclidean_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        euclidean_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.haversine_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        haversine_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.tsplib_nint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tsplib_nint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#long-tables-and-dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Long tables and dicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.pairs_to_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pairs_to_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.to_dict_of_dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_dict_of_dicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.from_dict_of_dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_dict_of_dicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.normalize_coords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        normalize_coords
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-distance-matrix-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google Distance Matrix API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.GoogleDistanceMatrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GoogleDistanceMatrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GoogleDistanceMatrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.GoogleDistanceMatrix.fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CostScraper
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CostScraper">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper.scrap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scrap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper.pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper.to_pickle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_pickle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from 1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to contribute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tsplib-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TSPLIB metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#distances-from-coordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distances from coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.distance_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        distance_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.euclidean_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        euclidean_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.haversine_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        haversine_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.tsplib_nint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tsplib_nint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#long-tables-and-dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Long tables and dicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.pairs_to_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pairs_to_matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.to_dict_of_dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_dict_of_dicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.from_dict_of_dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_dict_of_dicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coordinates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordinates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.normalize_coords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        normalize_coords
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-distance-matrix-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google Distance Matrix API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.GoogleDistanceMatrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GoogleDistanceMatrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GoogleDistanceMatrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.GoogleDistanceMatrix.fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CostScraper
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CostScraper">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper.scrap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scrap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper.pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.preprocessing.google.CostScraper.to_pickle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_pickle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="preprocessing">Preprocessing<a class="headerlink" href="#preprocessing" title="Permanent link">&para;</a></h1>
+<p>Every solver in scikit-route consumes a dense <code>(n, n)</code> cost matrix.
+<code>skroute.preprocessing</code> builds such matrices from what you usually have:</p>
+<ul>
+<li><strong>coordinates</strong> — <a class="autorefs autorefs-internal" title="distance_matrix" href="#skroute.preprocessing.distance_matrix"><code>distance_matrix</code></a>
+  with a planar, TSPLIB 95 or great-circle metric (and the shorthands
+  <code>euclidean_matrix</code> / <code>haversine_matrix</code>);</li>
+<li><strong>a long table</strong> of <code>(origin, destination, value)</code> rows —
+  <a class="autorefs autorefs-internal" title="pairs_to_matrix" href="#skroute.preprocessing.pairs_to_matrix"><code>pairs_to_matrix</code></a>, the order-independent
+  replacement of 1.0's <code>dfcolumn_to_dict</code>;</li>
+<li><strong>a dict of dicts</strong> <code>{i: {j: value}}</code> — <code>from_dict_of_dicts</code> and
+  <code>to_dict_of_dicts</code>;</li>
+<li><strong>the road network</strong> — <code>skroute.preprocessing.google.GoogleDistanceMatrix</code>,
+  which batches Google Distance Matrix API requests (optional <code>googlemaps</code>
+  extra, billed to your account).</li>
+</ul>
+<p><code>normalize_coords</code> rescales planar coordinates into the unit square while
+preserving their aspect ratio (what the SOM feeds its ring with).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">distance_matrix</span><span class="p">,</span> <span class="n">pairs_to_matrix</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">xy</span> <span class="o">=</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">6.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">]]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">distance_matrix</span><span class="p">(</span><span class="n">xy</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">M</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">])</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">M</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">])</span>
+</code></pre></div>
+<h2 id="tsplib-metrics">TSPLIB metrics<a class="headerlink" href="#tsplib-metrics" title="Permanent link">&para;</a></h2>
+<p>The <code>tsplib_*</code> metrics reproduce the TSPLIB 95 edge-weight types exactly, with
+<code>nint(x) = floor(x + 0.5)</code> (never <code>numpy.rint</code>, which rounds half to even and
+evaluates the published optimum of <code>qa194</code> to 9351 instead of 9352):</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>TSPLIB type</th>
+<th>Distance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tsplib_euc_2d</code></td>
+<td><code>EUC_2D</code></td>
+<td><code>nint(sqrt(dx² + dy²))</code></td>
+</tr>
+<tr>
+<td><code>tsplib_ceil_2d</code></td>
+<td><code>CEIL_2D</code></td>
+<td><code>ceil(sqrt(dx² + dy²))</code></td>
+</tr>
+<tr>
+<td><code>tsplib_man_2d</code></td>
+<td><code>MAN_2D</code></td>
+<td><code>nint(abs(dx) + abs(dy))</code></td>
+</tr>
+<tr>
+<td><code>tsplib_att</code></td>
+<td><code>ATT</code></td>
+<td><code>r = sqrt((dx² + dy²) / 10); t = nint(r); t + 1 if t &lt; r else t</code></td>
+</tr>
+<tr>
+<td><code>tsplib_geo</code></td>
+<td><code>GEO</code></td>
+<td>great circle on a sphere of radius 6378.388 km from <code>DDD.MM</code> coordinates, truncated plus one</td>
+</tr>
+<tr>
+<td><code>haversine</code></td>
+<td>—</td>
+<td>great circle in km on a sphere of radius 6371.0088 km from decimal degrees</td>
+</tr>
+</tbody>
+</table>
+<p><code>GEO</code> converts each <code>DDD.MM</code> coordinate with <code>deg = int(x); m = x - deg;
+rad = PI * (deg + 5 m / 3) / 180</code> where <code>PI = 3.141592</code> and <code>int</code> truncates
+(the convention of Concorde and of the published optima: <code>ulysses16.opt.tour</code>
+evaluates to 6859 this way, 6917 with <code>nint</code>), then
+<code>d = int(RRR * acos(0.5 * ((1 + q1) q2 - (1 - q1) q3)) + 1)</code> with
+<code>RRR = 6378.388</code>, <code>q1 = cos(lon_i - lon_j)</code>, <code>q2 = cos(lat_i - lat_j)</code>,
+<code>q3 = cos(lat_i + lat_j)</code>.</p>
+<h2 id="distances-from-coordinates">Distances from coordinates<a class="headerlink" href="#distances-from-coordinates" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.distance_matrix" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">distance_matrix</span>
+
+
+<a href="#skroute.preprocessing.distance_matrix" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">distance_matrix</span><span class="p">(</span><span class="n">coords</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'euclidean'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">2048</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Dense <code>(n, n)</code> distance matrix of a set of points.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>array-like of shape (n, 2)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One row per node. For <code>"euclidean"</code>, <code>"manhattan"</code> and the planar TSPLIB
+metrics the columns are <code>(x, y)</code> exactly as in a TSPLIB <code>NODE_COORD_SECTION</code>.
+For <code>"tsplib_geo"</code> the columns are <code>(latitude, longitude)</code> in the TSPLIB
+<code>DDD.MM</code> degrees-and-minutes notation; for <code>"haversine"</code> they are decimal
+degrees <code>(latitude, longitude)</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metric</code>
+            </td>
+            <td>
+                  <code>(&#39;euclidean&#39;, &#39;manhattan&#39;, &#39;tsplib_euc_2d&#39;, &#39;tsplib_ceil_2d&#39;, &#39;tsplib_man_2d&#39;, &#39;tsplib_att&#39;, &#39;tsplib_geo&#39;, &#39;haversine&#39;)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Distance definition; the TSPLIB metrics reproduce the TSPLIB 95 edge-weight
+types <code>EUC_2D</code>, <code>CEIL_2D</code>, <code>MAN_2D</code>, <code>ATT</code> and <code>GEO</code> exactly (see Notes).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;euclidean&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>block_size</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of rows computed per block. Bounds the peak memory of the temporaries
+to a few <code>block_size x n</code> arrays instead of <code>n x n</code>; the result itself is
+always the full <code>(n, n)</code> matrix.</p>
+              </div>
+            </td>
+            <td>
+                  <code>2048</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ndarray of shape (n, n), dtype float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>C-contiguous, symmetric, with a zero diagonal.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Warns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="UserWarning">UserWarning</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>n &gt; 20_000</code>: the dense matrix alone needs more than 3.2 GB. The
+warning is attributed to the caller outside scikit-route, also through the
+shorthands and <code>TSPBunch.distance_matrix</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>Every TSPLIB metric follows the TSPLIB 95 definitions with
+<code>nint(x) = floor(x + 0.5)</code> (<code>tsplib_nint</code>, never <code>numpy.rint</code>):</p>
+<ul>
+<li><code>tsplib_euc_2d</code>: <code>nint(sqrt(dx**2 + dy**2))</code></li>
+<li><code>tsplib_ceil_2d</code>: <code>ceil(sqrt(dx**2 + dy**2))</code></li>
+<li><code>tsplib_man_2d</code>: <code>nint(|dx| + |dy|)</code></li>
+<li><code>tsplib_att</code>: <code>r = sqrt((dx**2 + dy**2) / 10); t = nint(r); d = t + 1 if t &lt; r else t</code></li>
+<li><code>tsplib_geo</code>: each <code>DDD.MM</code> coordinate is converted with ``deg = int(x); m = x</li>
+<li>deg; rad = PI * (deg + 5 m / 3) / 180<code>where</code>PI = 3.141592<code>(</code>int<code>is
+  truncation, the convention of Concorde and of the published optima: the TSPLIB
+  booklet prints</code>nint<code>there, which evaluates</code>ulysses16.opt.tour<code>to 6917
+  instead of 6859); then with</code>RRR = 6378.388<code>,</code>q1 = cos(lon_i - lon_j)<code>,</code>q2 = cos(lat_i - lat_j)<code>,</code>q3 = cos(lat_i + lat_j)<code>the distance is</code>int(RRR * acos(0.5 * ((1 + q1) q2 - (1 - q1) q3)) + 1)<code>-- truncation plus
+  one, not</code>nint``.</li>
+</ul>
+<p><code>haversine</code> uses the great-circle formula on a sphere of radius 6371.0088 km and
+returns kilometres. The diagonal is set to zero for every metric (<code>GEO</code> would
+otherwise give 1 there); no solver ever reads it.</p>
+<p>Complexity is O(n**2) time and memory for the result.</p>
+</details>
+
+<details class="references" open>
+  <summary>References</summary>
+  <p>G. Reinelt, <em>TSPLIB 95</em>, Universitaet Heidelberg, 1995, section 2.1.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">distance_matrix</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">6.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">]])</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">distance_matrix</span><span class="p">(</span><span class="n">xy</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">[[0.0, 5.0, 10.0], [5.0, 0.0, 5.0], [10.0, 5.0, 0.0]]</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">distance_matrix</span><span class="p">(</span><span class="n">xy</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"manhattan"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">[0.0, 7.0, 14.0]</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">float</span><span class="p">(</span><span class="n">distance_matrix</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]],</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"tsplib_euc_2d"</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>  <span class="c1"># nint(1.414...)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">1.0</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">float</span><span class="p">(</span><span class="n">distance_matrix</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]],</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"tsplib_ceil_2d"</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">2.0</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.euclidean_matrix" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">euclidean_matrix</span>
+
+
+<a href="#skroute.preprocessing.euclidean_matrix" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">euclidean_matrix</span><span class="p">(</span><span class="n">coords</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Plain Euclidean distance matrix; shorthand for <code>distance_matrix(coords, "euclidean")</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>array-like of shape (n, 2)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Planar <code>(x, y)</code> coordinates.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ndarray of shape (n, n), dtype float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">euclidean_matrix</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">euclidean_matrix</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">[[0.0, 2.0], [2.0, 0.0]]</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.haversine_matrix" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">haversine_matrix</span>
+
+
+<a href="#skroute.preprocessing.haversine_matrix" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">haversine_matrix</span><span class="p">(</span><span class="n">latlon</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Great-circle distances in kilometres; shorthand for <code>distance_matrix(latlon, "haversine")</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>latlon</code>
+            </td>
+            <td>
+                  <code>array-like of shape (n, 2)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(latitude, longitude)</code> in decimal degrees.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ndarray of shape (n, n), dtype float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Kilometres on a sphere of radius 6371.0088 km.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">haversine_matrix</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">madrid</span><span class="p">,</span> <span class="n">barcelona</span> <span class="o">=</span> <span class="p">(</span><span class="mf">40.4168</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.7038</span><span class="p">),</span> <span class="p">(</span><span class="mf">41.3874</span><span class="p">,</span> <span class="mf">2.1686</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">D</span> <span class="o">=</span> <span class="n">haversine_matrix</span><span class="p">([</span><span class="n">madrid</span><span class="p">,</span> <span class="n">barcelona</span><span class="p">])</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">(</span><span class="mi">500</span> <span class="o">&lt;</span> <span class="n">D</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">510</span><span class="p">)</span>  <span class="c1"># about 505 km</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">True</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.tsplib_nint" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">tsplib_nint</span>
+
+
+<a href="#skroute.preprocessing.tsplib_nint" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">tsplib_nint</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="float">float</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Round to the nearest integer the TSPLIB 95 way: <code>nint(x) = floor(x + 0.5)</code>.</p>
+<p>Half-integers round <em>up</em> (<code>2.5 -&gt; 3.0</code>), unlike <code>numpy.rint</code>, which rounds
+half to even (<code>2.5 -&gt; 2.0</code>). The difference is not academic: with <code>np.rint</code> the
+Waterloo instance <code>qa194</code> evaluates its published optimal tour to 9351 instead of
+9352 (SPEC D15).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>x</code>
+            </td>
+            <td>
+                  <code>array-like of float</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Values to round. A scalar returns a Python <code>float</code>; an array returns an
+array of the same shape.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ndarray of float64 or float</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>floor(x + 0.5)</code> as floating-point integers (the dtype stays <code>float64</code> so
+the result can be stored straight into a cost matrix).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">tsplib_nint</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">tsplib_nint</span><span class="p">(</span><span class="mf">2.5</span><span class="p">),</span> <span class="n">tsplib_nint</span><span class="p">(</span><span class="o">-</span><span class="mf">2.5</span><span class="p">),</span> <span class="n">tsplib_nint</span><span class="p">(</span><span class="mf">2.49</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">(3.0, -2.0, 2.0)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">tsplib_nint</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">[1.0, 2.0, 3.0]</span>
+</code></pre></div>
+
+
+    </div>
+
+</div><h2 id="long-tables-and-dicts">Long tables and dicts<a class="headerlink" href="#long-tables-and-dicts" title="Permanent link">&para;</a></h2>
+<p>The <code>labels</code> array these functions return follows the rule of every label array
+in scikit-route: <code>int64</code> when every label is an integer, <code>object</code> otherwise, so
+mixed labels such as <code>[1, "a"]</code> keep their Python types (<code>numpy.asarray</code> alone
+would turn the <code>1</code> into <code>"1"</code> and <code>depot=1</code> would never match).</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.pairs_to_matrix" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pairs_to_matrix</span>
+
+
+<a href="#skroute.preprocessing.pairs_to_matrix" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">pairs_to_matrix</span><span class="p">(</span><span class="n">origin</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">,</span> <span class="n">destination</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">symmetric</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">fill</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">],</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Pivot a long table of <code>(origin, destination, value)</code> rows into a dense matrix.</p>
+<p>This is the 2.0 replacement of <code>dfcolumn_to_dict</code>, whose result depended on the
+row order of the table. Here every row is placed by its labels, so the order of
+the rows is irrelevant.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>origin</code>
+            </td>
+            <td>
+                  <code>sequence of hashable, length m</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Node labels of each row (lists, arrays or DataFrame columns of equal length).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>destination</code>
+            </td>
+            <td>
+                  <code>sequence of hashable, length m</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Node labels of each row (lists, arrays or DataFrame columns of equal length).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>value</code>
+            </td>
+            <td>
+                  <code>sequence of float, length m</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The quantity of each row (cost, seconds, metres, ...).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>symmetric</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code> an entry <code>(i, j)</code> that is absent from the table takes the
+value of <code>(j, i)</code> when that one is present. Entries given in both
+directions are kept as given (the result is then only symmetric if the
+data is).</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>labels</code>
+            </td>
+            <td>
+                  <code>sequence of hashable</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Order of the rows/columns of the matrix. Defaults to the order of first
+appearance while scanning the rows (origin, then destination). Every
+origin and destination must be in <code>labels</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>fill</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Value for the entries that are neither in the table nor (with
+<code>symmetric=True</code>) mirrored. Without it, such an entry raises
+<code>ValueError</code>. The diagonal is exempt: a missing <code>(i, i)</code> is 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>matrix</code></td>            <td>
+                  <code>ndarray of shape (n, n), dtype float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dense matrix in the order of <code>labels</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>labels</code></td>            <td>
+                  <code>ndarray of shape (n,), dtype int64 or object</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The labels, in the order used for the matrix and exactly as given (a label
+<code>1</code> next to a label <code>"a"</code> stays the integer <code>1</code>): <code>int64</code> when every
+label is an integer, <code>object</code> otherwise -- the rule of every label array
+in scikit-route (<code>skroute.utils.validation.coerce_labels</code>).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the three sequences differ in length, a label is missing from <code>labels</code>,
+or an off-diagonal entry is missing without <code>fill</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>When the same <code>(origin, destination)</code> pair appears several times the last
+row wins.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">pairs_to_matrix</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">M</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">])</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">[1, 2, 3]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">M</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">[[0.0, 5.0, 9.0], [5.0, 0.0, 4.0], [9.0, 4.0, 0.0]]</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">M</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">([</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">],</span> <span class="p">[</span><span class="s2">"b"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">M</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">[[0.0, 1.0], [2.0, 0.0]]</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.to_dict_of_dicts" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_dict_of_dicts</span>
+
+
+<a href="#skroute.preprocessing.to_dict_of_dicts" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_dict_of_dicts</span><span class="p">(</span><span class="n">matrix</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Dense matrix -&gt; <code>{label_i: {label_j: value}}</code> (the legacy dict-of-dicts input format).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>matrix</code>
+            </td>
+            <td>
+                  <code>array-like of shape (n, n)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Square matrix.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>labels</code>
+            </td>
+            <td>
+                  <code>sequence of hashable of length n</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keys of the dictionaries, unique; defaults to <code>0..n-1</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Outer and inner keys in the order of <code>labels</code>; values are Python floats.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the matrix is not square, or <code>labels</code> has the wrong length or repeats a
+label (two equal keys would silently collapse two rows into one).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_dict_of_dicts</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">to_dict_of_dicts</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">])</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">{'a': {'a': 0.0, 'b': 5.0}, 'b': {'a': 5.0, 'b': 0.0}}</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.from_dict_of_dicts" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">from_dict_of_dicts</span>
+
+
+<a href="#skroute.preprocessing.from_dict_of_dicts" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_dict_of_dicts</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="n"><span title="collections.abc.Mapping">Mapping</span></span><span class="p">[</span><span class="n"><span title="collections.abc.Hashable">Hashable</span></span><span class="p">,</span> <span class="n"><span title="collections.abc.Mapping">Mapping</span></span><span class="p">[</span><span class="n"><span title="collections.abc.Hashable">Hashable</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">],</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p><code>{label_i: {label_j: value}}</code> -&gt; <code>(matrix, labels)</code> in the order of the outer keys.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>d</code>
+            </td>
+            <td>
+                  <code>mapping of mapping</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Outer keys are the node labels; each inner mapping gives the values of that
+row. A missing diagonal entry defaults to 0 (1.0's <code>matrix_to_dict</code>
+dropped zeros); any other missing entry raises <code>ValueError</code>, and so does
+an inner key that is not an outer key.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>matrix</code></td>            <td>
+                  <code>ndarray of shape (n, n), dtype float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>labels</code></td>            <td>
+                  <code>ndarray of shape (n,), dtype int64 or object</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The outer keys as given: <code>int64</code> when all are integers, <code>object</code>
+otherwise (strings, tuples, mixed types), as <code>pairs_to_matrix</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">from_dict_of_dicts</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">M</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">from_dict_of_dicts</span><span class="p">({</span><span class="mi">1</span><span class="p">:</span> <span class="p">{</span><span class="mi">2</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">},</span> <span class="mi">2</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">}})</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">M</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">([[0.0, 5.0], [5.0, 0.0]], [1, 2])</span>
+</code></pre></div>
+
+
+    </div>
+
+</div><h2 id="coordinates">Coordinates<a class="headerlink" href="#coordinates" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.preprocessing.normalize_coords" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">normalize_coords</span>
+
+
+<a href="#skroute.preprocessing.normalize_coords" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">normalize_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="numpy.typing.NDArray">NDArray</span></span><span class="p">[</span><span class="n"><span title="numpy.float64">float64</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Aspect-preserving min-max scaling of planar coordinates into the unit square.</p>
+<p>Both axes are shifted to start at 0 and divided by the <em>same</em> factor, the
+larger of the two ranges, so the longer side of the bounding box spans
+<code>[0, 1]</code> and the shorter one <code>[0, r]</code> with <code>r &lt;= 1</code>. Distances are
+scaled uniformly and the geometry of the instance is preserved (this is what
+<code>SOM</code> feeds its ring with).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>array-like of shape (n, 2)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Finite coordinates, at least one row.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ndarray of shape (n, 2), dtype float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Coordinates in <code>[0, 1]**2</code>; all zeros when every point coincides.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a shape other than <code>(n, 2)</code>, an empty input or a non-finite
+coordinate -- the same checks and messages as <code>distance_matrix</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_coords</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">normalize_coords</span><span class="p">([[</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">]])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">[[0.0, 0.0], [1.0, 0.5]]</span>
+</code></pre></div>
+
+
+    </div>
+
+</div><h2 id="google-distance-matrix-api">Google Distance Matrix API<a class="headerlink" href="#google-distance-matrix-api" title="Permanent link">&para;</a></h2>
+<p>Install the extra with <code>pip install scikit-route[google]</code>. Requests are batched
+<code>batch_size × batch_size</code> origins × destinations (the API caps a request at 100
+elements); the 1.0 <code>CostScraper</code> issued one request per pair.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="skroute.preprocessing.google.GoogleDistanceMatrix" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">GoogleDistanceMatrix</span>
+
+
+<a href="#skroute.preprocessing.google.GoogleDistanceMatrix" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GoogleDistanceMatrix</span><span class="p">(</span><span class="n">api_key</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'driving'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Fetch road distances and travel times between coordinates from the Google Distance Matrix API.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>api_key</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Credential of a Google Cloud project with the Distance Matrix API enabled.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mode</code>
+            </td>
+            <td>
+                  <code>(&#39;driving&#39;, &#39;walking&#39;, &#39;bicycling&#39;, &#39;transit&#39;)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Travel mode passed to the API.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;driving&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>batch_size</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Origins and destinations are sent <code>batch_size x batch_size</code> per request
+(the API caps a request at 100 elements, hence <code>1 &lt;= batch_size &lt;= 10</code>).
+The 1.0 <code>CostScraper</code> issued one request per pair -- 18 336 requests for
+the 192 Qatar nodes; with <code>batch_size=10</code> that is 400 requests.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="skroute.preprocessing.google.GoogleDistanceMatrix.addresses_">addresses_</span></code></td>
+            <td>
+                  <code>list of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>After <code>fetch</code>, the address Google resolved for each node (from the
+<code>origin_addresses</code> of the responses; <code>""</code> when unresolved).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="skroute.preprocessing.google.GoogleDistanceMatrix.n_requests_">n_requests_</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>After <code>fetch</code>, the number of requests issued.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p><code>googlemaps</code> is imported lazily in <code>__init__</code>; install it with
+<code>pip install scikit-route[google]</code>. Progress is logged to the <code>skroute</code> logger
+at INFO (one record per request); enable it with
+<code>logging.basicConfig(level=logging.INFO)</code> or <code>skroute.set_log_level("INFO")</code>.
+Elements the API cannot route (<code>status != "OK"</code>, or an <code>"OK"</code> element without
+a <code>distance</code> or <code>duration</code> value) become <code>nan</code> and are logged at WARNING;
+complete them before solving (every solver needs finite matrices).</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing.google</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoogleDistanceMatrix</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">gdm</span> <span class="o">=</span> <span class="n">GoogleDistanceMatrix</span><span class="p">(</span><span class="s2">"&lt;your key&gt;"</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">gdm</span><span class="o">.</span><span class="n">fetch</span><span class="p">([(</span><span class="mf">41.3874</span><span class="p">,</span> <span class="mf">2.1686</span><span class="p">),</span> <span class="p">(</span><span class="mf">41.5518</span><span class="p">,</span> <span class="mf">2.2473</span><span class="p">)],</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="mi">10000007</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">res</span><span class="o">.</span><span class="n">distance</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">units</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">((2, 2), {'distance': 'm', 'time': 'h'})</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="skroute.preprocessing.google.GoogleDistanceMatrix.fetch" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">fetch</span>
+
+
+<a href="#skroute.preprocessing.google.GoogleDistanceMatrix.fetch" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fetch</span><span class="p">(</span><span class="n">coords</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="numpy.typing.ArrayLike">ArrayLike</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="Bunch (skroute.utils.Bunch)" href="../utils/#skroute.utils.Bunch">Bunch</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Request the full <code>(n, n)</code> distance and duration matrices.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>array-like of shape (n, 2)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(latitude, longitude)</code> in decimal degrees.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>labels</code>
+            </td>
+            <td>
+                  <code>sequence of length n</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Unique node labels for the returned <code>labels</code> field; defaults to <code>0..n-1</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Bunch (skroute.utils.Bunch)" href="../utils/#skroute.utils.Bunch">Bunch</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>distance</code> (metres) and <code>time</code> (hours) as <code>float64 (n, n)</code> arrays,
+<code>labels</code> (<code>int64</code> when every label is an integer, <code>object</code> otherwise
+-- the rule of <code>skroute.utils.validation.coerce_labels</code>) and
+<code>units == {"distance": "m", "time": "h"}</code>. The matrices are directional
+(Google's durations are not symmetric).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="skroute.preprocessing.google.CostScraper" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">CostScraper</span>
+
+
+<a href="#skroute.preprocessing.google.CostScraper" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CostScraper</span><span class="p">(</span><span class="n">api</span><span class="p">:</span> <span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'driving'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Deprecated 1.0 interface over <code>GoogleDistanceMatrix</code>; removed in 3.0.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>api</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>API key.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>nodes</code>
+            </td>
+            <td>
+                  <code>list of (id, latitude, longitude)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One tuple per node, as in 1.0.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mode</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Travel mode.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;driving&#34;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>Emits <code>DeprecationWarning</code> on construction. <code>scrap()</code> returns the <code>Bunch</code> of
+<code>GoogleDistanceMatrix.fetch</code>; <code>pandas()</code> builds the 1.0 long table (one
+row per unordered pair, <code>meters</code>/<code>seconds</code> taken from the <code>origin -&gt; destination</code>
+direction); <code>to_pickle()</code> raises <code>NotImplementedError</code>.</p>
+</details>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="skroute.preprocessing.google.CostScraper.scrap" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">scrap</span>
+
+
+<a href="#skroute.preprocessing.google.CostScraper.scrap" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">scrap</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="Bunch (skroute.utils.Bunch)" href="../utils/#skroute.utils.Bunch">Bunch</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Fetch the matrices (billed to your account); the <code>Bunch</code> of <code>GoogleDistanceMatrix.fetch</code>.</p>
+<p>Stored under <code>result_</code> as well.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="skroute.preprocessing.google.CostScraper.pandas" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">pandas</span>
+
+
+<a href="#skroute.preprocessing.google.CostScraper.pandas" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">pandas</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Any">Any</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The 1.0 long table as a <code>DataFrame</code> (requires pandas; calls <code>scrap</code> first if needed).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="skroute.preprocessing.google.CostScraper.to_pickle" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_pickle</span>
+
+
+<a href="#skroute.preprocessing.google.CostScraper.to_pickle" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_pickle</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Removed in 2.0.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../datasets/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Datasets">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Datasets
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../utils/" class="md-footer__link md-footer__link--next" aria-label="Next: Utilities">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Utilities
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2020-2026 Alberto Rubiales. MIT License.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/arubiales/scikit-route" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/scikit-route/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

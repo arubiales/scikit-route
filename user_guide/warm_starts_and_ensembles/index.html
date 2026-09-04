@@ -1,0 +1,2274 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Route optimisation (TSP and multi-trip routing) with a scikit-learn flavoured API and a Cython core">
+      
+      
+      
+        <link rel="canonical" href="https://arubiales.github.io/scikit-route/user_guide/warm_starts_and_ensembles/">
+      
+      
+        <link rel="prev" href="../multi_trip/">
+      
+      
+        <link rel="next" href="../visualisation/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Warm starts and ensembles - scikit-route</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#warm-starts-ensembles-and-reproducibility" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="scikit-route" class="md-header__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scikit-route
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Warm starts and ensembles
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting_started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../problem_model/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/base/" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration from 1.0
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="scikit-route" class="md-nav__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    scikit-route
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../problem_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The problem model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../choosing_a_solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_trip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-trip routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warm starts and ensembles
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warm starts and ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#warm-starts-with-init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Warm starts with init=
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reusing-a-routingproblem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reusing a RoutingProblem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-history_-to-compare-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading history_ to compare solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multistart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MultiStart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MultiStart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-legacy-ensemble-wrappers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The legacy Ensemble* wrappers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#random_state-and-reproducibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        random_state and reproducibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#watching-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watching a run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-your-own-solver-check_router" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing your own solver: check_router
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Base and problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/exact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exact solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Construction heuristics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/simulated_annealing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulated annealing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/tabu_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tabu search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/genetic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genetic algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ant_colony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ant colony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/som/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-organising map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ensemble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from 1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to contribute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#warm-starts-with-init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Warm starts with init=
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reusing-a-routingproblem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reusing a RoutingProblem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-history_-to-compare-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading history_ to compare solvers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multistart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MultiStart
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MultiStart">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-legacy-ensemble-wrappers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The legacy Ensemble* wrappers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#random_state-and-reproducibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        random_state and reproducibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#watching-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watching a run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-your-own-solver-check_router" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing your own solver: check_router
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="warm-starts-ensembles-and-reproducibility">Warm starts, ensembles and reproducibility<a class="headerlink" href="#warm-starts-ensembles-and-reproducibility" title="Permanent link">&para;</a></h1>
+<p>The solvers of scikit-route compose. A construction heuristic can seed a local search,
+whose local optimum can seed a metaheuristic; one <a class="autorefs autorefs-internal" title="RoutingProblem" href="../../api/base/#skroute.RoutingProblem"><code>RoutingProblem</code></a>
+can be handed to several solvers; a stochastic solver can be restarted from many seeds in
+parallel; and every result can be reproduced from <code>random_state</code>. This page shows how,
+and closes with what you need to write a solver of your own that passes the library's
+own test battery.</p>
+<p>The examples use Western Sahara (<code>wi29</code>, optimum 27603) and Djibouti (<code>dj38</code>, optimum
+6656) from <a class="autorefs autorefs-internal" title="load_tsp" href="../../api/datasets/#skroute.datasets.load_tsp"><code>skroute.datasets</code></a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_tsp</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">wi</span><span class="p">,</span> <span class="n">dj</span> <span class="o">=</span> <span class="n">load_tsp</span><span class="p">(</span><span class="s2">"wi29"</span><span class="p">),</span> <span class="n">load_tsp</span><span class="p">(</span><span class="s2">"dj38"</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">C_wi</span><span class="p">,</span> <span class="n">C_dj</span> <span class="o">=</span> <span class="n">wi</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">(</span><span class="mi">27603</span><span class="p">,</span> <span class="mi">6656</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="warm-starts-with-init">Warm starts with <code>init=</code><a class="headerlink" href="#warm-starts-with-init" title="Permanent link">&para;</a></h2>
+<p>Every solver that starts from a tour has an <code>init</code> parameter (the deterministic descents,
+<code>IteratedLocalSearch</code>, <code>SimulatedAnnealing</code>, <code>TabuSearch</code>, <code>Genetic</code>, the <code>Ensemble*</code>
+wrappers). It accepts three things:</p>
+<table>
+<thead>
+<tr>
+<th><code>init=</code></th>
+<th>Meaning</th>
+<th>Available on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"nearest_neighbour"</code> (default)</td>
+<td>the greedy walk from the depot, built in the compiled core</td>
+<td>every solver with <code>init</code></td>
+</tr>
+<tr>
+<td><code>"random"</code></td>
+<td>the depot followed by a random permutation drawn from <code>random_state</code></td>
+<td>stochastic solvers only; <code>TwoOpt</code>, <code>OrOpt</code> and <code>LocalSearch</code> refuse it at validation</td>
+</tr>
+<tr>
+<td>an array of <strong>labels</strong></td>
+<td>the <code>tour_</code> (open) or <code>route_</code> (closed, or multi-trip with the depot repeated) of another solver, or any sequence you built</td>
+<td>every solver with <code>init</code></td>
+</tr>
+</tbody>
+</table>
+<p>The array form is what makes chaining possible: the output of one solver is a valid
+input of the next. Labels are matched against the labels of <code>X</code>, so a tour produced
+with <code>labels=wi.labels</code> must be fed to a fit that also receives <code>labels=wi.labels</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">NearestNeighbour</span><span class="p">,</span> <span class="n">LocalSearch</span><span class="p">,</span> <span class="n">IteratedLocalSearch</span><span class="p">,</span> <span class="n">SimulatedAnnealing</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">nn</span> <span class="o">=</span> <span class="n">NearestNeighbour</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ls</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">tour_</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>             <span class="c1"># descend from the greedy tour</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">ls</span><span class="o">.</span><span class="n">tour_</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">ils</span><span class="o">.</span><span class="n">tour_</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&gt;=</span> <span class="n">ls</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&gt;=</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&gt;=</span> <span class="n">sa</span><span class="o">.</span><span class="n">cost_</span>                            <span class="c1"># a descent never loses ground</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="kc">True</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.03</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="kc">True</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span>   <span class="c1"># the annealer's best-so-far starts at the tour it was given</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Two facts worth knowing about the chain above:</p>
+<ul>
+<li><code>LocalSearch(init=nn.tour_)</code> is exactly <code>LocalSearch()</code>: the default <code>init</code> <em>is</em> the
+  nearest-neighbour tour. Chaining pays off when the seed is better than that — a
+  <code>ClarkeWright</code> tour for a multi-trip instance, or the <code>tour_</code> of a long run you want to
+  polish with different moves.</li>
+<li>A tour that is already a local optimum for the moves of a descent converges in one
+  iteration, because the descent's first full sweep finds nothing to change:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">polished</span> <span class="o">=</span> <span class="n">LocalSearch</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">ils</span><span class="o">.</span><span class="n">tour_</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">polished</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">,</span> <span class="n">polished</span><span class="o">.</span><span class="n">stop_reason_</span><span class="p">,</span> <span class="n">polished</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">'converged'</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>A <code>route_</code> is accepted as well as a <code>tour_</code>, depot repeats included, which lets you hand
+the trips of one multi-trip solver to another. The Alicante–Murcia table (8 places, costs
+in EUR, times in hours) with a budget of 1.5 times the longest round trip:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TabuSearch</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_alicante_murcia</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">d</span> <span class="o">=</span> <span class="n">load_alicante_murcia</span><span class="p">()</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">budget</span> <span class="o">=</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="nb">float</span><span class="p">((</span><span class="n">d</span><span class="o">.</span><span class="n">time</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">d</span><span class="o">.</span><span class="n">time</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">time_matrix</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="n">budget</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">people</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ts</span> <span class="o">=</span> <span class="n">TabuSearch</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">sa</span><span class="o">.</span><span class="n">route_</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>      <span class="c1"># route_: depot, trip, depot, trip, depot</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_trips_</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">ts</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="n">sa</span><span class="o">.</span><span class="n">cost_</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="n">budget</span><span class="p">))</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="kc">True</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">What <code>init</code> refuses</p>
+<p>The array must contain every label of <code>X</code> exactly once (the depot may repeat).
+Anything else — a tour of another instance, positions instead of labels, a missing
+node — raises <code>ValueError: init tour must contain every label exactly once (the depot
+may repeat)</code>, or <code>... is not a label of X</code> when a value is not a label at all.</p>
+</div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="o">...</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">init</span> <span class="n">tour</span> <span class="n">must</span> <span class="n">contain</span> <span class="n">every</span> <span class="n">label</span> <span class="n">exactly</span> <span class="n">once</span> <span class="p">(</span><span class="n">the</span> <span class="n">depot</span> <span class="n">may</span> <span class="n">repeat</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TwoOpt</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">TwoOpt</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="s2">"random"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>                   <span class="c1"># deterministic: no random draws</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="o">...</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">The</span> <span class="s1">'init'</span> <span class="n">parameter</span> <span class="n">of</span> <span class="n">TwoOpt</span> <span class="n">must</span> <span class="n">be</span> <span class="n">a</span> <span class="nb">str</span> <span class="n">among</span> <span class="p">{</span><span class="s1">'nearest_neighbour'</span><span class="p">}</span> <span class="ow">or</span> <span class="n">an</span> <span class="n">array</span><span class="o">-</span><span class="n">like</span><span class="o">.</span> <span class="n">Got</span> <span class="s1">'random'</span> <span class="n">instead</span><span class="o">.</span>
+</code></pre></div>
+<h2 id="reusing-a-routingproblem">Reusing a <code>RoutingProblem</code><a class="headerlink" href="#reusing-a-routingproblem" title="Permanent link">&para;</a></h2>
+<p><code>fit</code> builds a <a class="autorefs autorefs-internal" title="RoutingProblem" href="../../api/base/#skroute.RoutingProblem"><code>RoutingProblem</code></a> from its arguments — the
+coerced matrices, the labels, the depot index, the budget — and stores it as <code>problem_</code>.
+You can build it once yourself and pass it to any number of solvers: it is immutable,
+shareable across threads, and it caches the nearest-neighbour candidate lists that the
+local searches, the tabu search and the ant colony all need, so they are computed once.
+When <code>X</code> is a <code>RoutingProblem</code> it must travel alone: any other <code>fit</code> argument raises.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoutingProblem</span><span class="p">,</span> <span class="n">Genetic</span><span class="p">,</span> <span class="n">AntColony</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">problem</span> <span class="o">=</span> <span class="n">RoutingProblem</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">problem</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">RoutingProblem</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">38</span><span class="p">,</span> <span class="n">TSP</span><span class="p">,</span> <span class="n">symmetric</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fitted</span> <span class="o">=</span> <span class="p">{</span><span class="nb">type</span><span class="p">(</span><span class="n">est</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">est</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="o">...</span>           <span class="k">for</span> <span class="n">est</span> <span class="ow">in</span> <span class="p">(</span><span class="n">LocalSearch</span><span class="p">(),</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="o">...</span>                       <span class="n">TabuSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">Genetic</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">AntColony</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))}</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">all</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">problem_</span> <span class="ow">is</span> <span class="n">problem</span> <span class="k">for</span> <span class="n">est</span> <span class="ow">in</span> <span class="n">fitted</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="kc">True</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">LocalSearch</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="o">...</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">X</span> <span class="ow">is</span> <span class="n">a</span> <span class="n">RoutingProblem</span><span class="p">:</span> <span class="k">pass</span> <span class="n">it</span> <span class="n">alone</span><span class="p">,</span> <span class="n">without</span> <span class="n">other</span> <span class="n">fit</span> <span class="n">arguments</span>
+</code></pre></div>
+<p>The same object prices any tour under the problem's objective — <code>evaluate</code> works in index
+space, <a class="autorefs autorefs-internal" title="route_cost" href="../../api/base/#skroute.metrics.route_cost"><code>route_cost</code></a> in label space — which is how the base
+class recomputes <code>cost_</code> from the tour a solver returns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">route_cost</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span> <span class="o">=</span> <span class="n">fitted</span><span class="p">[</span><span class="s2">"IteratedLocalSearch"</span><span class="p">]</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">to_index_tour</span><span class="p">(</span><span class="n">ils</span><span class="o">.</span><span class="n">tour_</span><span class="p">)))</span> <span class="o">==</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="n">route_cost</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">ils</span><span class="o">.</span><span class="n">route_</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kc">True</span>
+</code></pre></div>
+<h2 id="reading-history_-to-compare-solvers">Reading <code>history_</code> to compare solvers<a class="headerlink" href="#reading-history_-to-compare-solvers" title="Permanent link">&para;</a></h2>
+<p>Every iterative solver records <code>history_</code>, the <strong>best-so-far</strong> cost after each outer
+iteration (an iteration is a kick for <code>IteratedLocalSearch</code>, a temperature level for
+<code>SimulatedAnnealing</code>, a generation for <code>Genetic</code>, an epoch for <code>SOM</code>, one pass of each
+move for the descents). By contract it is non-increasing, <code>n_iter_ == len(history_)</code>,
+<code>history_[-1] == cost_</code> and <code>stop_reason_</code> says why the run ended:</p>
+<table>
+<thead>
+<tr>
+<th>Solver</th>
+<th><code>stop_reason_</code> it can emit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TwoOpt</code>, <code>OrOpt</code>, <code>LocalSearch</code>, <code>SOM</code></td>
+<td><code>"converged"</code>, <code>"max_iter"</code></td>
+</tr>
+<tr>
+<td><code>IteratedLocalSearch</code>, <code>TabuSearch</code>, <code>Genetic</code>, <code>AntColony</code>, <code>EnsembleGenetic</code></td>
+<td><code>"max_iter"</code>, <code>"patience"</code>, <code>"time_limit"</code></td>
+</tr>
+<tr>
+<td><code>SimulatedAnnealing</code>, <code>EnsembleSimulatedAnnealing</code></td>
+<td><code>"converged"</code>, <code>"patience"</code>, <code>"time_limit"</code></td>
+</tr>
+<tr>
+<td><code>MultiStart</code></td>
+<td>whatever its best restart emitted</td>
+</tr>
+</tbody>
+</table>
+<p>Because the histories of different solvers have different lengths and different
+meanings per step, compare them on the facts they share — the final gap and the shape of
+the curve — not on iteration counts:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">tolerance</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"LocalSearch"</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="s2">"IteratedLocalSearch"</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span> <span class="s2">"SimulatedAnnealing"</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="o">...</span>              <span class="s2">"TabuSearch"</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">"Genetic"</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">"AntColony"</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">}</span>         <span class="c1"># tests/tolerances.py, fast tier</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">'solver'</span><span class="si">:</span><span class="s2">22s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">'within tol'</span><span class="si">:</span><span class="s2">&gt;10s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">'monotone'</span><span class="si">:</span><span class="s2">&gt;9s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">'last==cost_'</span><span class="si">:</span><span class="s2">&gt;12s</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">solver</span>                 <span class="n">within</span> <span class="n">tol</span>  <span class="n">monotone</span>  <span class="n">last</span><span class="o">==</span><span class="n">cost_</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">est</span> <span class="ow">in</span> <span class="n">fitted</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="o">...</span>     <span class="n">within</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">tolerance</span><span class="p">[</span><span class="n">name</span><span class="p">])</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="o">...</span>     <span class="n">monotone</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="o">...</span>     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">22s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">within</span><span class="si">!s:</span><span class="s2">&gt;10s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">monotone</span><span class="si">!s:</span><span class="s2">&gt;9s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">est</span><span class="o">.</span><span class="n">cost_</span><span class="p">)</span><span class="si">!s:</span><span class="s2">&gt;12s</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">LocalSearch</span>                  <span class="kc">True</span>      <span class="kc">True</span>         <span class="kc">True</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">IteratedLocalSearch</span>          <span class="kc">True</span>      <span class="kc">True</span>         <span class="kc">True</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">SimulatedAnnealing</span>           <span class="kc">True</span>      <span class="kc">True</span>         <span class="kc">True</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">TabuSearch</span>                   <span class="kc">True</span>      <span class="kc">True</span>         <span class="kc">True</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="n">Genetic</span>                      <span class="kc">True</span>      <span class="kc">True</span>         <span class="kc">True</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="n">AntColony</span>                    <span class="kc">True</span>      <span class="kc">True</span>         <span class="kc">True</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">all</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="k">for</span> <span class="n">est</span> <span class="ow">in</span> <span class="n">fitted</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="kc">True</span>
+</code></pre></div>
+<p><code>history_[0]</code> is a useful diagnostic too: for <code>IteratedLocalSearch</code> it is the best cost
+after the first kick (the initial descent is not counted), for <code>SimulatedAnnealing</code> the
+best cost after the first temperature level (the initial tour's, unless a downhill move
+was already accepted), for <code>Genetic</code> the best individual seen up to the first generation,
+initial population included.</p>
+<h2 id="multistart"><code>MultiStart</code><a class="headerlink" href="#multistart" title="Permanent link">&para;</a></h2>
+<p><a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a> runs a stochastic solver <code>n_restarts</code> times from
+independent seeds and keeps the best tour. Each restart is a <a class="autorefs autorefs-internal" title="clone" href="../../api/base/#skroute.clone"><code>clone</code></a> of
+<code>estimator</code> whose <code>random_state</code> is a <code>numpy.random.Generator</code> seeded from a child of one
+<code>numpy.random.SeedSequence</code>; the restarts are fitted on the <strong>shared</strong>
+<code>RoutingProblem</code> through <code>joblib.Parallel</code>, and the winner is the restart with the lowest
+<code>cost_</code> (the lowest index on a tie).</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>estimator</code></td>
+<td>—</td>
+<td>an unfitted stochastic solver; a deterministic one is refused (<code>ValueError</code>)</td>
+</tr>
+<tr>
+<td><code>n_restarts</code></td>
+<td>10</td>
+<td>number of independent restarts</td>
+</tr>
+<tr>
+<td><code>n_jobs</code></td>
+<td><code>None</code></td>
+<td>joblib workers: <code>None</code> runs them one after another, <code>-1</code> uses every CPU, a positive int that many. <strong>Never changes the result</strong></td>
+</tr>
+<tr>
+<td><code>prefer</code></td>
+<td><code>"threads"</code></td>
+<td>joblib backend hint; <code>"processes"</code> or <code>None</code></td>
+</tr>
+<tr>
+<td><code>random_state</code>, <code>verbose</code></td>
+<td></td>
+<td>as everywhere</td>
+</tr>
+</tbody>
+</table>
+<p>After the fit: <code>estimators_</code> (the fitted clones in restart order), <code>costs_</code> (their
+<code>cost_</code> values), <code>best_index_</code>, <code>best_estimator_</code> (whose <code>tour_</code> is the tour returned),
+and — when the estimator is iterative — <code>history_</code>, <code>n_iter_</code> and <code>stop_reason_</code> copied
+from the winner.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiStart</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.03</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">estimators_</span><span class="p">),</span> <span class="n">ms</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">shape</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="p">(</span><span class="mi">4</span><span class="p">,))</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="ow">and</span> <span class="n">ms</span><span class="o">.</span><span class="n">best_estimator_</span> <span class="ow">is</span> <span class="n">ms</span><span class="o">.</span><span class="n">estimators_</span><span class="p">[</span><span class="n">ms</span><span class="o">.</span><span class="n">best_index_</span><span class="p">]</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="kc">True</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="o">==</span> <span class="n">ms</span><span class="o">.</span><span class="n">best_estimator_</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="o">==</span> <span class="s2">"converged"</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="kc">True</span>
+</code></pre></div>
+<p><strong>Why threads.</strong> The solver kernels release the GIL, so threads run the restarts in
+parallel without pickling anything — a 10 000-node cost matrix is 800 MB, and processes
+would copy it once per worker. Threads give a near-linear speed-up for
+<code>SimulatedAnnealing</code>, <code>IteratedLocalSearch</code> and <code>TabuSearch</code>, whose time is spent in
+compiled code, and little for the Python-heavy <code>Genetic</code> and <code>SOM</code>; for those,
+<code>prefer="processes"</code> is one keyword away and gives identical results.</p>
+<p><strong>The result never depends on <code>n_jobs</code>.</strong> The seeds are assigned by restart index before
+anything runs, so the same <code>random_state</code> gives the same winner and the same tour with
+one worker, four, or a different backend:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">serial</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">threaded</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">serial</span><span class="o">.</span><span class="n">tour_</span><span class="p">,</span> <span class="n">threaded</span><span class="o">.</span><span class="n">tour_</span><span class="p">))</span> <span class="ow">and</span> <span class="n">serial</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">threaded</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kc">True</span>
+</code></pre></div>
+<p>The wrapped solver's knobs are reachable through the <code>estimator__</code> prefix, as in
+scikit-learn pipelines, and the tags of a <code>MultiStart</code> are its estimator's: wrapping a
+budget-aware solver keeps the multi-trip objective inside the search, wrapping <code>SOM</code>
+still needs <code>coords=</code>, wrapping a deterministic solver is refused.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">set_params</span><span class="p">(</span><span class="n">estimator__alpha</span><span class="o">=</span><span class="mf">0.99</span><span class="p">)</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">alpha</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="mf">0.99</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">MultiStart</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.99</span><span class="p">),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ms</span><span class="o">.</span><span class="n">get_params</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"estimator__"</span><span class="p">))[:</span><span class="mi">3</span><span class="p">]</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="p">[</span><span class="s1">'estimator__alpha'</span><span class="p">,</span> <span class="s1">'estimator__init'</span><span class="p">,</span> <span class="s1">'estimator__moves'</span><span class="p">]</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">LocalSearch</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">)</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="o">...</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">MultiStart</span> <span class="n">needs</span> <span class="n">a</span> <span class="n">stochastic</span> <span class="n">estimator</span> <span class="p">(</span><span class="n">one</span> <span class="k">with</span> <span class="n">random_state</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="the-legacy-ensemble-wrappers">The legacy <code>Ensemble*</code> wrappers<a class="headerlink" href="#the-legacy-ensemble-wrappers" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="EnsembleGenetic" href="../../api/ensemble/#skroute.ensemble.EnsembleGenetic"><code>EnsembleGenetic</code></a> and
+<a class="autorefs autorefs-internal" title="EnsembleSimulatedAnnealing" href="../../api/ensemble/#skroute.ensemble.EnsembleSimulatedAnnealing"><code>EnsembleSimulatedAnnealing</code></a> are the ensembles of
+scikit-route 1.0, kept as explicit-parameter wrappers: <code>n_genetics</code> / <code>n_simulateds</code>
+restarts, the inner knobs keyword-only with the 2.0 defaults (1.0 defaulted
+<code>n_simulateds=20</code>; it is now 10). They return exactly what the equivalent <code>MultiStart</code>
+returns, expose the same <code>estimators_</code>/<code>costs_</code>/<code>best_estimator_</code>, and will be removed
+in 3.0 — new code should use <code>MultiStart</code> directly.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">EnsembleSimulatedAnnealing</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">legacy</span> <span class="o">=</span> <span class="n">EnsembleSimulatedAnnealing</span><span class="p">(</span><span class="n">n_simulateds</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">reference</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">legacy</span><span class="o">.</span><span class="n">tour_</span><span class="p">,</span> <span class="n">reference</span><span class="o">.</span><span class="n">tour_</span><span class="p">))</span> <span class="ow">and</span> <span class="n">legacy</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">reference</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="kc">True</span>
+</code></pre></div>
+<h2 id="random_state-and-reproducibility"><code>random_state</code> and reproducibility<a class="headerlink" href="#random_state-and-reproducibility" title="Permanent link">&para;</a></h2>
+<p>Every stochastic solver draws all of its randomness from <code>numpy.random.default_rng(random_state)</code>
+in Python and hands the numbers to the compiled kernels as arrays. Consequences:</p>
+<ul>
+<li><strong>An <code>int</code> gives bit-exact reproducibility on the same machine</strong>: same seed, same
+  input, same <code>tour_</code>, same <code>history_</code>, same <code>n_iter_</code>.</li>
+<li><strong>A <code>numpy.random.Generator</code> is used in place and advanced</strong> by the fit, so two
+  successive fits with the same generator are two different runs — the idiom for "give me
+  another sample" — while <code>default_rng(0)</code> reproduces <code>random_state=0</code> exactly.</li>
+<li><code>None</code> means a fresh, unseeded generator. The legacy <code>numpy.random.RandomState</code> is
+  not accepted.</li>
+<li><strong>Across machines</strong> the tour is usually the same but is not guaranteed to be: <code>exp</code> in
+  the Metropolis test differs by an ulp between C libraries, and one flipped acceptance
+  changes the rest of the trajectory. That is why the examples in this documentation
+  print gaps below a tolerance rather than raw costs, and why the test-suite pins
+  "same seed, same machine, bit-identical" rather than a float.</li>
+<li><strong><code>time_limit</code> breaks reproducibility</strong>: the iteration at which the clock runs out
+  depends on the machine's speed.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">a</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">b</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">tour_</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">tour_</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">history_</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">history_</span><span class="p">))</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="kc">True</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">state_before</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">bit_generator</span><span class="o">.</span><span class="n">state</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">g1</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>   <span class="c1"># same draws as random_state=0</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">g1</span><span class="o">.</span><span class="n">history_</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">history_</span><span class="p">)),</span> <span class="n">rng</span><span class="o">.</span><span class="n">bit_generator</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">state_before</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">g2</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>   <span class="c1"># the generator moved on</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">g2</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">!=</span> <span class="n">g1</span><span class="o">.</span><span class="n">n_iter_</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">g2</span><span class="o">.</span><span class="n">history_</span><span class="p">,</span> <span class="n">g1</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="kc">True</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hurried</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">time_limit</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hurried</span><span class="o">.</span><span class="n">stop_reason_</span><span class="p">,</span> <span class="n">hurried</span><span class="o">.</span><span class="n">n_iter_</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="p">(</span><span class="s1">'time_limit'</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p><code>MultiStart</code> follows the same rules: one integer is drawn from its <code>random_state</code> and
+spawns the child seeds, so the whole ensemble is reproducible from one number, whatever
+<code>n_jobs</code>.</p>
+<h2 id="watching-a-run">Watching a run<a class="headerlink" href="#watching-a-run" title="Permanent link">&para;</a></h2>
+<p>Nothing in scikit-route prints. <code>verbose=1</code> logs every tenth outer iteration and the stop
+to the <code>skroute</code> logger at <code>INFO</code>, <code>verbose=2</code> logs every iteration. Python's default
+handler shows only <code>WARNING</code> and above, so enable the records once with
+<a class="autorefs autorefs-internal" title="set_log_level" href="../../api/base/#skroute.set_log_level"><code>skroute.set_log_level</code></a> (or <code>logging.basicConfig(level=logging.INFO)</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">skroute</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">skroute</span><span class="o">.</span><span class="n">set_log_level</span><span class="p">(</span><span class="s2">"INFO"</span><span class="p">)</span>  <span class="c1"># attaches a stderr handler if none is configured</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+</code></pre></div>
+<p>In code that already configures logging, attach your own handler instead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">messages</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">class</span><span class="w"> </span><span class="nc">Collect</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Handler</span><span class="p">):</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="o">...</span>     <span class="k">def</span><span class="w"> </span><span class="nf">emit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="o">...</span>         <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">getMessage</span><span class="p">())</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">log</span><span class="p">,</span> <span class="n">handler</span><span class="p">,</span> <span class="n">saved_level</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"skroute"</span><span class="p">),</span> <span class="n">Collect</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"skroute"</span><span class="p">)</span><span class="o">.</span><span class="n">level</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">log</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">);</span> <span class="n">log</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">_</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">log</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">);</span> <span class="n">log</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">saved_level</span><span class="p">)</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">messages</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"IteratedLocalSearch: stopped"</span><span class="p">)</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="kc">True</span>
+</code></pre></div>
+<h2 id="writing-your-own-solver-check_router">Writing your own solver: <code>check_router</code><a class="headerlink" href="#writing-your-own-solver-check_router" title="Permanent link">&para;</a></h2>
+<p>A solver is a subclass of <a class="autorefs autorefs-internal" title="BaseRouter" href="../../api/base/#skroute.base.BaseRouter"><code>BaseRouter</code></a> that implements one method.
+The base class does everything else: it coerces the input into a <code>RoutingProblem</code>,
+validates the hyper-parameters, honours the tags, hands <code>_solve</code> a seeded generator,
+validates the tour that comes back, decodes it into trips and <strong>recomputes <code>cost_</code></strong> — a
+solver never reports a cost, so a route that does not match its cost is impossible.</p>
+<p>The contract, in four points:</p>
+<ol>
+<li><code>__init__</code> stores every argument verbatim under the same name and does nothing else
+   (that is what <code>get_params</code>, <code>set_params</code>, <code>clone</code> and <code>repr</code> rely on).</li>
+<li><code>_parameter_constraints</code> declares the legal values; validation runs at <code>fit</code> time
+   with scikit-learn's message format. Constraints can be a Python type (<code>int</code>), the
+   strings <code>"array-like"</code>, <code>"random_state"</code>, <code>"boolean"</code>, <code>"verbose"</code>, <code>None</code>, a
+   callable, or the <code>Interval</code>/<code>Options</code> objects of <code>skroute.utils._param_validation</code>.</li>
+<li><code>_get_tags()</code> returns a <a class="autorefs autorefs-internal" title="RouterTags
+
+
+  
+      dataclass
+  " href="../../api/base/#skroute.base.RouterTags"><code>RouterTags</code></a> describing what the solver
+   supports: <code>kind</code>, <code>exact</code>, <code>stochastic</code> (then it must have a <code>random_state</code>
+   parameter), <code>iterative</code> (then <code>_solve</code> must set <code>history_</code>, <code>n_iter_</code> and
+   <code>stop_reason_</code>, report each outer iteration with <code>self._emit(...)</code> and stop with
+   <code>stop_reason_ = "callback"</code> once <code>self._stop_requested</code> is set — the progress-callback
+   protocol of <code>fit(..., callback=)</code>), <code>budget_aware</code>, <code>requires_symmetric</code>,
+   <code>requires_coords</code>, <code>max_nodes</code>.</li>
+<li><code>_solve(problem, rng)</code> returns an <code>int64</code> permutation of <code>range(problem.n)</code> with
+   <code>problem.depot</code> at position 0 — <strong>index space</strong>, never labels. <code>rng</code> is a
+   <code>numpy.random.Generator</code> for stochastic solvers and <code>None</code> otherwise;
+   <code>problem.evaluate(tour)</code> prices a tour under the full objective, budget included.</li>
+</ol>
+<p><a class="autorefs autorefs-internal" title="check_router" href="../../api/utils/#skroute.utils.estimator_checks.check_router"><code>check_router</code></a> is the structural battery the library's own
+solvers pass in <code>tests/test_common.py</code>: parameter protocol, unfitted state, fitted
+attributes, recomputed cost, input kinds (ndarray, DataFrame, dict-of-dicts, string
+labels), invalid inputs, tags, multi-trip, no printing, the iterative contract,
+reproducibility, the smallest sizes and the progress callbacks. It takes an <strong>unfitted</strong> instance, builds its own
+small instances, and raises <code>AssertionError("check N: ...")</code> at the first failure. Here is
+a complete solver that passes it — random sampling with the best-so-far bookkeeping of
+an iterative solver:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseRouter</span><span class="p">,</span> <span class="n">RouterTags</span><span class="p">,</span> <span class="n">check_router</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">class</span><span class="w"> </span><span class="nc">RandomSampling</span><span class="p">(</span><span class="n">BaseRouter</span><span class="p">):</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="o">...</span>     <span class="s2">"""Draw ``n_samples`` random giant tours and keep the cheapest."""</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="o">...</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="o">...</span>     <span class="n">_parameter_constraints</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"n_samples"</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="s2">"random_state"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"random_state"</span><span class="p">]}</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="o">...</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="o">...</span>     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="o">...</span>         <span class="bp">self</span><span class="o">.</span><span class="n">n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>              <span class="c1"># stored verbatim, nothing else</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="o">...</span>         <span class="bp">self</span><span class="o">.</span><span class="n">random_state</span> <span class="o">=</span> <span class="n">random_state</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="o">...</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="o">...</span>     <span class="k">def</span><span class="w"> </span><span class="nf">_get_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="o">...</span>         <span class="k">return</span> <span class="n">RouterTags</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">"metaheuristic"</span><span class="p">,</span> <span class="n">stochastic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">iterative</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">budget_aware</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="o">...</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="o">...</span>     <span class="k">def</span><span class="w"> </span><span class="nf">_solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="o">...</span>         <span class="n">others</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">n</span><span class="p">),</span> <span class="n">problem</span><span class="o">.</span><span class="n">depot</span><span class="p">)</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="o">...</span>         <span class="n">best</span><span class="p">,</span> <span class="n">best_cost</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">"max_iter"</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="o">...</span>         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_samples</span><span class="p">):</span>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="o">...</span>             <span class="n">tour</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="n">problem</span><span class="o">.</span><span class="n">depot</span><span class="p">],</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">others</span><span class="p">)))</span>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="o">...</span>             <span class="n">cost</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">tour</span><span class="p">)</span>      <span class="c1"># the problem's own objective, budget included</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="o">...</span>             <span class="k">if</span> <span class="n">cost</span> <span class="o">&lt;</span> <span class="n">best_cost</span><span class="p">:</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="o">...</span>                 <span class="n">best</span><span class="p">,</span> <span class="n">best_cost</span> <span class="o">=</span> <span class="n">tour</span><span class="p">,</span> <span class="n">cost</span>
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="o">...</span>             <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best_cost</span><span class="p">)</span>
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="o">...</span>             <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="s2">"iteration"</span><span class="p">,</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tour</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">best</span><span class="p">,</span> <span class="n">best_cost</span><span class="p">)</span>  <span class="c1"># progress callback</span>
+<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="o">...</span>             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_requested</span><span class="p">:</span>            <span class="c1"># the callback returned True: stop here</span>
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="o">...</span>                 <span class="n">reason</span> <span class="o">=</span> <span class="s2">"callback"</span>
+<a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="o">...</span>                 <span class="k">break</span>
+<a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a><span class="o">...</span>         <span class="bp">self</span><span class="o">.</span><span class="n">history_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="o">=</span> <span class="n">history</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">history</span><span class="p">),</span> <span class="n">reason</span>
+<a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="o">...</span>         <span class="k">return</span> <span class="n">best</span>
+<a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">check_router</span><span class="p">(</span><span class="n">RandomSampling</span><span class="p">())</span>              <span class="c1"># silent when every check passes</span>
+<a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">check_router</span><span class="o">.</span><span class="n">checks</span><span class="p">][:</span><span class="mi">4</span><span class="p">]</span>
+<a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a><span class="p">[</span><span class="s1">'1_init_and_params'</span><span class="p">,</span> <span class="s1">'2_not_fitted'</span><span class="p">,</span> <span class="s1">'3_fit_results'</span><span class="p">,</span> <span class="s1">'4_cost_recomputed'</span><span class="p">]</span>
+<a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rs</span> <span class="o">=</span> <span class="n">RandomSampling</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rs</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">,</span> <span class="n">rs</span><span class="o">.</span><span class="n">stop_reason_</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">route_</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">route_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">depot_</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+<a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s1">'max_iter'</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rs</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="ow">and</span> <span class="n">rs</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&gt;</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span>   <span class="c1"># a sampler, not a solver</span>
+<a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a><span class="kc">True</span>
+<a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">RandomSampling</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a><span class="n">RandomSampling</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</code></pre></div>
+<p><code>budget_aware=True</code> is honest here because the sampler prices every tour with
+<code>problem.evaluate</code>, which sees the budget; a solver that optimises the plain tour and
+lets the decoder split it afterwards must leave the tag at its default <code>False</code>, so that
+<code>fit</code> warns under a budget. Leave <code>exact</code> at <code>False</code> unless the tour is provably optimal
+— then set <code>is_optimal_</code> in <code>_solve</code>.</p>
+<p>Tolerance checks (how close to the optimum a solver must get) are not part of
+<code>check_router</code>: they live in the test-suite, driven by <code>tests/tolerances.py</code>, and a new
+solver added to the library gets an entry there. Read
+<a href="../../contributing/">Contributing</a> for the full procedure.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../multi_trip/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Multi-trip routing">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Multi-trip routing
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../visualisation/" class="md-footer__link md-footer__link--next" aria-label="Next: Live visualisation">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Live visualisation
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2020-2026 Alberto Rubiales. MIT License.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/arubiales/scikit-route" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/scikit-route/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

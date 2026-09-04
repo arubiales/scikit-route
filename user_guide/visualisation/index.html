@@ -1,0 +1,2285 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Route optimisation (TSP and multi-trip routing) with a scikit-learn flavoured API and a Cython core">
+      
+      
+      
+        <link rel="canonical" href="https://arubiales.github.io/scikit-route/user_guide/visualisation/">
+      
+      
+        <link rel="prev" href="../warm_starts_and_ensembles/">
+      
+      
+        <link rel="next" href="../../api/base/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Live visualisation - scikit-route</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#live-visualisation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="scikit-route" class="md-header__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scikit-route
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Live visualisation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting_started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../problem_model/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/base/" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration from 1.0
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="scikit-route" class="md-nav__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    scikit-route
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../problem_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The problem model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../choosing_a_solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_trip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-trip routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../warm_starts_and_ensembles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warm starts and ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live visualisation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-picture-of-a-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A picture of a solution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#watch-a-run-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watch a run live
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Watch a run live">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-a-notebook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In a notebook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replay-at-time-lapse-speed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay at time-lapse speed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-the-route-being-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See the route being built
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pheromone-trails-and-the-som-ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pheromone trails and the SOM ring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stop-a-run-interactively" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stop a run interactively
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-each-solver-reports-in-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each solver reports in extra
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Base and problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/exact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exact solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Construction heuristics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/simulated_annealing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulated annealing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/tabu_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tabu search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/genetic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genetic algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ant_colony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ant colony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/som/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-organising map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ensemble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from 1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to contribute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-picture-of-a-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A picture of a solution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#watch-a-run-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watch a run live
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Watch a run live">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-a-notebook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In a notebook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replay-at-time-lapse-speed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay at time-lapse speed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-the-route-being-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See the route being built
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pheromone-trails-and-the-som-ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pheromone trails and the SOM ring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stop-a-run-interactively" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stop a run interactively
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-each-solver-reports-in-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each solver reports in extra
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="live-visualisation">Live visualisation<a class="headerlink" href="#live-visualisation" title="Permanent link">&para;</a></h1>
+<p>Route optimisation is a spatial problem, and a solver's progress is easiest to judge by
+eye: are the crossings disappearing, is the best tour still changing, did the annealer
+freeze too early? <code>skroute.viz</code> draws the answer — a fitted solution as a static picture,
+a running solver <strong>live</strong>, and a finished run <strong>again, at time-lapse speed</strong> — through
+the <code>fit(..., callback=)</code> protocol every solver implements: the solver hands a
+<code>RouteEvent</code> to your callback at the start of the search, after every outer iteration
+(or every construction step) and at the end; <a class="autorefs autorefs-internal" title="LivePlot" href="../../api/viz/#skroute.viz.LivePlot"><code>LivePlot</code></a> redraws
+the attempt, the best tour and the structure being built on each event,
+<a class="autorefs autorefs-internal" title="Recorder" href="../../api/viz/#skroute.viz.Recorder"><code>Recorder</code></a> keeps them, with their clock, for later.</p>
+<p align="center">
+  <img src="../../images/live_demo.gif" alt="SimulatedAnnealing untangling a random tour of the 38 cities of Djibouti: the attempts thin and grey, the best tour so far thick" width="480">
+</p>
+
+<p>The pictures on this page are produced by the code of the repository:
+<code>examples/live_demo.py --record</code> writes them (the exact commands are given under each).</p>
+<h2 id="installing">Installing<a class="headerlink" href="#installing" title="Permanent link">&para;</a></h2>
+<p>The package is optional and nothing else in scikit-route imports it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"scikit-route[viz]"</span><span class="w">       </span><span class="c1"># matplotlib: plot_route, plot_history, LivePlot, Recorder</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"scikit-route[viz-map]"</span><span class="w">   </span><span class="c1"># + plotly: OpenStreetMap tiles, the plotly backend, sliders</span>
+</code></pre></div>
+<p><code>import skroute.viz</code> needs neither library — matplotlib and plotly are loaded at the
+first call — and a missing one raises an <code>ImportError</code> naming the extra to install.</p>
+<p>Coordinates are always <code>(n, 2)</code> arrays in the row order of the cost matrix. The
+matplotlib tools draw column 0 as x and column 1 as y; the map tools expect
+<code>(latitude, longitude)</code>. For geographic data on plain axes pass <code>coords[:, ::-1]</code>.</p>
+<h2 id="a-picture-of-a-solution">A picture of a solution<a class="headerlink" href="#a-picture-of-a-solution" title="Permanent link">&para;</a></h2>
+<p><a class="autorefs autorefs-internal" title="plot_route" href="../../api/viz/#skroute.viz.plot_route"><code>plot_route</code></a> takes a fitted estimator and draws the nodes,
+the depot (a star) and the closed route, one colour per trip; the coordinates come from
+<code>fit(..., coords=)</code> or from its <code>coords=</code> argument. <a class="autorefs autorefs-internal" title="plot_history" href="../../api/viz/#skroute.viz.plot_history"><code>plot_history</code></a>
+draws <code>history_</code>, the best-so-far cost per outer iteration.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>  <span class="c1"># this page runs headless; drop the line on a desktop</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">IteratedLocalSearch</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_tsp</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_history</span><span class="p">,</span> <span class="n">plot_route</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">dj</span> <span class="o">=</span> <span class="n">load_tsp</span><span class="p">(</span><span class="s2">"dj38"</span><span class="p">)</span>  <span class="c1"># Djibouti, 38 cities, optimum 6656</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_route</span><span class="p">(</span><span class="n">ils</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_xdata</span><span class="p">())</span>  <span class="c1"># one closed trip through the 38 cities</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">39</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_title</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"IteratedLocalSearch | cost "</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="kc">True</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_history</span><span class="p">(</span><span class="n">ils</span><span class="p">)</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_ydata</span><span class="p">())</span> <span class="o">==</span> <span class="n">ils</span><span class="o">.</span><span class="n">n_iter_</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="kc">True</span>
+</code></pre></div>
+<p>A multi-trip solution gets one line per trip. <code>plot_route</code> also accepts a route array
+whose entries index the rows of <code>coords</code> (the <code>tour_</code> or <code>route_</code> of a solver fitted
+without <code>labels=</code>; a repeated depot separates trips) and any <code>RouteEvent</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]])</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_route</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">xy</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># two trips: 0-1-0 and 0-2-3-0</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">),</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ax</span><span class="o">.</span><span class="n">texts</span><span class="p">]</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="s1">'0'</span><span class="p">,</span> <span class="s1">'1'</span><span class="p">,</span> <span class="s1">'2'</span><span class="p">,</span> <span class="s1">'3'</span><span class="p">])</span>
+</code></pre></div>
+<h2 id="watch-a-run-live">Watch a run live<a class="headerlink" href="#watch-a-run-live" title="Permanent link">&para;</a></h2>
+<p><a class="autorefs autorefs-internal" title="LivePlot" href="../../api/viz/#skroute.viz.LivePlot"><code>LivePlot</code></a> is a callable: pass it as the <code>callback</code> of <code>fit</code>.
+On the <code>"start"</code> event it opens the figure; on every <code>every</code>-th <code>"iteration"</code> event it
+redraws the <strong>current</strong> tour — the attempt the solver is working on — as a thin light
+line and the <strong>best</strong> tour so far as a thick one, and puts the solver, the iteration,
+both costs and one fact of the solver's own — its most informative scalar: the
+temperature of an annealer, the tenure of a tabu search... — in the title; on <code>"end"</code> it
+draws the final route with trip colours. It refreshes the window with <code>plt.pause</code>, so it
+never blocks and never calls <code>plt.show()</code> — add that yourself after <code>fit</code> to keep the
+window open.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedAnnealing</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">LivePlot</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span> <span class="o">=</span> <span class="n">LivePlot</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># redraw every tenth temperature level</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="o">...</span>     <span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">live</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="o">...</span> <span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>  <span class="c1"># doctest: +SKIP</span>
+</code></pre></div>
+<p><code>show=</code> picks what to draw during the run — <code>"both"</code> (the default), <code>"best"</code> alone, or
+<code>"current"</code> alone — and <code>trail=k</code> keeps the last <code>k</code> attempts on screen, fading with age,
+which gives a sense of where the search has been:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">attempts</span> <span class="o">=</span> <span class="n">LivePlot</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="s2">"current"</span><span class="p">,</span> <span class="n">trail</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># the walker and its eight last steps</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">attempts</span><span class="o">.</span><span class="n">show</span><span class="p">,</span> <span class="n">attempts</span><span class="o">.</span><span class="n">trail</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">(</span><span class="s1">'current'</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+</code></pre></div>
+<p>A redraw costs a few milliseconds and a fast solver emits thousands of outer iterations
+per second, so <code>every=</code> is the knob that keeps the search fast: <code>SimulatedAnnealing</code> runs
+about 1 800 levels, <code>IteratedLocalSearch</code> up to <code>n_iter</code> kicks, <code>TabuSearch</code> <code>n_iter</code>
+moves. Headless machines work too — on the <code>Agg</code> backend the lines are updated on every
+kept iteration and the picture is rendered once, at <code>"end"</code>, without being shown, which is
+how this page and the test-suite run.</p>
+<p>The figure stays open after <code>fit</code> (close it with <code>plt.close(live.fig)</code> when you watch many
+runs in one script), and the same <code>LivePlot</code> can watch the next fit: a new <code>"start"</code> opens
+a fresh figure. Under <code>MultiStart(..., n_jobs=1)</code> the inner solvers' events are forwarded,
+so every restart is drawn from scratch in the same figure and its final route stays on
+screen until the next restart begins.</p>
+<p><code>examples/live_demo.py</code> in the repository wraps this in a small command line:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/live_demo.py<span class="w"> </span>--instance<span class="w"> </span>dj38<span class="w"> </span>--solver<span class="w"> </span>IteratedLocalSearch
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>examples/live_demo.py<span class="w"> </span>--instance<span class="w"> </span>barcelona<span class="w"> </span>--solver<span class="w"> </span>SimulatedAnnealing<span class="w"> </span>--every<span class="w"> </span><span class="m">10</span><span class="w"> </span>--show<span class="w"> </span>current<span class="w"> </span>--trail<span class="w"> </span><span class="m">5</span>
+</code></pre></div>
+<h3 id="in-a-notebook">In a notebook<a class="headerlink" href="#in-a-notebook" title="Permanent link">&para;</a></h3>
+<p>The same object works in Jupyter. <code>LivePlot</code> detects the kernel and picks the refresh
+that fits the matplotlib backend:</p>
+<ul>
+<li><code>%matplotlib inline</code> (the default) — every redraw replaces the cell output through
+  <code>IPython.display.display(fig, clear=True)</code>, and the figure is closed after the last
+  one, so the cell ends with a single picture; keep <code>every=</code> generous, each redraw
+  renders a PNG.</li>
+<li><code>%matplotlib widget</code> (ipympl) — the canvas is updated in place, the way a desktop
+  window is.</li>
+<li><code>LivePlot(coords, backend="plotly")</code> — a Plotly <code>FigureWidget</code> displayed once and
+  updated in place; <code>map=True</code> puts it on OpenStreetMap tiles (and selects this backend
+  by itself). Needs
+  <code>scikit-route[viz-map]</code> and <code>anywidget</code> (Plotly's widget dependency); without a
+  kernel the plotly backend builds a plain <code>Figure</code> and shows it once at <code>"end"</code>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span> <span class="o">=</span> <span class="n">LivePlot</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">"plotly"</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">live</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+</code></pre></div>
+<h2 id="replay-at-time-lapse-speed">Replay at time-lapse speed<a class="headerlink" href="#replay-at-time-lapse-speed" title="Permanent link">&para;</a></h2>
+<p><a class="autorefs autorefs-internal" title="Recorder" href="../../api/viz/#skroute.viz.Recorder"><code>Recorder</code></a> draws nothing while the solver runs; it copies every
+event (<code>every=</code> thins the iterations) together with the wall clock at which it arrived,
+and replays the run afterwards — as fast or as slow as you like. The deterministic descent
+below has three events; a real run has hundreds:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TwoOpt</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">Recorder</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rec</span> <span class="o">=</span> <span class="n">Recorder</span><span class="p">()</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">two</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">xy</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">rec</span><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">rec</span><span class="o">.</span><span class="n">events</span><span class="p">],</span> <span class="n">rec</span><span class="o">.</span><span class="n">n_frames</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">([</span><span class="s1">'start'</span><span class="p">,</span> <span class="s1">'iteration'</span><span class="p">,</span> <span class="s1">'end'</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">rec</span><span class="o">.</span><span class="n">timestamps</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># the recorded clock, in seconds</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Four ways to play it back:</p>
+<ul>
+<li><strong><code>replay</code></strong> drives a <code>LivePlot</code> through the recorded events on the recorded clock
+  divided by <code>speed</code>: <code>rec.replay(coords, speed=10)</code> shows a 30-second run in three
+  seconds, in a window or a notebook, as it looked live — the time a redraw takes is
+  absorbed by the waits that follow, a gap over two seconds is cut down to two, and where
+  nothing is shown before <code>"end"</code> (the <code>Agg</code> backend) the events are drawn back to back.
+  It returns the <code>LivePlot</code> (so <code>live.fig</code> holds the final picture); <code>every=</code>, <code>show=</code>,
+  <code>trail=</code> and the other <code>LivePlot</code> options pass through.</li>
+<li><strong><code>animate</code></strong> builds the same frames as a matplotlib <code>FuncAnimation</code>: <code>plt.show()</code>
+  plays it, <code>IPython.display.HTML(anim.to_jshtml())</code> embeds it in a notebook. With
+  <code>speed=</code> (the default, <code>1.0</code>, is real time) every frame waits its recorded gap divided
+  by <code>speed</code>, clipped to <code>[10, 2000]</code> ms so a burst of iterations never flashes past and a
+  slow step never freezes the replay (the floor is per frame: a run denser than a hundred
+  kept frames per replayed second stretches rather than speeds up — thin it with
+  <code>Recorder(every=)</code>); <code>fps=</code> plays one frame per kept event at a fixed rate instead;
+  <code>interval=</code> fixes the delay in milliseconds; <code>hold=</code> is the pause on the final picture
+  before the loop restarts. <code>rec.frame_delays(speed=...)</code> returns the per-frame delays in
+  milliseconds.</li>
+<li><strong><code>save</code></strong> writes the animation: a <code>.gif</code> through pillow, an <code>.mp4</code> (or any format
+  ffmpeg writes) through matplotlib's ffmpeg writer — a clear <code>RuntimeError</code> names ffmpeg
+  when it is missing. <code>fps=</code> is the frame rate of the file; <code>speed=</code> turns it into a
+  time-lapse (each frame is held for its recorded gap divided by <code>speed</code>, clipped to
+  <code>[10, 2000]</code> ms like <code>frame_delays</code> and rounded to whole frames; a GIF folds repeated
+  frames, so the time-lapse costs no extra bytes); the coordinates default to those of
+  the fit.</li>
+<li><strong><code>to_plotly</code></strong> gives a figure with one frame per kept event, Play/Pause buttons, a
+  speed menu — 0.5x, 1x, 2x, 4x and 8x of <code>fps</code> — and a slider over the iterations;
+  <code>map=True</code> puts it on OpenStreetMap tiles.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">replay</span><span class="p">(</span><span class="n">xy</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="mf">1e9</span><span class="p">)</span>  <span class="c1"># no waiting at that speed: the three events, drawn in turn</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span><span class="o">.</span><span class="n">n_events</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">live</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">-</span> <span class="mi">4</span>  <span class="c1"># after the four fixed artists: the final route, one trip</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rec</span><span class="o">.</span><span class="n">frame_delays</span><span class="p">(</span><span class="n">speed</span><span class="o">=</span><span class="mf">1e9</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>  <span class="c1"># microsecond gaps at 1e9x: clipped to the 10 ms floor</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">[</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">anim</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">animate</span><span class="p">(</span><span class="n">xy</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rec</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"descent.gif"</span><span class="p">,</span> <span class="n">xy</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># a 10x time-lapse GIF  # doctest: +SKIP</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rec</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"descent.mp4"</span><span class="p">,</span> <span class="n">xy</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>  <span class="c1"># ffmpeg on the PATH  # doctest: +SKIP</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">to_plotly</span><span class="p">(</span><span class="n">xy</span><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">updatemenus</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">buttons</span><span class="p">]</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">[</span><span class="s1">'0.5x'</span><span class="p">,</span> <span class="s1">'1x'</span><span class="p">,</span> <span class="s1">'2x'</span><span class="p">,</span> <span class="s1">'4x'</span><span class="p">,</span> <span class="s1">'8x'</span><span class="p">]</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">frames</span><span class="p">)</span> <span class="o">==</span> <span class="n">rec</span><span class="o">.</span><span class="n">n_frames</span> <span class="ow">and</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">updatemenus</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">buttons</span><span class="p">]</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">[</span><span class="s1">'Play'</span><span class="p">,</span> <span class="s1">'Pause'</span><span class="p">]</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span><span class="o">.</span><span class="n">write_html</span><span class="p">(</span><span class="s2">"descent.html"</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+</code></pre></div>
+<p>Every frame is drawn the way <code>LivePlot</code> draws a live event — the attempt thin, the best
+tour thick, the structures of the next two sections when the solver reports them, the
+status line as the title, the final route with trip colours at <code>"end"</code> — and <code>show=</code>
+chooses the tours (<code>"both"</code>, <code>"best"</code>, <code>"current"</code>) in <code>replay</code>, <code>animate</code>, <code>save</code> and
+<code>to_plotly</code> alike.</p>
+<p><code>rec.events</code> holds the copies (<code>stage</code>, <code>iteration</code>, <code>cost</code>, <code>best_cost</code>, <code>tour</code>,
+<code>best_tour</code>, <code>extra</code>, <code>timestamp</code>, a reference to the problem, and the decoded <code>route</code> and
+<code>trips</code> like a live event); <code>rec.costs</code>, <code>rec.best_costs</code>, <code>rec.iterations</code> and
+<code>rec.timestamps</code> are the same facts as arrays. A frame is drawn for every kept event that
+carries something to draw — a tour, a best tour, edges or a ring — so <code>Recorder(every=30)</code>
+on an 1 800-level annealing gives about 60 frames. A recorder accumulates — handed to a
+second <code>fit</code> it appends that run's events — so build one per run you want to replay; the
+events of a <code>MultiStart(n_jobs=1)</code> (one <code>"start"</code>/<code>"end"</code> per restart, <code>extra["restart"]</code>)
+are plotted against the iteration counted across the restarts and labelled
+<code>restart:iteration</code> on the slider.</p>
+<p>The GIF at the top of this page is <code>SimulatedAnnealing(init="random", random_state=0)</code>
+on Djibouti (<code>dj38</code>) recorded every 30 levels and saved at 80 dpi: a random tour of about
+27 700 — four times the optimum 6656 — is untangled down to the optimum on the machine
+that recorded it (another platform's <code>exp</code> may flip a Metropolis decision and land within
+a percent of it); the annealer's attempts are the thin grey line, the best tour so far the
+thick one:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>examples/live_demo.py<span class="w"> </span>--instance<span class="w"> </span>dj38<span class="w"> </span>--solver<span class="w"> </span>SimulatedAnnealing<span class="w"> </span>--init<span class="w"> </span>random<span class="w"> </span>--every<span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span>--record<span class="w"> </span>docs/images/live_demo.gif<span class="w"> </span>--fps<span class="w"> </span><span class="m">12</span>
+</code></pre></div>
+<h2 id="see-the-route-being-built">See the route being built<a class="headerlink" href="#see-the-route-being-built" title="Permanent link">&para;</a></h2>
+<p>Construction heuristics have no tour until they finish — and the interesting part is how
+they get there. Under D31 they emit one <code>"iteration"</code> event per construction step with
+<code>tour=None</code>, <code>cost=nan</code>, <code>best_cost=nan</code> and <code>extra["edges"]</code>, the <code>(label, label)</code> pairs
+of the partial structure they hold: the growing path of <code>NearestNeighbour</code>, the partial
+cycle of <code>Insertion</code> after each insertion, the current trips of <code>ClarkeWright</code> after each
+merge, the edge set of <code>NRBS</code> after each connection, the LP support of <code>MILP</code> after each
+cut round. <code>LivePlot</code> and <code>Recorder</code> draw those edges as orange segments — with no tour to
+show, the edges <em>are</em> the picture — and <code>plot_route</code> draws a single step (<code>MILP</code> also
+reports <code>edge_weights</code>, the LP value of each support edge, so its support is drawn as the
+weighted trails of the next section):</p>
+<p align="center">
+  <img src="../../images/construction_demo.gif" alt="Farthest insertion growing the tour of Djibouti one city at a time" width="480">
+</p>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">RouteEvent</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">dj</span><span class="o">.</span><span class="n">labels</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">partial</span> <span class="o">=</span> <span class="p">[</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">labels</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">labels</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span>  <span class="c1"># the depot and the first two cities inserted</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">cycle</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">partial</span><span class="p">,</span> <span class="n">partial</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">partial</span><span class="p">[:</span><span class="mi">1</span><span class="p">]))</span>  <span class="c1"># the closed partial cycle: three edges</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">step</span> <span class="o">=</span> <span class="n">RouteEvent</span><span class="p">(</span><span class="s2">"Insertion"</span><span class="p">,</span> <span class="s2">"iteration"</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ils</span><span class="o">.</span><span class="n">problem_</span><span class="p">,</span> <span class="p">{</span><span class="s2">"edges"</span><span class="p">:</span> <span class="n">cycle</span><span class="p">})</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_route</span><span class="p">(</span><span class="n">step</span><span class="p">)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_xdata</span><span class="p">()),</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_title</span><span class="p">()</span>  <span class="c1"># one line, x0, x1, nan per edge</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">'Insertion | 3 edges'</span><span class="p">)</span>
+</code></pre></div>
+<p>The GIF is <code>Insertion()</code> (farthest insertion) on <code>dj38</code>, one frame per inserted city — a
+construction runs in a millisecond, so the file is written at a fixed frame rate rather
+than as a time-lapse:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>python<span class="w"> </span>examples/live_demo.py<span class="w"> </span>--instance<span class="w"> </span>dj38<span class="w"> </span>--solver<span class="w"> </span>Insertion<span class="w"> </span>--record<span class="w"> </span>docs/images/construction_demo.gif<span class="w"> </span>--fps<span class="w"> </span><span class="m">8</span>
+</code></pre></div>
+<h2 id="pheromone-trails-and-the-som-ring">Pheromone trails and the SOM ring<a class="headerlink" href="#pheromone-trails-and-the-som-ring" title="Permanent link">&para;</a></h2>
+<p>Two more <code>extra</code> keys describe structures that are not tours. <code>AntColony</code> reports
+<code>extra["edge_weights"]</code>, floats in <code>[0, 1]</code> parallel to <code>extra["edges"]</code> — the pheromone
+strength of its <code>3n</code> strongest trails after each iteration — which <code>LivePlot</code> and
+<code>Recorder</code> draw under the tours as segments whose width and opacity grow with the weight,
+so the strong trails stand out and the weak ones fade (Plotly, which cannot vary the width
+along a trace, draws at one width the trails whose weight reaches a quarter of the
+strongest one's — <code>MILP</code>'s fractional edges included). <code>SOM</code> reports
+<code>extra["ring"]</code>, an <code>(m, 2)</code> array with the positions of its neurons in the units of
+<code>problem.coords</code> after each epoch, drawn as a closed teal polyline with small markers —
+the elastic ring closing on the cities while the decoded tour (thin) and the best epoch's
+tour (thick) follow it:</p>
+<p align="center">
+  <img src="../../images/som_demo.gif" alt="The SOM ring of 304 neurons closing on the 38 cities of Djibouti" width="480">
+</p>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>python<span class="w"> </span>examples/live_demo.py<span class="w"> </span>--instance<span class="w"> </span>dj38<span class="w"> </span>--solver<span class="w"> </span>SOM<span class="w"> </span>--set<span class="w"> </span><span class="nv">n_iter</span><span class="o">=</span><span class="m">20000</span><span class="w"> </span>--record<span class="w"> </span>docs/images/som_demo.gif<span class="w"> </span>--fps<span class="w"> </span><span class="m">12</span>
+</code></pre></div>
+<p>Viewers ignore keys they do not know, and an event without a key clears that drawing, so
+a callback of your own can carry any structure through <code>extra</code> and still be drawn by the
+three tools when it uses these names. The status line counts them: <code>edges 37</code>, <code>ring 304</code>.</p>
+<h2 id="stop-a-run-interactively">Stop a run interactively<a class="headerlink" href="#stop-a-run-interactively" title="Permanent link">&para;</a></h2>
+<p>Any callback that returns <code>True</code> asks the solver to stop after its current outer
+iteration; the fit then completes normally with <code>stop_reason_ == "callback"</code> and the
+best tour found so far. <code>LivePlot.stop()</code> arms exactly that, for the run in progress (a
+later fit with the same <code>LivePlot</code> starts unarmed).</p>
+<p>Redraws happen on the thread that runs <code>fit</code>, and matplotlib is not thread-safe — the
+reason <code>MultiStart</code> forwards the callback to its inner estimators only with <code>n_jobs=1</code>.
+With a desktop window (macosx, Tk, Qt) <code>fit</code> therefore stays on the main thread and the
+stop comes from the window itself: connect a key handler once the figure exists.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span> <span class="o">=</span> <span class="n">LivePlot</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">watch</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="o">...</span>     <span class="n">stop</span> <span class="o">=</span> <span class="n">live</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="o">...</span>     <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"start"</span><span class="p">:</span>  <span class="c1"># the figure exists now: any key press stops the run</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="o">...</span>         <span class="n">live</span><span class="o">.</span><span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s2">"key_press_event"</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">key_event</span><span class="p">:</span> <span class="n">live</span><span class="o">.</span><span class="n">stop</span><span class="p">())</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="o">...</span>     <span class="k">return</span> <span class="n">stop</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">watch</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span><span class="o">.</span><span class="n">stop_reason_</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="s1">'callback'</span>
+</code></pre></div>
+<p>In a notebook with <code>%matplotlib inline</code> or <code>backend="plotly"</code> the redraws are
+<code>IPython.display</code> calls rather than GUI drawing, so the fit can run in a worker thread
+(the kernel stays responsive) and <code>stop()</code> comes from another cell:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span> <span class="o">=</span> <span class="n">LivePlot</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">worker</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="o">...</span>     <span class="n">target</span><span class="o">=</span><span class="n">sa</span><span class="o">.</span><span class="n">fit</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),),</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"labels"</span><span class="p">:</span> <span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="s2">"callback"</span><span class="p">:</span> <span class="n">live</span><span class="p">}</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="o">...</span> <span class="p">)</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">worker</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>  <span class="c1"># from another cell, a few seconds later  # doctest: +SKIP</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">worker</span><span class="o">.</span><span class="n">join</span><span class="p">();</span> <span class="n">sa</span><span class="o">.</span><span class="n">stop_reason_</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="s1">'callback'</span>
+</code></pre></div>
+<h2 id="maps">Maps<a class="headerlink" href="#maps" title="Permanent link">&para;</a></h2>
+<p>The five road-cost tables of <a class="autorefs autorefs-internal" title="load_barcelona" href="../../api/datasets/#skroute.datasets.load_barcelona"><code>skroute.datasets</code></a>
+carry <code>(latitude, longitude)</code> coordinates. <a class="autorefs autorefs-internal" title="plot_route_map" href="../../api/viz/#skroute.viz.plot_route_map"><code>plot_route_map</code></a>
+draws a solution on OpenStreetMap tiles with Plotly's <code>Scattermap</code>, and <code>map=True</code> does
+the same for <code>LivePlot</code>, <code>Recorder.replay</code> (both then draw with the plotly backend) and
+<code>Recorder.to_plotly</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_barcelona</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_route_map</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">bcn</span> <span class="o">=</span> <span class="n">load_barcelona</span><span class="p">()</span>  <span class="c1"># 19 places, costs in EUR, coords are (lat, lon)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span> <span class="o">=</span> <span class="n">plot_route_map</span><span class="p">(</span><span class="n">ils</span><span class="p">)</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">type</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">],</span> <span class="n">fig</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">map</span><span class="o">.</span><span class="n">style</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="p">([</span><span class="s1">'scattermap'</span><span class="p">,</span> <span class="s1">'scattermap'</span><span class="p">,</span> <span class="s1">'scattermap'</span><span class="p">],</span> <span class="s1">'open-street-map'</span><span class="p">)</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">live</span> <span class="o">=</span> <span class="n">LivePlot</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">"plotly"</span><span class="p">,</span> <span class="nb">map</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_route</span><span class="p">(</span><span class="n">ils</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">[:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># the same route on plain axes: x = longitude</span>
+</code></pre></div>
+<p>Multi-trip solutions get one <code>Scattermap</code> line per trip. The tiles are fetched by the
+browser that renders the figure, so a saved HTML file needs a network connection to
+show the map; the routes themselves are embedded.</p>
+<h2 id="what-each-solver-reports-in-extra">What each solver reports in <code>extra</code><a class="headerlink" href="#what-each-solver-reports-in-extra" title="Permanent link">&para;</a></h2>
+<p>Every event carries the same core fields — <code>solver</code>, <code>stage</code>, <code>iteration</code>, <code>cost</code>
+(the objective of the current tour, <code>nan</code> when the solver has none), <code>best_cost</code>,
+<code>tour</code> and <code>best_tour</code> (label-space open giant tours, depot first), <code>problem</code>, and the
+decoded <code>route</code> and <code>trips</code> of the best tour — plus <code>extra</code>, a dict of solver-specific
+facts. The keys of the <code>"iteration"</code> events (each solver's docstring is the reference):</p>
+<table>
+<thead>
+<tr>
+<th>Solver</th>
+<th><code>extra</code> keys</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SimulatedAnnealing</code></td>
+<td><code>temperature</code>, <code>accepted</code>, <code>n_moves</code></td>
+<td>the level's temperature, proposals accepted in the level, moves tried (<code>"start"</code> carries <code>temperature</code> = <code>t0_</code>)</td>
+</tr>
+<tr>
+<td><code>TabuSearch</code></td>
+<td><code>tenure</code></td>
+<td>the tenure applied in the iteration</td>
+</tr>
+<tr>
+<td><code>Genetic</code></td>
+<td><code>generation</code>, <code>n_evaluations</code>, <code>mean_cost</code>, <code>n_duplicates</code></td>
+<td>generations completed, objective evaluations so far, mean objective of the population, duplicate individuals</td>
+</tr>
+<tr>
+<td><code>AntColony</code></td>
+<td><code>n_ants</code>, <code>iteration_best</code>, <code>deposit</code>, <code>edges</code>, <code>edge_weights</code></td>
+<td>ants per iteration, the iteration-best ant's cost, whose tour reinforced the trail (<code>"global"</code> or <code>"iteration"</code>); the <code>3n</code> strongest trails and their strength in <code>[0, 1]</code> (D31)</td>
+</tr>
+<tr>
+<td><code>IteratedLocalSearch</code></td>
+<td><code>kick</code>, <code>accepted</code>, <code>current_cost</code></td>
+<td>the cut positions of the kicks applied (a list of tuples), whether the candidate replaced the current tour, the current tour's cost</td>
+</tr>
+<tr>
+<td><code>TwoOpt</code>, <code>OrOpt</code>, <code>LocalSearch</code></td>
+<td><code>moves_applied</code>, <code>gain</code></td>
+<td>the listed moves whose descent changed the tour (a list; <code>"start"</code> carries <code>moves</code>, the ones listed), the iteration's total cost change (<code>&lt;= 0</code>)</td>
+</tr>
+<tr>
+<td><code>SOM</code></td>
+<td><code>radius</code>, <code>learning_rate</code>, <code>n_samples</code>, <code>ring</code></td>
+<td>neighbourhood radius and learning rate after the epoch's decay, samples presented (<code>"start"</code> also <code>n_units</code>); the neurons' positions after the epoch, <code>(n_units, 2)</code> in the units of <code>coords</code> (D31)</td>
+</tr>
+<tr>
+<td><code>MILP</code></td>
+<td><code>edges</code>, <code>edge_weights</code>, <code>n_components</code>, <code>lower_bound</code>, <code>objective</code>, <code>n_cuts</code></td>
+<td>the LP support as <code>(label, label)</code> pairs (a list) and the solver's value of each support edge in <code>[0, 1]</code> (D31: drawn as weighted trails), its connected components, the bound, the solve's objective, constraints added so far — one event per cut round</td>
+</tr>
+<tr>
+<td><code>NearestNeighbour</code>, <code>Insertion</code>, <code>ClarkeWright</code>, <code>NRBS</code></td>
+<td><code>edges</code> (<code>ClarkeWright</code> also <code>n_trips</code>, <code>NRBS</code> also <code>n_edges</code>)</td>
+<td>one event per construction step with <code>tour=None</code> and nan costs: the partial path, cycle, trips (and their count) or edge set (and its size) held so far (D31)</td>
+</tr>
+<tr>
+<td><code>MultiStart</code>, <code>EnsembleSimulatedAnnealing</code>, <code>EnsembleGenetic</code></td>
+<td><code>restart</code> on every forwarded inner event; <code>n_restarts</code> on their own <code>"start"</code></td>
+<td>index of the restart that emitted the event</td>
+</tr>
+<tr>
+<td><code>BruteForce</code>, <code>HeldKarp</code></td>
+<td>—</td>
+<td><code>"start"</code> and <code>"end"</code> only</td>
+</tr>
+</tbody>
+</table>
+<p><code>LivePlot</code> puts one scalar fact — <code>bool</code>, <code>int</code>, <code>float</code> or <code>str</code>: <code>temperature</code>, <code>tenure</code>,
+<code>mean_cost</code>, <code>generation</code>, <code>iteration_best</code>, <code>radius</code>, <code>lower_bound</code>... the first present in
+that order of preference, else the first scalar of <code>extra</code> (<code>restart</code> is always shown) — in
+the title and never lists such as <code>kick</code> and <code>moves_applied</code>; the three structures are drawn
+instead and counted in the title. The rows are facts of the solvers, not of this page:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">iteration_keys</span><span class="p">(</span><span class="n">solver</span><span class="p">):</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="o">...</span>     <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">...</span>     <span class="n">solver</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">seen</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">...</span>     <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">seen</span><span class="p">)</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">n_iter</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="p">[</span><span class="s1">'accepted'</span><span class="p">,</span> <span class="s1">'current_cost'</span><span class="p">,</span> <span class="s1">'kick'</span><span class="p">]</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="p">[</span><span class="s1">'accepted'</span><span class="p">,</span> <span class="s1">'n_moves'</span><span class="p">,</span> <span class="s1">'temperature'</span><span class="p">]</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">TwoOpt</span><span class="p">())</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="p">[</span><span class="s1">'gain'</span><span class="p">,</span> <span class="s1">'moves_applied'</span><span class="p">]</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MILP</span><span class="p">,</span> <span class="n">NRBS</span><span class="p">,</span> <span class="n">ClarkeWright</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">ClarkeWright</span><span class="p">()),</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">NRBS</span><span class="p">())</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="p">([</span><span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'n_trips'</span><span class="p">],</span> <span class="p">[</span><span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'n_edges'</span><span class="p">])</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">MILP</span><span class="p">())</span>
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="p">[</span><span class="s1">'edge_weights'</span><span class="p">,</span> <span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'lower_bound'</span><span class="p">,</span> <span class="s1">'n_components'</span><span class="p">,</span> <span class="s1">'n_cuts'</span><span class="p">,</span> <span class="s1">'objective'</span><span class="p">]</span>
+</code></pre></div>
+<p>Writing your own callback is the same one-argument function:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">log_improvements</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">...</span>     <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span> <span class="ow">and</span> <span class="n">event</span><span class="o">.</span><span class="n">iteration</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">...</span>         <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">best_cost</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">event</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">...</span>     <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># True would stop the run</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">log_improvements</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../warm_starts_and_ensembles/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Warm starts and ensembles">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Warm starts and ensembles
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../api/base/" class="md-footer__link md-footer__link--next" aria-label="Next: Base and problem">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Base and problem
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2020-2026 Alberto Rubiales. MIT License.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/arubiales/scikit-route" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/scikit-route/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,3193 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Route optimisation (TSP and multi-trip routing) with a scikit-learn flavoured API and a Cython core">
+      
+      
+      
+        <link rel="canonical" href="https://arubiales.github.io/scikit-route/user_guide/choosing_a_solver/">
+      
+      
+        <link rel="prev" href="../problem_model/">
+      
+      
+        <link rel="next" href="../multi_trip/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Choosing a solver - scikit-route</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#choosing-a-solver" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="scikit-route" class="md-header__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scikit-route
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Choosing a solver
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting_started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../problem_model/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/base/" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration from 1.0
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="scikit-route" class="md-nav__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    scikit-route
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../problem_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The problem model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a solver
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-capability-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The capability table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exact-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exact solvers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exact solvers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bruteforce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BruteForce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#heldkarp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HeldKarp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MILP
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#construction-heuristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Construction heuristics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Construction heuristics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nearestneighbour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NearestNeighbour
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#insertion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Insertion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clarkewright" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ClarkeWright
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nrbs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NRBS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-budget-warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The budget warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#twoopt-oropt-and-localsearch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TwoOpt, OrOpt and LocalSearch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iteratedlocalsearch-the-recommended-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IteratedLocalSearch — the recommended default
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metaheuristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metaheuristics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metaheuristics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simulatedannealing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SimulatedAnnealing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tabusearch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TabuSearch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#genetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genetic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#antcolony" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AntColony
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#som" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SOM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ensembles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ensembles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#size-ceilings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Size ceilings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common pitfalls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measured quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#if-you-want-x-use-y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        If you want X, use Y
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_trip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-trip routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../warm_starts_and_ensembles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warm starts and ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Base and problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/exact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exact solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Construction heuristics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/simulated_annealing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulated annealing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/tabu_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tabu search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/genetic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genetic algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ant_colony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ant colony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/som/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-organising map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ensemble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from 1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to contribute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-capability-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The capability table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exact-solvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exact solvers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exact solvers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bruteforce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BruteForce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#heldkarp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HeldKarp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MILP
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#construction-heuristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Construction heuristics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Construction heuristics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nearestneighbour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NearestNeighbour
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#insertion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Insertion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clarkewright" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ClarkeWright
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nrbs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NRBS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-budget-warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The budget warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local search
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#twoopt-oropt-and-localsearch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TwoOpt, OrOpt and LocalSearch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iteratedlocalsearch-the-recommended-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IteratedLocalSearch — the recommended default
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metaheuristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metaheuristics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metaheuristics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simulatedannealing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SimulatedAnnealing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tabusearch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TabuSearch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#genetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genetic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#antcolony" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AntColony
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#som" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SOM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ensembles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ensembles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#size-ceilings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Size ceilings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common pitfalls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measured quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#if-you-want-x-use-y" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        If you want X, use Y
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="choosing-a-solver">Choosing a solver<a class="headerlink" href="#choosing-a-solver" title="Permanent link">&para;</a></h1>
+<p>scikit-route ships sixteen solvers behind one interface: every one of them takes the
+same <code>fit(X, ...)</code> arguments (see <a href="../problem_model/">the problem model</a>) and fills the
+same fitted attributes (<code>tour_</code>, <code>route_</code>, <code>trips_</code>, <code>cost_</code>, ...). What differs is
+<em>what each solver promises</em>: a certificate of optimality, a tour in microseconds, a
+search that sees the multi-trip budget, or a result you can reproduce bit for bit. This
+page is the decision guide. It starts with the capability table, walks through the five
+families with one runnable example per solver, and closes with a table of "if you want X,
+use Y".</p>
+<p>If you only want an answer: <a class="autorefs autorefs-internal" title="IteratedLocalSearch" href="../../api/local_search/#skroute.local_search.IteratedLocalSearch"><code>IteratedLocalSearch</code></a> is the
+recommended default. It reaches the published optimum on the small bundled instances,
+stays within a few percent on the 1 000-node ones, accepts asymmetric matrices and the
+multi-trip objective, and its result is reproducible from <code>random_state</code> alone.</p>
+<h2 id="the-capability-table">The capability table<a class="headerlink" href="#the-capability-table" title="Permanent link">&para;</a></h2>
+<p>The table below is generated at build time from the solvers' own
+<a class="autorefs autorefs-internal" title="RouterTags
+
+
+  
+      dataclass
+  " href="../../api/base/#skroute.base.RouterTags"><code>RouterTags</code></a>, so it cannot drift from the code. The same table sits
+in the README.</p>
+<table>
+<thead>
+<tr>
+<th>Solver</th>
+<th>Kind</th>
+<th>Exact</th>
+<th>Stochastic</th>
+<th>Multi-trip aware</th>
+<th>Asymmetric</th>
+<th>Needs coordinates</th>
+<th>Max nodes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AntColony</code></td>
+<td>metaheuristic</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>BruteForce</code></td>
+<td>exact</td>
+<td>yes</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>11</td>
+</tr>
+<tr>
+<td><code>ClarkeWright</code></td>
+<td>construction</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>EnsembleGenetic</code></td>
+<td>ensemble</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>EnsembleSimulatedAnnealing</code></td>
+<td>ensemble</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Genetic</code></td>
+<td>metaheuristic</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>HeldKarp</code></td>
+<td>exact</td>
+<td>yes</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>20</td>
+</tr>
+<tr>
+<td><code>Insertion</code></td>
+<td>construction</td>
+<td>no</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>IteratedLocalSearch</code></td>
+<td>local search</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>LocalSearch</code></td>
+<td>local search</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>MILP</code></td>
+<td>exact</td>
+<td>yes</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>300</td>
+</tr>
+<tr>
+<td><code>NRBS</code></td>
+<td>construction</td>
+<td>no</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>NearestNeighbour</code></td>
+<td>construction</td>
+<td>no</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>OrOpt</code></td>
+<td>local search</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>SOM</code></td>
+<td>metaheuristic</td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>SimulatedAnnealing</code></td>
+<td>metaheuristic</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TabuSearch</code></td>
+<td>metaheuristic</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TwoOpt</code></td>
+<td>local search</td>
+<td>no</td>
+<td>no</td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>How to read the columns:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Kind</strong></td>
+<td>the family: <code>exact</code> certifies the optimum, <code>construction</code> builds a tour once, <code>local search</code> improves a tour by moves, <code>metaheuristic</code> escapes local optima, <code>ensemble</code> restarts another solver</td>
+</tr>
+<tr>
+<td><strong>Exact</strong></td>
+<td><code>is_optimal_</code> is set and the tour is provably optimal for the objective the solver accepts</td>
+</tr>
+<tr>
+<td><strong>Stochastic</strong></td>
+<td>the solver has a <code>random_state</code> parameter; it can be wrapped in <a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a></td>
+</tr>
+<tr>
+<td><strong>Multi-trip aware</strong></td>
+<td>the <em>search itself</em> prices every move with the multi-trip objective. A solver that is not budget-aware still returns feasible trips (the base class decodes and prices its tour) but warns that its search ignored <code>max_time_work</code>; an exact solver that is not budget-aware refuses the budget outright</td>
+</tr>
+<tr>
+<td><strong>Asymmetric</strong></td>
+<td>accepts a cost matrix with <code>C[i, j] != C[j, i]</code> (an asymmetric TSP). Only <code>ClarkeWright</code> refuses one</td>
+</tr>
+<tr>
+<td><strong>Needs coordinates</strong></td>
+<td><code>fit(X, coords=...)</code> is mandatory (<code>SOM</code>)</td>
+</tr>
+<tr>
+<td><strong>Max nodes</strong></td>
+<td>a hard cap on <code>n</code>, raised only by passing a larger <code>max_nodes</code></td>
+</tr>
+</tbody>
+</table>
+<p><a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a> is not in the table because it needs an estimator:
+its capabilities are those of the solver it wraps.</p>
+<p>The examples below share two instances from <a class="autorefs autorefs-internal" title="load_tsp" href="../../api/datasets/#skroute.datasets.load_tsp"><code>skroute.datasets</code></a>:
+Western Sahara (<code>wi29</code>, 29 cities, optimum 27603) and Djibouti (<code>dj38</code>, 38 cities,
+optimum 6656). Their <code>distance_matrix()</code> uses the TSPLIB <code>EUC_2D</code> rounding, so costs are
+integers and the published optima apply.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_tsp</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">wi</span><span class="p">,</span> <span class="n">dj</span> <span class="o">=</span> <span class="n">load_tsp</span><span class="p">(</span><span class="s2">"wi29"</span><span class="p">),</span> <span class="n">load_tsp</span><span class="p">(</span><span class="s2">"dj38"</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">C_wi</span><span class="p">,</span> <span class="n">C_dj</span> <span class="o">=</span> <span class="n">wi</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">wi</span><span class="o">.</span><span class="n">depot</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">(</span><span class="mi">27603</span><span class="p">,</span> <span class="mi">6656</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Loader matrices carry no labels</p>
+<p><code>wi.distance_matrix()</code> and the <code>cost</code>/<code>time</code> matrices of the cost loaders are plain
+<code>float64</code> arrays. Pass <code>labels=wi.labels</code> to <code>fit</code>, otherwise <code>tour_</code> and <code>route_</code>
+come back as positions <code>0..n-1</code> instead of the file's ids, and <code>depot=b.depot</code> is
+rejected as "not a label of X". Every example on this page does so.</p>
+</div>
+<h2 id="exact-solvers">Exact solvers<a class="headerlink" href="#exact-solvers" title="Permanent link">&para;</a></h2>
+<p>The three exact solvers set <code>is_optimal_</code> and are the yardstick of the library: every
+heuristic is tested against <code>BruteForce</code> on small instances, and <code>MILP</code> proves the
+published optima of the small Waterloo instances. Details: <a href="../../api/exact/">Exact solvers</a>.</p>
+<h3 id="bruteforce">BruteForce<a class="headerlink" href="#bruteforce" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="BruteForce" href="../../api/exact/#skroute.exact.BruteForce"><code>BruteForce</code></a> enumerates the <span class="arithmatex">\((n-1)!\)</span> giant tours in lexicographic
+order and prices each one with the problem's own decoder. It is therefore the only solver
+that certifies the <strong>multi-trip</strong> optimum: under <code>split="greedy"</code> it is exact over
+greedy-decoded giant tours, under <code>split="optimal"</code> it is exact for the
+distance-constrained multi-trip problem. Its one parameter is <code>max_nodes</code> (default 11):
+<span class="arithmatex">\(10!\)</span> is 3.6 million tours, a few hundredths of a second; every extra node multiplies the
+work by <span class="arithmatex">\(n\)</span>.</p>
+<p>The 4-node example of the README, hand-checkable (the single trip would need 5 h &gt; 4 h, so
+the tour breaks after node 3; trips cost 18 and 20, plus one extra-trip charge of 3):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">BruteForce</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">cost</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">10</span><span class="p">},</span> <span class="mi">2</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">...</span>         <span class="mi">3</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span> <span class="mi">4</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">0</span><span class="p">}}</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hours</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span> <span class="mi">2</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="o">...</span>          <span class="mi">3</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="mi">4</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">0</span><span class="p">}}</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">bf</span> <span class="o">=</span> <span class="n">BruteForce</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">bf</span><span class="o">.</span><span class="n">route_</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">bf</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="n">bf</span><span class="o">.</span><span class="n">n_trips_</span><span class="p">,</span> <span class="n">bf</span><span class="o">.</span><span class="n">is_optimal_</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">41.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">bf</span><span class="o">.</span><span class="n">trip_times_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">BruteForce</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="o">...</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">BruteForce</span> <span class="n">handles</span> <span class="n">at</span> <span class="n">most</span> <span class="mi">11</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">got</span> <span class="mi">29</span><span class="p">;</span> <span class="k">raise</span> <span class="n">max_nodes</span> <span class="n">only</span> <span class="k">if</span> <span class="n">you</span> <span class="n">accept</span> <span class="n">the</span> <span class="n">time</span><span class="o">/</span><span class="n">memory</span> <span class="n">cost</span>
+</code></pre></div>
+<p>Pick it when <span class="arithmatex">\(n \le 11\)</span> and you need a certificate, in particular for the multi-trip
+objective, where nothing else certifies anything.</p>
+<h3 id="heldkarp">HeldKarp<a class="headerlink" href="#heldkarp" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="HeldKarp" href="../../api/exact/#skroute.exact.HeldKarp"><code>HeldKarp</code></a> is the Bellman–Held–Karp dynamic programme over subsets:
+<span class="arithmatex">\(O(2^{n-1} n^2)\)</span> time and <span class="arithmatex">\(O(2^{n-1} n)\)</span> memory (about 90 MB at the default
+<code>max_nodes=20</code>). It reads every arc directionally, so asymmetric matrices are solved
+exactly, but it certifies the <strong>plain tour only</strong>: under a budget it raises instead of
+returning a misleading "optimal" result.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeldKarp</span><span class="p">,</span> <span class="n">MILP</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sub</span> <span class="o">=</span> <span class="n">load_tsp</span><span class="p">(</span><span class="s2">"wi29"</span><span class="p">,</span> <span class="n">n_nodes</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>          <span class="c1"># a fixed 12-city subsample (random_state=2019 by default)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hk</span> <span class="o">=</span> <span class="n">HeldKarp</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">sub</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">milp</span> <span class="o">=</span> <span class="n">MILP</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">sub</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hk</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="n">milp</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="n">hk</span><span class="o">.</span><span class="n">is_optimal_</span><span class="p">,</span> <span class="n">hk</span><span class="o">.</span><span class="n">n_nodes_</span><span class="p">,</span> <span class="n">sub</span><span class="o">.</span><span class="n">optimal_tour_length</span> <span class="ow">is</span> <span class="kc">None</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">HeldKarp</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="o">...</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">HeldKarp</span> <span class="n">optimises</span> <span class="n">the</span> <span class="n">plain</span> <span class="n">tour</span> <span class="ow">and</span> <span class="n">cannot</span> <span class="n">certify</span> <span class="n">a</span> <span class="n">multi</span><span class="o">-</span><span class="n">trip</span> <span class="n">optimum</span><span class="p">;</span> <span class="n">use</span> <span class="n">BruteForce</span> <span class="p">(</span><span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">11</span><span class="p">)</span> <span class="ow">or</span> <span class="n">a</span> <span class="n">heuristic</span> <span class="n">solver</span>
+</code></pre></div>
+<p>In practice <code>MILP</code> solves the same sizes instantly, so <code>HeldKarp</code> is mostly a reference
+implementation; it is the right choice when you want an exact answer with no external
+solver in the loop.</p>
+<h3 id="milp">MILP<a class="headerlink" href="#milp" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="MILP" href="../../api/exact/#skroute.exact.MILP"><code>MILP</code></a> is the Dantzig–Fulkerson–Johnson integer programme solved by
+HiGHS through <code>scipy.optimize.milp</code>: binary edge variables (symmetric) or arc variables
+(asymmetric) with degree constraints, and subtour-elimination cuts added <em>lazily</em> — each
+solve is split into connected components and one cut per component is appended until
+the solution is a single Hamiltonian cycle. That final solution is a <strong>proven optimum</strong>.</p>
+<p>Key parameters: <code>time_limit</code> (default 60 s; <code>None</code> runs until proven), <code>max_nodes</code>
+(default 300; realistic sizes within a minute are about 200 symmetric or 60 asymmetric
+nodes) and <code>mip_rel_gap</code> (0.0 by default: every relaxation is solved to proven
+optimality). Beyond <code>is_optimal_</code> it exposes <code>lower_bound_</code>, <code>gap_</code>, <code>n_solves_</code> and
+<code>n_cuts_</code>. When the budget runs out the fit still returns a valid tour, with
+<code>is_optimal_ == False</code> and the gap to the best bound seen.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">milp</span> <span class="o">=</span> <span class="n">MILP</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">int</span><span class="p">(</span><span class="n">milp</span><span class="o">.</span><span class="n">cost_</span><span class="p">)</span> <span class="o">==</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span> <span class="o">==</span> <span class="mi">27603</span><span class="p">,</span> <span class="n">milp</span><span class="o">.</span><span class="n">is_optimal_</span><span class="p">,</span> <span class="n">milp</span><span class="o">.</span><span class="n">gap_</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">milp</span><span class="o">.</span><span class="n">lower_bound_</span> <span class="o">==</span> <span class="n">milp</span><span class="o">.</span><span class="n">cost_</span> <span class="ow">and</span> <span class="n">milp</span><span class="o">.</span><span class="n">n_solves_</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">milp</span><span class="o">.</span><span class="n">n_cuts_</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kc">True</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hurried</span> <span class="o">=</span> <span class="n">MILP</span><span class="p">(</span><span class="n">time_limit</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>   <span class="c1"># far too little time: a tour, no certificate</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hurried</span><span class="o">.</span><span class="n">is_optimal_</span><span class="p">,</span> <span class="n">hurried</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&gt;=</span> <span class="n">milp</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">hurried</span><span class="o">.</span><span class="n">gap_</span> <span class="o">&lt;=</span> <span class="mf">1.0</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>Pick it whenever you need a certificate above 11 nodes (plain tour, symmetric or
+asymmetric). <code>docs/benchmarks.md</code> records <code>qa194</code> (194 cities) proved in about 40 s.</p>
+<h2 id="construction-heuristics">Construction heuristics<a class="headerlink" href="#construction-heuristics" title="Permanent link">&para;</a></h2>
+<p>Construction heuristics build a tour from scratch, deterministically, in
+<span class="arithmatex">\(O(n^2)\)</span> to <span class="arithmatex">\(O(n^2 \log n)\)</span>: no <code>random_state</code>, no <code>history_</code>. Their results range from
+the optimum itself (farthest insertion on dj38) to 46 % above it (nearest neighbour on
+the same instance; see the measured table below), so they are baselines and
+<strong>warm starts</strong> (<code>init=est.tour_</code>) rather than answers. Details:
+<a href="../../api/construction/">Construction heuristics</a>.</p>
+<h3 id="nearestneighbour">NearestNeighbour<a class="headerlink" href="#nearestneighbour" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="NearestNeighbour" href="../../api/construction/#skroute.construction.NearestNeighbour"><code>NearestNeighbour</code></a> walks from the depot to the closest
+unvisited node until every node is visited. It has no parameters; it is the default
+<code>init</code> of every iterative solver. Expect 25–45 % above the optimum on Euclidean instances
+(<code>docs/benchmarks.md</code>: 31.8 % on wi29, 46.4 % on dj38).</p>
+<h3 id="insertion">Insertion<a class="headerlink" href="#insertion" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="Insertion" href="../../api/construction/#skroute.construction.Insertion"><code>Insertion</code></a> grows the tour one node at a time, inserting each at its
+cheapest position. <code>strategy</code> picks the next node: <code>"farthest"</code> (default; the node
+farthest from the partial tour — fixes the global shape first and is the best of the
+three on Euclidean data), <code>"cheapest"</code> (smallest insertion cost) or <code>"nearest"</code>. Every
+insertion cost is read in driving direction, so it is exact arithmetic on asymmetric
+matrices too. There are no <code>FarthestInsertion</code>/<code>CheapestInsertion</code> classes.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">Insertion</span><span class="p">,</span> <span class="n">NearestNeighbour</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">far</span> <span class="o">=</span> <span class="n">Insertion</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>                    <span class="c1"># strategy="farthest"</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">cheap</span> <span class="o">=</span> <span class="n">Insertion</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"cheapest"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">far</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.25</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">far</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="n">cheap</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">nn</span> <span class="o">=</span> <span class="n">NearestNeighbour</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">far</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="n">nn</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="kc">True</span>
+</code></pre></div>
+<h3 id="clarkewright">ClarkeWright<a class="headerlink" href="#clarkewright" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="ClarkeWright" href="../../api/construction/#skroute.construction.ClarkeWright"><code>ClarkeWright</code></a> is the parallel savings heuristic: every customer
+starts as its own out-and-back trip, the savings
+<span class="arithmatex">\(s_{ij} = C_{di} + C_{jd} - \lambda\, C_{ij}\)</span> are sorted in descending order and two
+trips are merged at their endpoints whenever the merged trip is still feasible. The
+parameter <code>shape</code> is <span class="arithmatex">\(\lambda\)</span> (1.0 is the classical rule). Two things make it special
+among construction heuristics: it is <strong>budget-aware</strong> — under <code>max_time_work</code> a merge is
+refused when the merged closed trip would not fit, so the trips it builds are the ones it
+optimised — and it requires a <strong>symmetric</strong> cost matrix.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClarkeWright</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">cw</span> <span class="o">=</span> <span class="n">ClarkeWright</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">cw</span><span class="o">.</span><span class="n">route_</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">cw</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="n">cw</span><span class="o">.</span><span class="n">n_trips_</span>        <span class="c1"># the BruteForce optimum of the 4-node example</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">41.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ClarkeWright</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="o">...</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">ClarkeWright</span> <span class="n">requires</span> <span class="n">a</span> <span class="n">symmetric</span> <span class="n">cost</span> <span class="n">matrix</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">HeldKarp</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">tour_</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">HeldKarp</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="o">.</span><span class="n">cost_</span>   <span class="c1"># the reverse direction would cost 36</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="mf">4.0</span><span class="p">)</span>
+</code></pre></div>
+<p>Pick it as the construction heuristic for a multi-trip instance (the other three build a
+plain tour and let the decoder split it).</p>
+<h3 id="nrbs">NRBS<a class="headerlink" href="#nrbs" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="NRBS" href="../../api/construction/#skroute.construction.NRBS"><code>NRBS</code></a> (Node Ranking Based on Stats) is the construction heuristic of
+scikit-route 1.0 (2020), ported faithfully: every node gets a priority from the mean and
+standard deviation of its row of <code>C</code>, and two passes over the priority order link each
+node to its highest-scoring candidate without closing a premature cycle. Its five
+exponents (<code>mean_priority</code>, <code>std_priority</code>, <code>mean_connection</code>, <code>std_connection</code>,
+<code>distance_weight</code>) default to <code>1.0</code> and must be <code>&gt;= 0</code>. It is kept for continuity with
+1.0 results (Barcelona with every exponent at 0.5 reproduces the pinned 1.0 tour); for a
+new project prefer <code>Insertion</code> or <code>ClarkeWright</code>.</p>
+<h3 id="the-budget-warning">The budget warning<a class="headerlink" href="#the-budget-warning" title="Permanent link">&para;</a></h3>
+<p>Under <code>max_time_work</code>, <code>NearestNeighbour</code>, <code>Insertion</code> and <code>NRBS</code> build a plain tour and
+hand it to the decoder. The trips you get back fit the budget and are priced correctly,
+but the search did not see the objective, and <code>fit</code> says so with a <code>UserWarning</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">caught</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="o">...</span>     <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">"always"</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="o">...</span>     <span class="n">nn</span> <span class="o">=</span> <span class="n">NearestNeighbour</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">message</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">caught</span> <span class="k">if</span> <span class="s2">"max_time_work"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">message</span><span class="p">)][</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">NearestNeighbour</span> <span class="n">ignores</span> <span class="n">max_time_work</span> <span class="n">during</span> <span class="n">its</span> <span class="n">search</span><span class="p">;</span> <span class="n">the</span> <span class="n">result</span> <span class="ow">is</span> <span class="n">still</span> <span class="n">split</span> <span class="n">into</span> <span class="n">trips</span> <span class="ow">and</span> <span class="n">priced</span> <span class="n">under</span> <span class="n">the</span> <span class="n">multi</span><span class="o">-</span><span class="n">trip</span> <span class="n">objective</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">route_</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">4.0</span><span class="p">))</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="mf">41.0</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="local-search">Local search<a class="headerlink" href="#local-search" title="Permanent link">&para;</a></h2>
+<p>The local searches start from <code>init</code> (the nearest-neighbour tour by default, or the
+<code>tour_</code>/<code>route_</code> of another solver) and apply moves while they shorten the tour. All four
+are budget-aware and accept asymmetric matrices. On a symmetric plain TSP they use
+<span class="arithmatex">\(O(1)\)</span> move deltas, candidate lists and don't-look bits and scale to tens of thousands of
+nodes; asymmetric matrices and the multi-trip objective take the full-evaluation path,
+<span class="arithmatex">\(O(n)\)</span> per candidate move. Details: <a href="../../api/local_search/">Local search</a>.</p>
+<h3 id="twoopt-oropt-and-localsearch">TwoOpt, OrOpt and LocalSearch<a class="headerlink" href="#twoopt-oropt-and-localsearch" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="TwoOpt" href="../../api/local_search/#skroute.local_search.TwoOpt"><code>TwoOpt</code></a> reverses a segment of the tour when that removes a crossing;
+<a class="autorefs autorefs-internal" title="OrOpt" href="../../api/local_search/#skroute.local_search.OrOpt"><code>OrOpt</code></a> relocates a segment of one to <code>max_segment</code> (default 3)
+consecutive nodes; <a class="autorefs autorefs-internal" title="LocalSearch" href="../../api/local_search/#skroute.local_search.LocalSearch"><code>LocalSearch</code></a> alternates the descents listed in
+<code>moves</code> (default <code>("two_opt", "or_opt")</code>) until neither improves. The three are
+<strong>deterministic</strong> (no <code>random_state</code>; <code>init="random"</code> is refused) and share three knobs:</p>
+<ul>
+<li><code>n_candidates</code> (default 10): each node only tries moves towards its <span class="arithmatex">\(k\)</span> nearest
+  neighbours. <code>None</code> scans the full neighbourhood — a better local optimum at small <span class="arithmatex">\(n\)</span>
+  for a higher cost per pass.</li>
+<li><code>max_passes</code> (default 50): the maximum number of outer iterations.</li>
+<li><code>first_improvement</code> (2-opt only): apply the first improving move of a node, or the best.</li>
+</ul>
+<p><strong>Iteration accounting.</strong> One outer iteration is one pass of each listed descent over the
+active nodes; <code>history_[k]</code> is the cost <em>after</em> iteration <span class="arithmatex">\(k\)</span> (non-increasing, never
+above the cost of <code>init</code>), <code>n_iter_ == len(history_)</code> and <code>stop_reason_</code> is
+<code>"converged"</code> (a pass that started with every node active changed nothing) or
+<code>"max_iter"</code>. These are the only two values the descents emit.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TwoOpt</span><span class="p">,</span> <span class="n">OrOpt</span><span class="p">,</span> <span class="n">LocalSearch</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">two</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span> <span class="n">ls</span> <span class="o">=</span> <span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span> <span class="k">for</span> <span class="n">est</span> <span class="ow">in</span> <span class="p">(</span><span class="n">TwoOpt</span><span class="p">(),</span> <span class="n">OrOpt</span><span class="p">(),</span> <span class="n">LocalSearch</span><span class="p">()))</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ls</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.12</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span> <span class="ow">and</span> <span class="n">ls</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="nb">min</span><span class="p">(</span><span class="n">two</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="n">oo</span><span class="o">.</span><span class="n">cost_</span><span class="p">)</span>   <span class="c1"># the latter: on this instance</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kc">True</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">two</span><span class="o">.</span><span class="n">stop_reason_</span><span class="p">,</span> <span class="n">two</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">two</span><span class="o">.</span><span class="n">history_</span><span class="p">),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">two</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">(</span><span class="s1">'converged'</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">two</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">NearestNeighbour</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">cost_</span>   <span class="c1"># never worse than init</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="kc">True</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">TwoOpt</span><span class="p">(</span><span class="n">n_candidates</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="n">two</span><span class="o">.</span><span class="n">cost_</span>   <span class="c1"># full neighbourhood</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Pick <code>LocalSearch</code> when you need a decent tour in milliseconds on a large instance, or as
+the polish of a tour that came from elsewhere. <code>TwoOpt</code> and <code>OrOpt</code> alone are mainly
+useful to study the moves; Or-opt by itself leaves crossings that 2-opt removes.</p>
+<h3 id="iteratedlocalsearch-the-recommended-default">IteratedLocalSearch — the recommended default<a class="headerlink" href="#iteratedlocalsearch-the-recommended-default" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="IteratedLocalSearch" href="../../api/local_search/#skroute.local_search.IteratedLocalSearch"><code>IteratedLocalSearch</code></a> descends to a local optimum, then
+repeats: <em>kick</em> the incumbent, descend again, accept the new local optimum when it is
+better, and remember the best tour seen. The kick is a double bridge
+(<code>A B C D -&gt; A C B D</code>), which no 2-opt or Or-opt move can undo, so every iteration
+explores a genuinely new basin.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n_iter</code></td>
+<td>1000</td>
+<td>maximum kick + descent iterations (<code>"max_iter"</code>)</td>
+</tr>
+<tr>
+<td><code>patience</code></td>
+<td>100</td>
+<td>stop after this many iterations without improving the best tour (<code>"patience"</code>)</td>
+</tr>
+<tr>
+<td><code>perturbation_strength</code></td>
+<td>1</td>
+<td>kicks per iteration</td>
+</tr>
+<tr>
+<td><code>acceptance</code></td>
+<td><code>"better"</code></td>
+<td><code>"metropolis"</code> also accepts a worse local optimum with probability <span class="arithmatex">\(e^{-\Delta/T}\)</span> at fixed <code>temperature</code> (default 0.5 % of the initial cost)</td>
+</tr>
+<tr>
+<td><code>local_search</code></td>
+<td><code>("two_opt", "or_opt")</code></td>
+<td>the descents run after every kick; <code>None</code> leaves a random walk of kicks</td>
+</tr>
+<tr>
+<td><code>n_candidates</code>, <code>init</code>, <code>time_limit</code>, <code>random_state</code>, <code>verbose</code></td>
+<td></td>
+<td>as everywhere</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">IteratedLocalSearch</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.03</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span>        <span class="c1"># the fast-tier tolerance of the test-suite</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kc">True</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ils</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"patience"</span><span class="p">,</span> <span class="s2">"max_iter"</span><span class="p">},</span> <span class="n">ils</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ils</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">ils</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">ils</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="n">ils</span><span class="o">.</span><span class="n">cost_</span>   <span class="c1"># best-so-far</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Pick it first. <code>docs/benchmarks.md</code> measures it at the optimum on wi29 and dj38, 0.27 %
+above on qa194 and 1.19 % on lu980 (980 cities, 0.25 s), the best quality-per-second of
+the library. On asymmetric or multi-trip problems the confirming sweep after every kick
+costs <span class="arithmatex">\(O(n^2 k)\)</span>, so keep to a few hundred nodes at the default <code>n_iter</code> or set
+<code>time_limit</code>.</p>
+<h2 id="metaheuristics">Metaheuristics<a class="headerlink" href="#metaheuristics" title="Permanent link">&para;</a></h2>
+<p>The metaheuristics trade time for the ability to escape local optima. All of them are
+stochastic (seed them with <code>random_state</code>), iterative (<code>history_</code> is the best-so-far cost
+per outer iteration) and — except <code>SOM</code> — budget-aware.</p>
+<h3 id="simulatedannealing">SimulatedAnnealing<a class="headerlink" href="#simulatedannealing" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="SimulatedAnnealing" href="../../api/simulated_annealing/#skroute.metaheuristics.SimulatedAnnealing"><code>SimulatedAnnealing</code></a> walks the space of giant tours with
+random proposals drawn from <code>moves</code> (<code>("two_opt", "or_opt", "swap")</code> by default): a
+downhill move is always accepted, an uphill one with probability <span class="arithmatex">\(e^{-\Delta/T}\)</span>. One
+outer iteration is one temperature level of <code>n_moves</code> proposals (default <span class="arithmatex">\(10n\)</span>), after
+which <span class="arithmatex">\(T \leftarrow \alpha T\)</span> (<code>alpha=0.995</code>). <code>t0="auto"</code> prices 1 000 random
+proposals on the initial tour and sets <span class="arithmatex">\(T_0\)</span> so that the median uphill move is accepted
+with probability one half; <code>t_min="auto"</code> is <span class="arithmatex">\(10^{-4} T_0\)</span>, which makes the number of
+levels <span class="arithmatex">\(\lceil \ln 10^4 / -\ln \alpha \rceil = 1838\)</span> whatever the instance. The best
+tour is kept in its own buffer, so <code>history_[-1]</code> equals <code>cost_</code> exactly.</p>
+<p><code>patience</code> is <code>None</code> by default on purpose: with a calibrated <span class="arithmatex">\(T_0\)</span> the hot phase is
+non-improving by design (the current cost first drops below the nearest-neighbour start
+after several hundred levels), so a small patience applied from level 0 would return the
+start tour. When you set it, the count starts only once the current cost has first
+fallen below the initial cost.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedAnnealing</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.03</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">sa</span><span class="o">.</span><span class="n">t0_</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span><span class="o">.</span><span class="n">stop_reason_</span><span class="p">,</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_iter_</span>                    <span class="c1"># T fell below t_min after ln(1e4) / -ln(0.995) levels</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">(</span><span class="s1">'converged'</span><span class="p">,</span> <span class="mi">1838</span><span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Pick it for multi-trip instances where you want to trade time for quality: its random
+proposals are priced with the full objective, and <code>MultiStart(SimulatedAnnealing())</code>
+uses every core (<code>docs/benchmarks.md</code>: at the optimum on wi29/dj38, 2.4 % on qa194,
+7.0 % on lu980).</p>
+<h3 id="tabusearch">TabuSearch<a class="headerlink" href="#tabusearch" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="TabuSearch" href="../../api/tabu_search/#skroute.metaheuristics.TabuSearch"><code>TabuSearch</code></a> applies, every iteration, the <em>best admissible</em> move
+of a candidate neighbourhood (2-opt reversals and Or-opt relocations that join a node to
+one of its <code>n_candidates</code> nearest neighbours) — even when it worsens the tour — and
+forbids re-adding the edges that move removed for <code>tenure</code> iterations. A tabu move is
+still allowed when it beats the best tour so far (aspiration). <code>tenure="auto"</code> redraws
+the tenure every iteration uniformly from <span class="arithmatex">\([\lceil\sqrt{n}\rceil, 2\lceil\sqrt{n}\rceil]\)</span>
+(Taillard's robust tabu search); an <code>int</code> fixes it. <code>n_iter</code> (1000) and <code>patience</code> (200)
+bound the run. The tabu attributes live in an <code>int32</code> <code>(n, n)</code> matrix, which puts the
+practical ceiling at about 5 000 nodes (100 MB).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TabuSearch</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ts</span> <span class="o">=</span> <span class="n">TabuSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ts</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.08</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"max_iter"</span><span class="p">,</span> <span class="s2">"patience"</span><span class="p">,</span> <span class="s2">"time_limit"</span><span class="p">}</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ts</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">history_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="n">ts</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Pick it when simulated annealing stalls on a structured instance: its systematic
+best-move scan is deterministic given the tenure draws and behaves well on asymmetric
+matrices (where a reversal makes every arc of the reversed span tabu).</p>
+<h3 id="genetic">Genetic<a class="headerlink" href="#genetic" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="Genetic" href="../../api/genetic/#skroute.metaheuristics.Genetic"><code>Genetic</code></a> evolves a population of <code>pop_size</code> giant tours for up to
+<code>n_generations</code>: tournament selection (<code>tournament_size</code>), a real permutation crossover
+(<code>crossover="ox"</code> order crossover or <code>"pmx"</code> partially mapped, with probability
+<code>p_crossover</code>), a mutation (<code>"inversion"</code>, <code>"swap"</code> or <code>"insertion"</code>, probability
+<code>p_mutation</code>), <code>n_elite</code> parents copied unchanged, and exact-duplicate children mutated
+once more. The fitness is the problem objective itself, so a budget steers the
+population directly. The plain GA is the weakest metaheuristic of the library on large
+instances (<code>docs/benchmarks.md</code>: 9 % above the optimum on dj38, 16 % on qa194); the
+<strong>memetic</strong> configuration <code>local_search=("two_opt",)</code>, which polishes every child with a
+2-opt descent, is competitive with <code>IteratedLocalSearch</code> (0.32 % on qa194, 0.67 % on
+lu980) at a much higher cost per generation.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">Genetic</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ga</span> <span class="o">=</span> <span class="n">Genetic</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">memetic</span> <span class="o">=</span> <span class="n">Genetic</span><span class="p">(</span><span class="n">local_search</span><span class="o">=</span><span class="p">(</span><span class="s2">"two_opt"</span><span class="p">,),</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ga</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.15</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">memetic</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.05</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ga</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"max_iter"</span><span class="p">,</span> <span class="s2">"patience"</span><span class="p">,</span> <span class="s2">"time_limit"</span><span class="p">},</span> <span class="n">memetic</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">memetic</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>Pick the memetic form when you want a population-based search (for instance to harvest
+several good tours from <code>estimators_</code> of a <code>MultiStart</code>); pick the plain form only for
+teaching or for 1.0 continuity.</p>
+<h3 id="antcolony">AntColony<a class="headerlink" href="#antcolony" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="AntColony" href="../../api/ant_colony/#skroute.metaheuristics.AntColony"><code>AntColony</code></a> is a MAX–MIN Ant System: every iteration <code>n_ants</code> ants
+(default <span class="arithmatex">\(\min(n, 50)\)</span>) build tours from the depot by a roulette wheel over the unvisited
+nodes of their <code>n_candidates</code> (20) nearest-neighbour list, weighting node <span class="arithmatex">\(j\)</span> by
+<span class="arithmatex">\(\tau_{ij}^{\alpha} (1/C_{ij})^{\beta}\)</span>; each tour is polished by <code>local_search</code>
+(<code>("two_opt",)</code> by default) and priced with the problem objective; the pheromone
+evaporates (<code>rho=0.02</code>) and the iteration-best ant — the best-so-far ant every fifth
+iteration — deposits <span class="arithmatex">\(1/\text{cost}\)</span> on its arcs, with the trail clipped to
+<span class="arithmatex">\([\tau_{\max}/2n, \tau_{\max}]\)</span> so the colony never stagnates. Three <code>(n, n)</code> matrices
+besides the cost matrix bound the practical size to a few thousand nodes; the trail is
+exposed as <code>pheromone_</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">AntColony</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aco</span> <span class="o">=</span> <span class="n">AntColony</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aco</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.08</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">aco</span><span class="o">.</span><span class="n">pheromone_</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">29</span><span class="p">,</span> <span class="mi">29</span><span class="p">)</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">aco</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"max_iter"</span><span class="p">,</span> <span class="s2">"patience"</span><span class="p">,</span> <span class="s2">"time_limit"</span><span class="p">}</span> <span class="ow">and</span> <span class="n">aco</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">aco</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="kc">True</span>
+</code></pre></div>
+<p>Pick it when you want diversity: <code>docs/benchmarks.md</code> measures it at 1.7 % on qa194 and
+5.7 % on lu980 with the defaults, and the pheromone matrix is a readable summary of which
+arcs the colony believes in.</p>
+<h3 id="som">SOM<a class="headerlink" href="#som" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="SOM" href="../../api/som/#skroute.metaheuristics.SOM"><code>SOM</code></a> is the neural approach: a one-dimensional Kohonen ring of <code>n_units</code>
+neurons (default <span class="arithmatex">\(8n\)</span>) is pulled towards the cities one random city at a time, with a
+Gaussian neighbourhood of standard deviation <code>radius</code> (default <code>n_units / 10</code>) that
+shrinks by <code>radius_decay</code> while <code>learning_rate</code> shrinks by <code>lr_decay</code>; reading the ring
+in order gives the tour. It is the one solver that <strong>needs coordinates</strong>
+(<code>fit(X, coords=...)</code>), it never reads the cost matrix during its search (the matrix
+prices the tour decoded after every epoch, which is what <code>history_</code> records), and it is
+<strong>not budget-aware</strong>: under <code>max_time_work</code> it warns and its tour is split afterwards.
+<code>n_iter</code> counts samples, grouped in epochs of <code>n_iter // 100</code>; the run stops by
+<code>"converged"</code> when the radius falls below one ring position or the learning rate below
+<span class="arithmatex">\(10^{-3}\)</span>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SOM</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">som</span> <span class="o">=</span> <span class="n">SOM</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">wi</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">som</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.15</span> <span class="o">*</span> <span class="n">wi</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="n">som</span><span class="o">.</span><span class="n">stop_reason_</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"converged"</span><span class="p">,</span> <span class="s2">"max_iter"</span><span class="p">}</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">som</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">som</span><span class="o">.</span><span class="n">history_</span><span class="p">)</span> <span class="ow">and</span> <span class="n">som</span><span class="o">.</span><span class="n">n_samples_</span> <span class="o">&lt;=</span> <span class="n">som</span><span class="o">.</span><span class="n">n_iter</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="kc">True</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SOM</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_wi</span><span class="p">)</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="o">...</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">SOM</span> <span class="n">needs</span> <span class="n">node</span> <span class="n">coordinates</span><span class="p">:</span> <span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">coords</span><span class="o">=...</span><span class="p">)</span>
+</code></pre></div>
+<p>Pick it when you have planar coordinates and want a geometric, visualisable search; for
+quality per second the local searches win.</p>
+<h2 id="ensembles">Ensembles<a class="headerlink" href="#ensembles" title="Permanent link">&para;</a></h2>
+<p><a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a> runs any stochastic solver from <code>n_restarts</code>
+independent seeds — in parallel with <code>n_jobs</code>, threads by default — and keeps the best
+tour; the result is identical for any <code>n_jobs</code>. <a class="autorefs autorefs-internal" title="EnsembleGenetic" href="../../api/ensemble/#skroute.ensemble.EnsembleGenetic"><code>EnsembleGenetic</code></a>
+and <a class="autorefs autorefs-internal" title="EnsembleSimulatedAnnealing" href="../../api/ensemble/#skroute.ensemble.EnsembleSimulatedAnnealing"><code>EnsembleSimulatedAnnealing</code></a> are the 1.0
+ensembles kept as thin wrappers over it. The
+<a href="../warm_starts_and_ensembles/">warm starts and ensembles</a> page covers them in depth.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiStart</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C_dj</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">cost_</span> <span class="o">&lt;=</span> <span class="mf">1.03</span> <span class="o">*</span> <span class="n">dj</span><span class="o">.</span><span class="n">optimal_tour_length</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">estimators_</span><span class="p">),</span> <span class="n">ms</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="size-ceilings">Size ceilings<a class="headerlink" href="#size-ceilings" title="Permanent link">&para;</a></h2>
+<p>Every solver of 2.0 works on a dense <code>float64</code> <code>(n, n)</code> matrix, so the ceiling shared by
+all of them is memory: about <strong>20 000 nodes</strong> (3.2 GB). The four bundled instances above
+that size can be read and subsampled (<code>load_tsp(name, n_nodes=5000)</code>) but not solved
+whole. Within that ceiling:</p>
+<table>
+<thead>
+<tr>
+<th>Solver</th>
+<th>Practical limit</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BruteForce</code></td>
+<td>11 nodes</td>
+<td><span class="arithmatex">\((n-1)!\)</span> tours</td>
+</tr>
+<tr>
+<td><code>HeldKarp</code></td>
+<td>20 nodes</td>
+<td><span class="arithmatex">\(2^{n-1}\)</span> subsets, ~90 MB of tables</td>
+</tr>
+<tr>
+<td><code>MILP</code></td>
+<td>~200 symmetric / ~60 asymmetric nodes within a minute; hard cap 300</td>
+<td>integer programme with lazy cuts</td>
+</tr>
+<tr>
+<td><code>TabuSearch</code></td>
+<td>~5 000 nodes</td>
+<td><code>int32</code> tabu matrix (100 MB)</td>
+</tr>
+<tr>
+<td><code>AntColony</code></td>
+<td>a few thousand nodes</td>
+<td>three extra <code>(n, n)</code> matrices</td>
+</tr>
+<tr>
+<td><code>SimulatedAnnealing</code>, <code>IteratedLocalSearch</code>, <code>TabuSearch</code>, <code>Genetic</code> under a budget or on an asymmetric matrix</td>
+<td>a few hundred to ~2 000 nodes</td>
+<td>no <span class="arithmatex">\(O(1)\)</span> delta exists: every move is re-priced in <span class="arithmatex">\(O(n)\)</span></td>
+</tr>
+<tr>
+<td><code>LocalSearch</code>, <code>TwoOpt</code>, <code>OrOpt</code>, <code>IteratedLocalSearch(time_limit=...)</code> on a symmetric plain TSP</td>
+<td>the memory ceiling</td>
+<td><span class="arithmatex">\(O(1)\)</span> deltas, candidate lists, don't-look bits</td>
+</tr>
+</tbody>
+</table>
+<p><code>fit_time_</code> records the seconds spent in the search, so you can measure your own
+instance before scaling up.</p>
+<h2 id="common-pitfalls">Common pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<p>Four mistakes that every solver catches for you, with the messages you will see. The
+first one is the reason <code>time_matrix</code> is keyword-only: 1.0 took the two matrices
+positionally, so a migrated call that kept the old order would swap them silently and
+price hours as euros.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedAnnealing</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_barcelona</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">bcn</span> <span class="o">=</span> <span class="n">load_barcelona</span><span class="p">()</span>                     <span class="c1"># cost in EUR, time in hours, depot 10000007</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">)</span>          <span class="c1"># positional time matrix</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="o">...</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="ne">TypeError</span><span class="p">:</span> <span class="o">...</span><span class="n">fit</span><span class="p">()</span> <span class="n">takes</span> <span class="mi">2</span> <span class="n">positional</span> <span class="n">arguments</span> <span class="n">but</span> <span class="mi">3</span> <span class="o">...</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">)</span>  <span class="c1"># a budget needs durations</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="o">...</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">max_time_work</span> <span class="n">given</span> <span class="n">but</span> <span class="n">no</span> <span class="n">time_matrix</span><span class="p">;</span> <span class="k">pass</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">X</span> <span class="n">to</span> <span class="n">use</span> <span class="n">the</span> <span class="n">cost</span> <span class="n">matrix</span> <span class="k">as</span> <span class="n">durations</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">)</span>                       <span class="c1"># loader matrix without labels=</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>    <span class="o">...</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">depot</span> <span class="mi">10000007</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">a</span> <span class="n">label</span> <span class="n">of</span> <span class="n">X</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">BruteForce</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>              <span class="c1"># nodes 3 and 4 need 4 h round trips</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>    <span class="o">...</span>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="n">skroute</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InfeasibleProblemError</span><span class="p">:</span> <span class="n">nodes</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="n">cannot</span> <span class="n">be</span> <span class="n">served</span> <span class="ow">in</span> <span class="n">one</span> <span class="n">trip</span><span class="p">:</span> <span class="n">depot</span> <span class="nb">round</span> <span class="n">trip</span> <span class="n">exceeds</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="o">...</span>                                             <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">12.83</span><span class="p">,</span> <span class="n">people</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">int</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">depot_</span><span class="p">),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">8.0</span><span class="p">)),</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_trips_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">trips_</span><span class="p">)</span>
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="p">(</span><span class="mi">10000007</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p><a class="autorefs autorefs-internal" title="InfeasibleProblemError" href="../../api/base/#skroute.exceptions.InfeasibleProblemError"><code>InfeasibleProblemError</code></a> is a <code>ValueError</code>
+raised before any search runs: a node whose round trip from the depot exceeds the budget
+can never be served, whatever the solver. The multi-trip objective itself is the subject
+of <a href="../multi_trip/">multi-trip routing</a>.</p>
+<h2 id="measured-quality">Measured quality<a class="headerlink" href="#measured-quality" title="Permanent link">&para;</a></h2>
+<p>The gaps below are copied from <a href="../../benchmarks/"><code>docs/benchmarks.md</code></a> (gap =
+<code>cost_ / optimum - 1</code>, defaults, <code>random_state=0</code>, one fit per cell on the machine
+recorded in that page's header); the tolerances the test-suite asserts on every run live in
+<code>tests/tolerances.py</code> and are looser on purpose, so that a tie-break on another machine is
+not a failure. A different machine may move a stochastic solver's gap by a tie-break,
+never below the optimum.</p>
+<table>
+<thead>
+<tr>
+<th>Solver</th>
+<th style="text-align: right;">wi29 (29)</th>
+<th style="text-align: right;">dj38 (38)</th>
+<th style="text-align: right;">qa194 (194)</th>
+<th style="text-align: right;">lu980 (980)</th>
+<th style="text-align: right;">Time on lu980</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MILP</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 % (39.6 s)</td>
+<td style="text-align: right;">capped</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td><code>IteratedLocalSearch</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.27 %</td>
+<td style="text-align: right;">1.19 %</td>
+<td style="text-align: right;">0.25 s</td>
+</tr>
+<tr>
+<td><code>Genetic(local_search=("two_opt",))</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.32 %</td>
+<td style="text-align: right;">0.67 %</td>
+<td style="text-align: right;">0.81 s</td>
+</tr>
+<tr>
+<td><code>AntColony</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">1.71 %</td>
+<td style="text-align: right;">5.66 %</td>
+<td style="text-align: right;">1.14 s</td>
+</tr>
+<tr>
+<td><code>SimulatedAnnealing</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">2.44 %</td>
+<td style="text-align: right;">7.02 %</td>
+<td style="text-align: right;">1.02 s</td>
+</tr>
+<tr>
+<td><code>TabuSearch</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">5.34 %</td>
+<td style="text-align: right;">4.26 %</td>
+<td style="text-align: right;">1.36 s</td>
+</tr>
+<tr>
+<td><code>LocalSearch</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">2.28 %</td>
+<td style="text-align: right;">6.28 %</td>
+<td style="text-align: right;">4.74 %</td>
+<td style="text-align: right;">0.02 s</td>
+</tr>
+<tr>
+<td><code>SOM</code></td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">0.06 %</td>
+<td style="text-align: right;">6.44 %</td>
+<td style="text-align: right;">10.22 %</td>
+<td style="text-align: right;">2.77 s</td>
+</tr>
+<tr>
+<td><code>TwoOpt</code></td>
+<td style="text-align: right;">3.29 %</td>
+<td style="text-align: right;">0.06 %</td>
+<td style="text-align: right;">7.74 %</td>
+<td style="text-align: right;">6.15 %</td>
+<td style="text-align: right;">0.01 s</td>
+</tr>
+<tr>
+<td><code>Insertion</code> (farthest)</td>
+<td style="text-align: right;">1.94 %</td>
+<td style="text-align: right;">0.00 %</td>
+<td style="text-align: right;">6.63 %</td>
+<td style="text-align: right;">10.18 %</td>
+<td style="text-align: right;">0.00 s</td>
+</tr>
+<tr>
+<td><code>ClarkeWright</code></td>
+<td style="text-align: right;">4.89 %</td>
+<td style="text-align: right;">0.12 %</td>
+<td style="text-align: right;">12.25 %</td>
+<td style="text-align: right;">8.68 %</td>
+<td style="text-align: right;">0.07 s</td>
+</tr>
+<tr>
+<td><code>Genetic</code> (plain)</td>
+<td style="text-align: right;">0.53 %</td>
+<td style="text-align: right;">9.04 %</td>
+<td style="text-align: right;">16.49 %</td>
+<td style="text-align: right;">26.72 %</td>
+<td style="text-align: right;">0.08 s</td>
+</tr>
+<tr>
+<td><code>OrOpt</code></td>
+<td style="text-align: right;">4.87 %</td>
+<td style="text-align: right;">19.77 %</td>
+<td style="text-align: right;">15.67 %</td>
+<td style="text-align: right;">17.60 %</td>
+<td style="text-align: right;">0.01 s</td>
+</tr>
+<tr>
+<td><code>NRBS</code></td>
+<td style="text-align: right;">18.31 %</td>
+<td style="text-align: right;">7.80 %</td>
+<td style="text-align: right;">14.18 %</td>
+<td style="text-align: right;">19.99 %</td>
+<td style="text-align: right;">0.08 s</td>
+</tr>
+<tr>
+<td><code>NearestNeighbour</code></td>
+<td style="text-align: right;">31.83 %</td>
+<td style="text-align: right;">46.41 %</td>
+<td style="text-align: right;">24.47 %</td>
+<td style="text-align: right;">26.72 %</td>
+<td style="text-align: right;">0.00 s</td>
+</tr>
+</tbody>
+</table>
+<h2 id="if-you-want-x-use-y">If you want X, use Y<a class="headerlink" href="#if-you-want-x-use-y" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>You want...</th>
+<th>Use</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a certificate of optimality</td>
+<td><a class="autorefs autorefs-internal" title="MILP" href="../../api/exact/#skroute.exact.MILP"><code>MILP</code></a> up to ~200 nodes; <a class="autorefs autorefs-internal" title="BruteForce" href="../../api/exact/#skroute.exact.BruteForce"><code>BruteForce</code></a> up to 11; <a class="autorefs autorefs-internal" title="HeldKarp" href="../../api/exact/#skroute.exact.HeldKarp"><code>HeldKarp</code></a> up to 20</td>
+<td>only <code>BruteForce</code> certifies the multi-trip objective</td>
+</tr>
+<tr>
+<td>the best quality in seconds</td>
+<td><a class="autorefs autorefs-internal" title="IteratedLocalSearch" href="../../api/local_search/#skroute.local_search.IteratedLocalSearch"><code>IteratedLocalSearch</code></a></td>
+<td>then <code>Genetic(local_search=("two_opt",))</code> or <code>MultiStart(SimulatedAnnealing())</code> if you can spend more time</td>
+</tr>
+<tr>
+<td>a multi-trip budget inside the search</td>
+<td>any budget-aware solver: <code>IteratedLocalSearch</code>, <code>SimulatedAnnealing</code>, <code>TabuSearch</code>, <code>Genetic</code>, <code>AntColony</code>; <code>ClarkeWright</code> as construction</td>
+<td>add <code>split="optimal"</code> for the minimum-cost partition of the tour; see <a href="../multi_trip/">multi-trip routing</a></td>
+</tr>
+<tr>
+<td>asymmetric costs</td>
+<td>everything except <code>ClarkeWright</code>; exact: <code>HeldKarp</code>, <code>MILP</code></td>
+<td>metaheuristics take the <span class="arithmatex">\(O(n)\)</span>-per-move path: a few hundred to ~2 000 nodes</td>
+</tr>
+<tr>
+<td>a very large <span class="arithmatex">\(n\)</span></td>
+<td><a class="autorefs autorefs-internal" title="LocalSearch" href="../../api/local_search/#skroute.local_search.LocalSearch"><code>LocalSearch</code></a> or <code>IteratedLocalSearch(time_limit=...)</code> on a symmetric plain TSP</td>
+<td>dense-matrix ceiling ~20 000 nodes</td>
+</tr>
+<tr>
+<td>a baseline or a warm start in microseconds</td>
+<td><a class="autorefs autorefs-internal" title="NearestNeighbour" href="../../api/construction/#skroute.construction.NearestNeighbour"><code>NearestNeighbour</code></a>, <a class="autorefs autorefs-internal" title="Insertion" href="../../api/construction/#skroute.construction.Insertion"><code>Insertion</code></a>, <a class="autorefs autorefs-internal" title="ClarkeWright" href="../../api/construction/#skroute.construction.ClarkeWright"><code>ClarkeWright</code></a></td>
+<td>pass <code>init=est.tour_</code> to the next solver</td>
+</tr>
+<tr>
+<td>bit-exact reproducibility</td>
+<td>any stochastic solver with an integer <code>random_state</code>, without <code>time_limit</code></td>
+<td>same seed, same machine, same tour; see <a href="../warm_starts_and_ensembles/#random_state-and-reproducibility">reproducibility</a></td>
+</tr>
+<tr>
+<td>all your cores</td>
+<td><a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a> with <code>n_jobs=-1</code></td>
+<td>threads by default; <code>prefer="processes"</code> for <code>Genetic</code> and <code>SOM</code></td>
+</tr>
+<tr>
+<td>a geometric picture of the search</td>
+<td><a class="autorefs autorefs-internal" title="SOM" href="../../api/som/#skroute.metaheuristics.SOM"><code>SOM</code></a></td>
+<td>needs <code>coords=</code></td>
+</tr>
+<tr>
+<td>to watch progress</td>
+<td><code>verbose=1</code> plus <code>skroute.set_log_level("INFO")</code></td>
+<td>nothing is ever printed; records go to the <code>skroute</code> logger</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../problem_model/" class="md-footer__link md-footer__link--prev" aria-label="Previous: The problem model">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                The problem model
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../multi_trip/" class="md-footer__link md-footer__link--next" aria-label="Next: Multi-trip routing">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Multi-trip routing
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2020-2026 Alberto Rubiales. MIT License.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/arubiales/scikit-route" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/scikit-route/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
