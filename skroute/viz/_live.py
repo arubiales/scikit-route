@@ -169,8 +169,9 @@ class LivePlot:
     figure (the nodes, the depot as a star); on every ``every``-th ``"iteration"`` event it
     redraws the **current** tour as a thin light line and the **best** tour so far as a thick
     line, and refreshes the title with the solver, the iteration, the current and best costs and
-    the solver-specific facts of ``event.extra`` (temperature, tenure, generation...); on
-    ``"end"`` it draws the final best route with one colour per trip. It never blocks and never
+    one solver-specific fact of ``event.extra`` — the most informative scalar (temperature,
+    tenure, mean_cost, generation, radius...; ``restart`` always); on ``"end"`` it draws the final
+    best route with one colour per trip. It never blocks and never
     calls ``plt.show()`` — in a script the window appears through ``plt.pause``, so add
     ``plt.show()`` after ``fit`` to keep it open; in Jupyter the figure is refreshed in place.
 
@@ -195,14 +196,16 @@ class LivePlot:
     coords : (n, 2) array-like
         Node positions in matrix row order; column 0 is x and column 1 is y (with
         ``map=True``: latitude, longitude).
-    backend : {"matplotlib", "plotly"}, default "matplotlib"
-        ``"matplotlib"`` draws in a matplotlib figure (interactive backends show a window;
-        headless ``Agg`` works silently: the artists are updated on every kept iteration and
-        rendered once at ``"end"``); ``"plotly"`` draws in a ``FigureWidget`` updated in place
-        inside a notebook, or in a plain ``Figure`` shown once at ``"end"`` elsewhere.
+    backend : {"matplotlib", "plotly"}, optional
+        ``"matplotlib"`` (the default) draws in a matplotlib figure (interactive backends show a
+        window; headless ``Agg`` works silently: the artists are updated on every kept iteration
+        and rendered once at ``"end"``); ``"plotly"`` — the default with ``map=True`` — draws in a
+        ``FigureWidget`` updated in place inside a notebook, or in a plain ``Figure`` shown once
+        at ``"end"`` elsewhere.
     map : bool, default False
-        Draw on OpenStreetMap tiles (Plotly ``Scattermap``; requires ``backend="plotly"`` and
-        coordinates as ``(latitude, longitude)``).
+        Draw on OpenStreetMap tiles (Plotly ``Scattermap``, so the plotly backend is selected;
+        ``backend="matplotlib"`` with ``map=True`` is refused) with the coordinates as
+        ``(latitude, longitude)``.
     every : int >= 1, default 1
         Redraw on every ``every``-th iteration event (a redraw costs milliseconds; a fast solver
         emits thousands of iterations per second).
@@ -262,7 +265,9 @@ class LivePlot:
     ...     wi.distance_matrix(), labels=wi.labels, callback=live
     ... )  # doctest: +SKIP
     >>> attempts = LivePlot(wi.coords, show="current", trail=5)  # the walker and its five last positions
-    >>> LivePlot(wi.coords, map=True)  # tiles need Plotly
+    >>> LivePlot(wi.coords, map=True).backend  # tiles are drawn by Plotly: map=True selects it
+    'plotly'
+    >>> LivePlot(wi.coords, backend="matplotlib", map=True)
     Traceback (most recent call last):
         ...
     ValueError: map=True needs backend="plotly": OpenStreetMap tiles are drawn with Plotly's Scattermap
@@ -272,7 +277,7 @@ class LivePlot:
         self,
         coords: Any,
         *,
-        backend: str = "matplotlib",
+        backend: str | None = None,
         map: bool = False,
         every: int = 1,
         show: str = "both",
@@ -282,6 +287,8 @@ class LivePlot:
         pause: float = 0.001,
         trip_colors: bool = True,
     ) -> None:
+        if backend is None:
+            backend = "plotly" if map else "matplotlib"
         if backend not in _BACKENDS:
             raise ValueError(f"backend must be one of {_BACKENDS}; got {backend!r}")
         if map and backend != "plotly":
@@ -334,10 +341,12 @@ class LivePlot:
                 return self._stop
         if self._view is None:  # "start", or a callback attached to a run already in progress
             self._view = self._make_view(event)
-            self._view.start(event)
+            self._view.start(event)  # the figure, with this event's tours, structures and title
             self.fig, self.ax = self._view.fig, self._view.ax
-            self.n_redraws += 1
-            if stage == "start":
+            if stage != "end":  # an "end" still needs its final route below
+                self.n_redraws += 1
+                if stage == "iteration":
+                    self._n_iterations = 1  # attached mid-run: this is the first kept iteration
                 return self._stop
         if stage == "iteration":
             self._n_iterations += 1
@@ -433,6 +442,11 @@ class _MatplotlibView:
         self._set_structure(event)
         self._set_title(event)
         self._flush()
+
+    @property
+    def shows_frames(self) -> bool:
+        """Whether each refresh is seen as it happens (a window, a notebook) or only the last one (Agg)."""
+        return self.notebook or self.interactive
 
     def finish(self, event: Any, *, last: bool = True) -> None:
         """Draw the final route; ``last`` is false for the ``"end"`` of a restart inside a MultiStart."""

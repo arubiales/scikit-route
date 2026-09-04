@@ -61,6 +61,9 @@ class RecordedEvent:
     route : ndarray or None
         ``best_tour`` as driven — depot, trip 1, depot, ..., depot — as ``RouteEvent.route``;
         ``None`` without a tour.
+    drawable : bool
+        Whether the event carries anything to draw — a tour, a best tour, edges or a ring — and
+        so is a frame of ``animate``, ``save`` and ``to_plotly``.
     """
 
     solver: str
@@ -302,7 +305,10 @@ class Recorder:
         Frame ``k`` stays for the recorded gap between it and the next drawable event divided by
         ``speed`` — ``speed=10`` is a ten-fold time-lapse — clipped to ``[10, 2000]`` ms so a burst
         of iterations never flashes past and a slow step (a cut round of MILP, a pause) never
-        freezes the replay; the last frame keeps the delay of the one before it.
+        freezes the replay; the last frame keeps the delay of the one before it. The floor is per
+        frame, so once the scaled gaps are under 10 ms — more than a hundred kept events per
+        replayed second — a higher ``speed`` no longer shortens the animation: thin the frames
+        with ``Recorder(every=)`` instead.
 
         Parameters
         ----------
@@ -322,6 +328,23 @@ class Recorder:
         last = gaps[-1] if gaps.size else MIN_DELAY_MS
         return np.clip(np.append(gaps, last), MIN_DELAY_MS, MAX_DELAY_MS)
 
+    def _problem_of(self, frames: list[RecordedEvent], xy: np.ndarray) -> Any:
+        """The ``RoutingProblem`` the frames are drawn with.
+
+        ``ValueError`` when the frames carry none (events appended by hand), or when ``xy`` does not
+        fit every problem they carry (a recorder handed runs on instances of different sizes).
+        """
+        problem = frames[0].problem if frames[0].problem is not None else self.problem
+        if problem is None:
+            raise ValueError("the recorded events carry no RoutingProblem; record a fit to replay it")
+        seen: list[Any] = [problem]
+        for frame in frames:
+            if frame.problem is not None and all(frame.problem is not p for p in seen):
+                seen.append(frame.problem)
+        for p in seen:
+            coords_array(xy, p.n)
+        return problem
+
     # ----- replays
     def _player(
         self,
@@ -336,9 +359,7 @@ class Recorder:
         """A silent ``LivePlot`` (its view never refreshes itself) and the function drawing frame ``k``."""
         from ._live import LivePlot, _MatplotlibView
 
-        problem = frames[0].problem if frames[0].problem is not None else self.problem
-        if problem is None:
-            raise ValueError("the recorded events carry no RoutingProblem; record a fit to replay it")
+        problem = self._problem_of(frames, xy)
         live = LivePlot(xy, show=show, trail=trail, figsize=figsize, trip_colors=trip_colors)
         view = _MatplotlibView(live, problem)
         view.silent = True
@@ -393,8 +414,10 @@ class Recorder:
             A fixed frame rate: every frame lasts ``1000 / fps`` ms (takes precedence over ``speed``).
         speed : float > 0, default 1.0
             Without ``interval`` and ``fps``, the frames follow the recorded clock divided by
-            ``speed`` — ``speed=10`` replays a 30 s run in about 3 s — with every delay clipped
-            to ``[10, 2000]`` ms (see ``frame_delays``).
+            ``speed`` — ``speed=10`` replays a 30 s run of frames a fifth of a second apart in
+            about 3 s — with every delay clipped to ``[10, 2000]`` ms (see ``frame_delays``: the
+            floor is per frame, so a denser run stretches rather than speeds up; thin it with
+            ``Recorder(every=)``).
         hold : float >= 0, default 1.0
             Seconds the final picture stays before the animation loops.
         trail : int >= 0, default 0
@@ -409,9 +432,10 @@ class Recorder:
         anim : matplotlib.animation.FuncAnimation
             One frame per kept drawable event (``n_frames``). ``plt.show()`` plays it in a script;
             in a notebook show it with ``IPython.display.HTML(anim.to_jshtml())``; ``save`` writes
-            it to a file (``anim.save`` works too, at one fixed frame rate). Under ``%matplotlib
-            inline`` the figure is closed right away (the animation keeps its own reference), so
-            the cell does not end with a stray empty picture.
+            it to a file (``anim.save`` and ``to_jshtml`` work too, at one fixed frame rate: pass
+            them ``fps=``). Under ``%matplotlib inline`` the figure is closed right away (the
+            animation keeps its own reference), so the cell does not end with a stray empty
+            picture.
         """
         plt = pyplot()
         from matplotlib.animation import FuncAnimation
@@ -441,8 +465,12 @@ class Recorder:
 
         def step(k: int) -> list[Any]:
             draw(k)
-            if holder and holder[0].event_source is not None:  # the next frame waits its own delay
-                holder[0].event_source.interval = max(1, round(float(delays[k])))
+            if holder:
+                # The next frame waits this frame's delay. TimedAnimation._step copies ``_interval`` to
+                # the timer right after every frame, so that is where the per-frame value must go — set
+                # on the timer directly it would be overwritten at once (and every frame would wait
+                # ``delays[0]``).
+                holder[0]._interval = max(1, round(float(delays[k])))
             return []
 
         anim = FuncAnimation(
@@ -489,8 +517,8 @@ class Recorder:
             Which tours to draw.
         speed : float > 0, optional
             Time-lapse factor: each frame is held for its recorded gap divided by ``speed``,
-            rounded to whole frames of ``1 / fps`` s (a GIF folds the repeated frames, so a
-            time-lapse costs no extra bytes).
+            clipped to ``[10, 2000]`` ms like ``frame_delays`` and rounded to whole frames of
+            ``1 / fps`` s (a GIF folds the repeated frames, so a time-lapse costs no extra bytes).
         hold : float >= 0, default 1.0
             Seconds the final picture stays at the end of the file.
         trail, figsize, trip_colors
@@ -546,8 +574,10 @@ class Recorder:
         anim = animation.FuncAnimation(
             live.fig, step, frames=sequence, interval=base, blit=False, repeat=False
         )
-        anim.save(str(out), writer=writer, fps=fps, dpi=dpi)
-        plt.close(live.fig)
+        try:
+            anim.save(str(out), writer=writer, fps=fps, dpi=dpi)
+        finally:
+            plt.close(live.fig)  # also when the writer fails: no figure is left behind per failed call
         return out
 
     def replay(
@@ -556,15 +586,22 @@ class Recorder:
         *,
         speed: float = 10.0,
         every: int = 1,
-        backend: str = "matplotlib",
+        backend: str | None = None,
         show: str = "both",
         **live_kwargs: Any,
     ) -> LivePlot:
         """Drive a [`LivePlot`][skroute.viz.LivePlot] through the recorded events at time-lapse speed.
 
-        The events are handed to a fresh ``LivePlot`` in the recorded order, waiting between two of
-        them for their recorded gap divided by ``speed`` (never more than two seconds), so the
-        replay looks like the run did — ``speed`` times faster. It blocks until the last event.
+        The events are handed to a fresh ``LivePlot`` in the recorded order, on the recorded clock
+        divided by ``speed``: event ``k`` is drawn ``(timestamps[k] - timestamps[0]) / speed``
+        seconds after the first one, so the replay lasts the recorded span over ``speed`` and looks
+        like the run did. The time a redraw takes is absorbed by the waits that follow it (a run
+        drawn slower than its pace plays as fast as it can be drawn), and a gap longer than two
+        seconds — a pause, a slow cut round — is cut down to two. It blocks until the last event.
+        The waits only make sense where the frames are seen as they are drawn — an interactive
+        matplotlib window, a notebook, the Plotly widget; on a headless backend (``Agg``, or the
+        plotly backend outside a notebook) nothing shows before ``"end"``, so the events are drawn
+        back to back and the call returns at once.
 
         Parameters
         ----------
@@ -574,8 +611,9 @@ class Recorder:
             Time-lapse factor (``1.0`` replays in real time; a huge value skips every wait).
         every : int >= 1, default 1
             Redraw every ``every``-th iteration event (as ``LivePlot(every=)``).
-        backend : {"matplotlib", "plotly"}, default "matplotlib"
-            Drawing backend of the ``LivePlot``.
+        backend : {"matplotlib", "plotly"}, optional
+            Drawing backend of the ``LivePlot``: ``"matplotlib"`` by default, ``"plotly"`` when
+            ``map=True`` is among ``live_kwargs`` (the tiles are drawn by Plotly).
         show : {"both", "best", "current"}, default "both"
             Which tours to draw.
         **live_kwargs
@@ -586,6 +624,12 @@ class Recorder:
         -------
         live : LivePlot
             The plot that was driven (``live.fig`` holds the final picture).
+
+        Raises
+        ------
+        ValueError
+            Without events, without a ``RoutingProblem`` on every event, or with nothing to draw
+            (a recorder built with ``keep_tours=False``), like the other replays.
         """
         from ._live import LivePlot
 
@@ -595,16 +639,27 @@ class Recorder:
             raise ValueError("nothing to replay: no recorded events")
         if any(e.problem is None for e in self.events):
             raise ValueError("the recorded events carry no RoutingProblem; record a fit to replay it")
+        self._frames()  # nothing to draw (keep_tours=False): the same ValueError as animate/save/to_plotly
         xy = self._coords(coords)
         live = LivePlot(xy, backend=backend, every=every, show=show, **live_kwargs)
-        previous: float | None = None
-        for ev in self.events:
-            if previous is not None:
-                wait = (ev.timestamp - previous) / float(speed)
-                if wait >= MIN_DELAY_MS / 1000.0:
-                    time.sleep(min(wait, MAX_DELAY_MS / 1000.0))
-            previous = ev.timestamp
+        scale = 1.0 / float(speed)
+        cap, grain = MAX_DELAY_MS / 1000.0, MIN_DELAY_MS / 1000.0
+        # ``origin + timestamp * scale`` is the moment event ``k`` is due: waits are measured against that
+        # clock, so the time spent drawing and the gaps too short to sleep are carried into the next wait
+        # instead of being lost.
+        origin = time.perf_counter() - self.events[0].timestamp * scale
+        paced = True
+        for k, ev in enumerate(self.events):
+            if k and paced:
+                wait = origin + ev.timestamp * scale - time.perf_counter()
+                if wait > cap:  # a long gap is cut short: the clock jumps over the rest of it
+                    origin -= wait - cap
+                    wait = cap
+                if wait >= grain:  # a shorter one is left to accumulate into the next
+                    time.sleep(wait)
             live(ev)
+            if k == 0:  # the view exists now: no waiting where the frames are not seen until "end"
+                paced = bool(getattr(live._view, "shows_frames", True))
         return live
 
     def to_plotly(self, coords: Any = None, *, map: bool = False, show: str = "both", fps: float = 20) -> Any:
@@ -634,7 +689,10 @@ class Recorder:
         check_show(show)
         if not fps > 0:
             raise ValueError(f"fps must be > 0; got {fps!r}")
-        return recorder_figure(self, self._frames(), self._coords(coords), map=map, show=show, fps=float(fps))
+        frames = self._frames()
+        xy = self._coords(coords)
+        problem = self._problem_of(frames, xy)
+        return recorder_figure(frames, xy, problem, map=map, show=show, fps=float(fps))
 
     def plot_history(self, ax: Axes | None = None) -> Axes:
         """Best-so-far cost of the kept iteration events (see [`plot_history`][skroute.viz.plot_history])."""
