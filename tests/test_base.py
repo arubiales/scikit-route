@@ -390,6 +390,22 @@ def test_evaluate_and_trips_match_reference_for_both_split_rules(n, asym):
         plain.trip_times(np.arange(n), [1, n])
 
 
+def test_coerce_labels_returns_python_scalars_from_numpy_inputs():
+    from skroute import NearestNeighbour, RoutingProblem
+
+    labels = coerce_labels(np.array(list("abcde")), 5)  # '<U1' input
+    assert labels.dtype == object and all(type(x) is str for x in labels)
+    assert [type(x) for x in coerce_labels([np.str_("a"), np.int64(2)], 2)] == [str, int]
+    C = np.array([[0, 2, 9], [1, 0, 6], [7, 3, 0]], dtype=float)
+    problem = RoutingProblem(C, labels=np.array(list("abc")))
+    assert all(type(x) is str for x in problem.labels.tolist())
+    seen = []
+    est = NearestNeighbour().fit(C, labels=np.array(list("abc")), callback=seen.append)
+    assert all(type(x) is str for x in est.tour_.tolist()) and type(est.depot_) is str
+    pairs = [pair for e in seen if e.stage == "iteration" for pair in e.extra["edges"]]
+    assert pairs and all(type(a) is str and type(b) is str for a, b in pairs)
+
+
 def test_worked_example_of_spec():
     p = RoutingProblem(C4, labels=NAMES, depot="d")
     assert p.evaluate([0, 1, 2, 3]) == 22.0

@@ -42,6 +42,10 @@ for a symbol-by-symbol map.
   ring (`extra["ring"]`); `LivePlot` draws them (`show=`, `trail=`), `Recorder` keeps wall-clock timestamps
   and replays a run at time-lapse speed (`replay(speed=)`, `animate(speed=, fps=)`, `save()` to GIF or MP4,
   a Plotly speed menu); `examples/live_demo.py --record/--speed/--set`.
+  `LivePlot(map=True)` picks the Plotly backend by itself (`backend=None`); `Recorder.replay` paces on a
+  target clock (short gaps accumulate, drawing time is absorbed, gaps over two seconds are cut) and
+  `Recorder.animate(speed=)` really paces the frames under `plt.show()`. A callback answering `True` at
+  `start` of a construction solver silences every step event (the result never depends on the callback).
 
 ### Changed
 - `fit()` takes the cost matrix (numpy, DataFrame or dict-of-dicts) and returns

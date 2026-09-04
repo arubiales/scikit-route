@@ -84,7 +84,8 @@ def coerce_labels(seq: Any, n: int) -> np.ndarray:
     mixes kinds. Integer-like labels (numpy or Python ints, never bool) become
     ``int64``; anything else (strings, mixed, tuples) becomes ``object``
     (``np.asarray(["a", "b"])`` would give ``'<U1'`` and a DataFrame index
-    ``'object'`` — hence the rule).
+    ``'object'`` — hence the rule). The items themselves are Python scalars: a numpy
+    string array yields ``str`` labels, never ``numpy.str_``.
 
     Parameters
     ----------
@@ -114,7 +115,12 @@ def coerce_labels(seq: Any, n: int) -> np.ndarray:
     >>> coerce_labels([1, "b", (2, 3)], 3).dtype.name
     'object'
     """
-    items = list(seq)
+    # numpy scalars become Python scalars (a ``'<U1'`` array would otherwise fill the object array
+    # with ``numpy.str_``), so every label is a plain ``str``/``int``/tuple whatever the input path
+    items = [
+        x.item() if isinstance(x, np.generic) else x
+        for x in (seq.tolist() if isinstance(seq, np.ndarray) else seq)
+    ]
     if len(items) != n or len(set(items)) != n:
         raise ValueError(f"labels must be {n} unique hashables")
     if all(isinstance(x, (int, np.integer)) and not isinstance(x, (bool, np.bool_)) for x in items):
