@@ -1,10 +1,10 @@
-"""``LocalSearch`` and the descent engine shared by every solver of :mod:`skroute.local_search`.
+"""``LocalSearch`` and the descent engine shared by every solver of `skroute.local_search`.
 
-The engine (:class:`Descent`) owns the working tour and the buffers the core descents need
+The engine (`Descent`) owns the working tour and the buffers the core descents need
 (``pos``, the candidate lists and one don't-look-bit array per move) and implements the
 iteration accounting of SPEC §4.3: one outer iteration = one call of each listed descent kernel
 with ``max_passes=1``; the buffers persist across calls. ``TwoOpt``, ``OrOpt`` and
-``LocalSearch`` drive it through :func:`run_descent`; ``IteratedLocalSearch`` and any memetic
+``LocalSearch`` drive it through `run_descent`; ``IteratedLocalSearch`` and any memetic
 solver drive it directly (``load`` a tour, ``converge``, read ``tour``/``cost``).
 """
 
@@ -35,7 +35,7 @@ log = logging.getLogger("skroute")
 
 #: The move names a descent accepts (glossary §4.0); ``"swap"`` is reachable only through the core's mask.
 MOVES: tuple[str, ...] = ("two_opt", "or_opt")
-#: Every legal ``moves``/``local_search`` tuple: a non-empty subset of :data:`MOVES`, in either order.
+#: Every legal ``moves``/``local_search`` tuple: a non-empty subset of `MOVES`, in either order.
 MOVE_TUPLES: frozenset[tuple[str, ...]] = frozenset(
     {("two_opt",), ("or_opt",), ("two_opt", "or_opt"), ("or_opt", "two_opt")}
 )
@@ -70,7 +70,7 @@ def changed_nodes(before: np.ndarray, after: np.ndarray) -> np.ndarray:
 
 
 class Descent:
-    """Stateful driver of the §4.3 descents over one :class:`~skroute.problem.RoutingProblem`.
+    """Stateful driver of the §4.3 descents over one `RoutingProblem`.
 
     Parameters
     ----------
@@ -79,7 +79,7 @@ class Descent:
         (``two_opt_descent``/``or_opt_descent`` with ``pos`` and don't-look bits), anything else
         (asymmetric matrix or multi-trip objective) uses ``local_search_generic`` with the move mask.
     moves : tuple of str
-        Descents run in this order in every iteration; each a member of :data:`MOVES`.
+        Descents run in this order in every iteration; each a member of `MOVES`.
     first_improvement : bool, default True
         2-opt applies the first improving move of a node (``True``) or the best one (``False``);
         honoured only on the symmetric plain path (the generic kernel is first-improvement).
@@ -140,7 +140,7 @@ class Descent:
         """Make ``tour`` the working solution: copy it, rebuild ``pos``, set ``cost``.
 
         ``activate=True`` re-activates every don't-look bit (a fresh start); ``activate=False``
-        keeps them, for a caller that knows which nodes changed and calls :meth:`activate` itself.
+        keeps them, for a caller that knows which nodes changed and calls `activate` itself.
         """
         self.tour[:] = tour
         core.rebuild_pos(self.tour, self.pos)
@@ -232,7 +232,7 @@ class Descent:
         return gains, False
 
     def converge(self, max_iter: int | None = None) -> tuple[list[float], bool]:
-        """Iterate (:meth:`step`) until convergence or ``max_iter`` iterations.
+        """Iterate (`step`) until convergence or ``max_iter`` iterations.
 
         Returns ``(history, converged)`` with ``history[k]`` the cost after iteration ``k``.
         """

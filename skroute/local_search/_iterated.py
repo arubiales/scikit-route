@@ -118,7 +118,7 @@ class IteratedLocalSearch(BaseRouter):
     positions of every kick applied, as tuples), ``accepted`` (whether the candidate replaced
     the current tour) and ``current_cost``.
 
-    The descent is the alternating scheme of :class:`~skroute.local_search.LocalSearch`, run to
+    The descent is the alternating scheme of `LocalSearch`, run to
     convergence after every kick. On a symmetric plain TSP it uses O(1) move deltas, candidate
     lists and don't-look bits: only the nodes a kick touched start active, so the re-descent from
     the kick's endpoints is cheap, but convergence is declared only when a sweep that started with

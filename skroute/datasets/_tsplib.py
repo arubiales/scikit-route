@@ -14,7 +14,7 @@ from skroute.utils import Bunch
 __all__ = ["read_tsplib", "read_tsplib_tour"]
 
 #: Edge-weight types read from a ``NODE_COORD_SECTION`` (coordinates are kept raw; the conversion
-#: to distances happens in :func:`skroute.preprocessing.distance_matrix`).
+#: to distances happens in `skroute.preprocessing.distance_matrix`).
 COORD_TYPES = ("EUC_2D", "CEIL_2D", "MAN_2D", "ATT", "GEO")
 
 #: ``EDGE_WEIGHT_FORMAT`` values accepted for ``EDGE_WEIGHT_TYPE: EXPLICIT``.
@@ -185,7 +185,7 @@ def read_tsplib(path_or_file: str | os.PathLike[str] | IO[str] | IO[bytes]) -> B
           ``edge_weight_type``, ``edge_weight_format`` (``None`` unless ``EXPLICIT``);
         - ``coords``: ``float64 (n, 2)`` for the coordinate types ``EUC_2D``, ``CEIL_2D``,
           ``MAN_2D``, ``ATT`` and ``GEO`` (kept raw -- ``GEO`` stays in ``DDD.MM``
-          notation; convert with :func:`skroute.preprocessing.distance_matrix` and the
+          notation; convert with `skroute.preprocessing.distance_matrix` and the
           matching ``tsplib_*`` metric), otherwise ``None``;
         - ``cost``: ``float64 (n, n)`` for ``EXPLICIT`` in the formats ``FULL_MATRIX``,
           ``UPPER_ROW``, ``LOWER_ROW``, ``UPPER_DIAG_ROW`` and ``LOWER_DIAG_ROW``

@@ -49,10 +49,10 @@ class GoogleDistanceMatrix:
     Attributes
     ----------
     addresses_ : list of str
-        After :meth:`fetch`, the address Google resolved for each node (from the
+        After `fetch`, the address Google resolved for each node (from the
         ``origin_addresses`` of the responses; ``""`` when unresolved).
     n_requests_ : int
-        After :meth:`fetch`, the number of requests issued.
+        After `fetch`, the number of requests issued.
 
     Notes
     -----
@@ -104,7 +104,7 @@ class GoogleDistanceMatrix:
         Bunch
             ``distance`` (metres) and ``time`` (hours) as ``float64 (n, n)`` arrays,
             ``labels`` (``int64`` when every label is an integer, ``object`` otherwise
-            -- the rule of :func:`skroute.utils.validation.coerce_labels`) and
+            -- the rule of `skroute.utils.validation.coerce_labels`) and
             ``units == {"distance": "m", "time": "h"}``. The matrices are directional
             (Google's durations are not symmetric).
         """
@@ -202,7 +202,7 @@ def _element_value(element: dict[str, Any], key: str) -> float | None:
 
 
 class CostScraper:
-    """Deprecated 1.0 interface over :class:`GoogleDistanceMatrix`; removed in 3.0.
+    """Deprecated 1.0 interface over `GoogleDistanceMatrix`; removed in 3.0.
 
     Parameters
     ----------
@@ -216,7 +216,7 @@ class CostScraper:
     Notes
     -----
     Emits ``DeprecationWarning`` on construction. ``scrap()`` returns the ``Bunch`` of
-    :meth:`GoogleDistanceMatrix.fetch`; ``pandas()`` builds the 1.0 long table (one
+    `GoogleDistanceMatrix.fetch`; ``pandas()`` builds the 1.0 long table (one
     row per unordered pair, ``meters``/``seconds`` taken from the ``origin -> destination``
     direction); ``to_pickle()`` raises ``NotImplementedError``.
     """
@@ -235,7 +235,7 @@ class CostScraper:
         self.result_: Bunch | None = None
 
     def scrap(self) -> Bunch:
-        """Fetch the matrices (billed to your account); the ``Bunch`` of :meth:`GoogleDistanceMatrix.fetch`.
+        """Fetch the matrices (billed to your account); the ``Bunch`` of `GoogleDistanceMatrix.fetch`.
 
         Stored under ``result_`` as well.
         """
@@ -243,7 +243,7 @@ class CostScraper:
         return self.result_
 
     def pandas(self) -> Any:
-        """The 1.0 long table as a ``DataFrame`` (requires pandas; calls :meth:`scrap` first if needed)."""
+        """The 1.0 long table as a ``DataFrame`` (requires pandas; calls `scrap` first if needed)."""
         try:
             import pandas as pd
         except ImportError as exc:  # pragma: no cover - exercised only without the extra

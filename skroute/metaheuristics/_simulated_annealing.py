@@ -99,7 +99,7 @@ class SimulatedAnnealing(BaseRouter):
     stop_reason_ : {"converged", "patience", "time_limit", "callback"}
         Why the search stopped (``"callback"``: the ``callback`` of ``fit`` returned ``True``).
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
 
     Notes

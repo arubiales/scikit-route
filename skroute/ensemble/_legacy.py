@@ -1,5 +1,5 @@
 """``EnsembleGenetic`` and ``EnsembleSimulatedAnnealing``: the 1.0 ensembles as explicit-parameter
-wrappers over :class:`~skroute.ensemble.MultiStart` (SPEC §4.5, D17)."""
+wrappers over `MultiStart` (SPEC §4.5, D17)."""
 
 from __future__ import annotations
 
@@ -72,12 +72,12 @@ class _EnsembleBase(BaseRouter):
 
 
 class EnsembleGenetic(_EnsembleBase):
-    """``n_genetics`` independent :class:`~skroute.metaheuristics.Genetic` runs in parallel; the best wins.
+    """``n_genetics`` independent `Genetic` runs in parallel; the best wins.
 
     .. deprecated:: 2.0
         Kept for 1.0 users (``skroute.metaheuristics.genetics.EnsembleGenetic``); it is a thin
         wrapper over ``MultiStart(Genetic(...), n_restarts=n_genetics)`` and will be removed in
-        3.0. New code should use :class:`~skroute.ensemble.MultiStart` directly. No warning is
+        3.0. New code should use `MultiStart` directly. No warning is
         emitted at runtime.
 
     Parameters
@@ -85,7 +85,7 @@ class EnsembleGenetic(_EnsembleBase):
     n_genetics : int >= 1, default 10
         Number of independent genetic runs (the ``n_restarts`` of ``MultiStart``).
     n_jobs : int or None, default None
-        Workers for :class:`joblib.Parallel` (threads); ``None`` runs the runs one after another,
+        Workers for `joblib.Parallel` (threads); ``None`` runs the runs one after another,
         ``-1`` uses every CPU. Never changes the result.
     random_state : int, numpy.random.Generator or None, default None
         Seed of the run seeds. The same seed on the same machine gives bit-identical results
@@ -137,13 +137,13 @@ class EnsembleGenetic(_EnsembleBase):
     stop_reason_ : {"max_iter", "patience", "time_limit", "callback"}
         Why the winning run stopped (``"callback"``: the ``callback`` of ``fit`` stopped the ensemble).
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
 
     Notes
     -----
     Every knob after ``verbose`` is keyword-only and takes the 2.0 default of
-    :class:`~skroute.metaheuristics.Genetic` (1.0 defaulted to ``pop=400, gen=1000``). The
+    `Genetic` (1.0 defaulted to ``pop=400, gen=1000``). The
     parameters are explicit so that ``get_params``/``set_params``/``clone`` work without a
     nested estimator; ``EnsembleGenetic(n_genetics=k, random_state=s, **knobs)`` returns exactly
     what ``MultiStart(Genetic(**knobs), n_restarts=k, random_state=s)`` returns.
@@ -236,12 +236,12 @@ class EnsembleGenetic(_EnsembleBase):
 
 
 class EnsembleSimulatedAnnealing(_EnsembleBase):
-    """``n_simulateds`` independent :class:`~skroute.metaheuristics.SimulatedAnnealing` runs; the best wins.
+    """``n_simulateds`` independent `SimulatedAnnealing` runs; the best wins.
 
     .. deprecated:: 2.0
         Kept for 1.0 users (``skroute.metaheuristics.simulated_annealing.EnsembleSimulatedAnnealing``);
         it is a thin wrapper over ``MultiStart(SimulatedAnnealing(...), n_restarts=n_simulateds)``
-        and will be removed in 3.0. New code should use :class:`~skroute.ensemble.MultiStart`
+        and will be removed in 3.0. New code should use `MultiStart`
         directly. No warning is emitted at runtime.
 
     Parameters
@@ -250,7 +250,7 @@ class EnsembleSimulatedAnnealing(_EnsembleBase):
         Number of independent annealing runs (the ``n_restarts`` of ``MultiStart``). 1.0
         defaulted to 20.
     n_jobs : int or None, default None
-        Workers for :class:`joblib.Parallel` (threads); ``None`` runs the runs one after another,
+        Workers for `joblib.Parallel` (threads); ``None`` runs the runs one after another,
         ``-1`` uses every CPU. Never changes the result.
     random_state : int, numpy.random.Generator or None, default None
         Seed of the run seeds. The same seed on the same machine gives bit-identical results
@@ -295,13 +295,13 @@ class EnsembleSimulatedAnnealing(_EnsembleBase):
     stop_reason_ : {"converged", "patience", "time_limit", "callback"}
         Why the winning run stopped (``"callback"``: the ``callback`` of ``fit`` stopped the ensemble).
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
 
     Notes
     -----
     Every knob after ``verbose`` is keyword-only and takes the 2.0 default of
-    :class:`~skroute.metaheuristics.SimulatedAnnealing` (1.0 defaulted to ``temp=12.0,
+    `SimulatedAnnealing` (1.0 defaulted to ``temp=12.0,
     neighbours=250, delta=0.78, tol=1.29``). ``EnsembleSimulatedAnnealing(n_simulateds=k,
     random_state=s, **knobs)`` returns exactly what
     ``MultiStart(SimulatedAnnealing(**knobs), n_restarts=k, random_state=s)`` returns.

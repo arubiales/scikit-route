@@ -118,7 +118,7 @@ class Genetic(BaseRouter):
     n_duplicates_ : int
         Children that duplicated an individual of their generation and were mutated once more.
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and the
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and the
     other fitted attributes shared by every solver.
 
     Notes

@@ -2,11 +2,11 @@
 
 Four solvers, all ``kind="construction"`` and deterministic (no ``random_state``):
 
-* :class:`NearestNeighbour` — greedy walk from the depot over the core kernel.
-* :class:`Insertion` — farthest, cheapest or nearest insertion (``strategy=``), direction-aware.
-* :class:`ClarkeWright` — parallel savings; the only solver that refuses asymmetric matrices and
+* `NearestNeighbour` — greedy walk from the depot over the core kernel.
+* `Insertion` — farthest, cheapest or nearest insertion (``strategy=``), direction-aware.
+* `ClarkeWright` — parallel savings; the only solver that refuses asymmetric matrices and
   the only construction heuristic that sees the multi-trip budget while it builds.
-* :class:`NRBS` — the 2020 Node Ranking Based on Stats heuristic, ported faithfully.
+* `NRBS` — the 2020 Node Ranking Based on Stats heuristic, ported faithfully.
 
 They are the usual starting points of the local searches and metaheuristics (``init=``), and
 honest baselines: the tolerance table of the test-suite records their measured gaps.

@@ -1,12 +1,12 @@
 """Build cost matrices for the solvers: distances from coordinates, pivots of long tables, conversions.
 
 Every solver in scikit-route consumes a dense ``(n, n)`` cost matrix. This package
-produces such matrices from coordinates (:func:`distance_matrix` and its shorthands
-:func:`euclidean_matrix` / :func:`haversine_matrix`), from long tables of
-``(origin, destination, value)`` rows (:func:`pairs_to_matrix`) and from the legacy
-dict-of-dicts format (:func:`from_dict_of_dicts` / :func:`to_dict_of_dicts`);
-:func:`normalize_coords` rescales coordinates into the unit square. Road distances
-from the Google Distance Matrix API live in :mod:`skroute.preprocessing.google`
+produces such matrices from coordinates (`distance_matrix` and its shorthands
+`euclidean_matrix` / `haversine_matrix`), from long tables of
+``(origin, destination, value)`` rows (`pairs_to_matrix`) and from the legacy
+dict-of-dicts format (`from_dict_of_dicts` / `to_dict_of_dicts`);
+`normalize_coords` rescales coordinates into the unit square. Road distances
+from the Google Distance Matrix API live in `skroute.preprocessing.google`
 (optional ``googlemaps`` dependency).
 """
 

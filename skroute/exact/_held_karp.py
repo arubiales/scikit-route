@@ -18,7 +18,7 @@ class HeldKarp(BaseRouter):
     ``dp[S][j]`` is the cheapest path from the depot through exactly the node set ``S``
     ending at ``j``; the optimum is the best ``dp[all][j] + C[j, depot]``. Every arc is read
     directionally, so asymmetric matrices are solved exactly. The plain tour is the only
-    objective it certifies: under a budget it raises (D6) — use :class:`BruteForce` for a
+    objective it certifies: under a budget it raises (D6) — use `BruteForce` for a
     certified multi-trip optimum, or a heuristic solver.
 
     Parameters
@@ -28,7 +28,7 @@ class HeldKarp(BaseRouter):
         O(2^(n-1) · n²) and memory ``2^(n-1) · (n-1)`` doubles plus as many ``int8`` parent
         bytes: about 90 MB (80 MB of doubles) and well under a second at n = 20; ~830 MB at
         n = 23 (738 MB of doubles plus a 92 MB parent table). Raise it only if you accept
-        the memory; :class:`MILP` solves these sizes instantly in any case.
+        the memory; `MILP` solves these sizes instantly in any case.
 
     Attributes
     ----------
@@ -41,7 +41,7 @@ class HeldKarp(BaseRouter):
     proper subset of ``S`` is numerically smaller, so ``dp[S]`` is final when expanded);
     ``malloc``ed tables freed before returning; the parent table is ``int8``. Ties are broken
     by node index at each expansion, not lexicographically over whole tours as
-    :class:`BruteForce` does — equal-cost optima may come out in a different order.
+    `BruteForce` does — equal-cost optima may come out in a different order.
 
     Complexity O(2^(n-1) · n²) time, O(2^(n-1) · n) memory.
 

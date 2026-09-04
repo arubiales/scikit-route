@@ -70,7 +70,7 @@ class OrOpt(BaseRouter):
     (``local_search_generic`` with the Or-opt mask, no reversal), O(n) per candidate move,
     which enumerates every forward relocation next to a candidate. Or-opt alone leaves
     crossing edges that 2-opt would remove: for a plain descent prefer
-    :class:`~skroute.local_search.LocalSearch`, which alternates both.
+    `LocalSearch`, which alternates both.
 
     References
     ----------

@@ -10,11 +10,11 @@ Two families ship with scikit-route:
   `load_madrid`, `load_valencia`, `load_qatar_costs`) with cost, time and
   distance matrices for the multi-trip objective.
 
-Loaders return :class:`~skroute.utils.Bunch` objects whose matrices are plain
+Loaders return `Bunch` objects whose matrices are plain
 arrays: pass ``labels=b.labels`` (and ``depot=b.depot``) to ``fit``.
-:func:`read_tsplib` reads TSPLIB 95 ``.tsp`` files with the edge-weight types
+`read_tsplib` reads TSPLIB 95 ``.tsp`` files with the edge-weight types
 ``EUC_2D``, ``CEIL_2D``, ``MAN_2D``, ``ATT``, ``GEO`` and ``EXPLICIT`` (row
-formats); :func:`read_tsplib_tour` reads ``.tour`` files.
+formats); `read_tsplib_tour` reads ``.tour`` files.
 """
 
 from ._loaders import (

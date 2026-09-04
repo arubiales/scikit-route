@@ -89,7 +89,7 @@ def pairs_to_matrix(
         The labels, in the order used for the matrix and exactly as given (a label
         ``1`` next to a label ``"a"`` stays the integer ``1``): ``int64`` when every
         label is an integer, ``object`` otherwise -- the rule of every label array
-        in scikit-route (:func:`skroute.utils.validation.coerce_labels`).
+        in scikit-route (`skroute.utils.validation.coerce_labels`).
 
     Raises
     ------
@@ -223,7 +223,7 @@ def from_dict_of_dicts(
     matrix : ndarray of shape (n, n), dtype float64
     labels : ndarray of shape (n,), dtype int64 or object
         The outer keys as given: ``int64`` when all are integers, ``object``
-        otherwise (strings, tuples, mixed types), as :func:`pairs_to_matrix`.
+        otherwise (strings, tuples, mixed types), as `pairs_to_matrix`.
 
     Examples
     --------
@@ -259,7 +259,7 @@ def normalize_coords(coords: ArrayLike) -> NDArray[np.float64]:
     larger of the two ranges, so the longer side of the bounding box spans
     ``[0, 1]`` and the shorter one ``[0, r]`` with ``r <= 1``. Distances are
     scaled uniformly and the geometry of the instance is preserved (this is what
-    :class:`~skroute.metaheuristics.SOM` feeds its ring with).
+    `SOM` feeds its ring with).
 
     Parameters
     ----------
@@ -275,7 +275,7 @@ def normalize_coords(coords: ArrayLike) -> NDArray[np.float64]:
     ------
     ValueError
         For a shape other than ``(n, 2)``, an empty input or a non-finite
-        coordinate -- the same checks and messages as :func:`distance_matrix`.
+        coordinate -- the same checks and messages as `distance_matrix`.
 
     Examples
     --------

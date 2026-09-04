@@ -29,6 +29,9 @@ for a symbol-by-symbol map.
 - Progress callbacks: `fit(..., callback=)` and `skroute.RouteEvent` report `start`/`iteration`/`end`
   events with label-space tours from every solver; returning `True` stops an iterative solver
   (`stop_reason_ == "callback"`); `MultiStart` forwards sequential restarts; `check_router` gains check 14.
+  The `end` event reports `n_iter_` as its iteration; a `fit` that raises (in the kernel or in the callback)
+  never leaves the estimator looking fitted; `_emit` refuses a second `start` or an `end` from a solver
+  (the base class emits both) while a callback is set.
 - `skroute.viz` (extra `viz`, maps with `viz-map`): `plot_route`, `plot_history`, `LivePlot` (watch the
   current and best tour while `fit` runs, in scripts and notebooks), `Recorder` (record a run, animate it,
   save a GIF or a Plotly figure with a slider) and `plot_route_map` on OpenStreetMap tiles.

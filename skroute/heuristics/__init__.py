@@ -1,7 +1,7 @@
 """Deprecated 1.0 import path ``skroute.heuristics`` (removed in 3.0).
 
 Exposes the ``brute`` and ``NRBS`` subpackages of 1.0.0a2 (SPEC §4.6). Import
-:class:`~skroute.exact.BruteForce` from ``skroute.exact`` and :class:`~skroute.construction.NRBS`
+`BruteForce` from ``skroute.exact`` and `NRBS`
 from ``skroute.construction`` instead.
 """
 

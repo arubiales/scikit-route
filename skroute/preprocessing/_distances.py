@@ -28,7 +28,7 @@ _TSPLIB_RRR = 6378.388
 _LARGE_N = 20_000
 
 #: The ``skroute`` package directory, with a trailing separator: frames inside it are skipped
-#: when a warning is attributed (see :func:`_warn_outside_skroute`).
+#: when a warning is attributed (see `_warn_outside_skroute`).
 _SKROUTE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
 
 
@@ -47,7 +47,7 @@ METRICS = (
 def tsplib_nint(x: ArrayLike) -> NDArray[np.float64] | float:
     """Round to the nearest integer the TSPLIB 95 way: ``nint(x) = floor(x + 0.5)``.
 
-    Half-integers round *up* (``2.5 -> 3.0``), unlike :func:`numpy.rint`, which rounds
+    Half-integers round *up* (``2.5 -> 3.0``), unlike `numpy.rint`, which rounds
     half to even (``2.5 -> 2.0``). The difference is not academic: with ``np.rint`` the
     Waterloo instance ``qa194`` evaluates its published optimal tour to 9351 instead of
     9352 (SPEC D15).
@@ -85,8 +85,8 @@ def _inside_skroute(filename: str) -> bool:
 def _warn_outside_skroute(message: str, category: type[Warning]) -> None:
     """Emit ``message`` attributed to the first frame outside the ``skroute`` package.
 
-    ``stacklevel=2`` names the caller of :func:`distance_matrix` only for a direct
-    call; through :func:`euclidean_matrix`, :func:`haversine_matrix` or
+    ``stacklevel=2`` names the caller of `distance_matrix` only for a direct
+    call; through `euclidean_matrix`, `haversine_matrix` or
     ``TSPBunch.distance_matrix`` it would point inside scikit-route, not at the
     user's line. (``warnings.warn`` grew ``skip_file_prefixes`` in Python 3.12; this
     walk does the same on 3.11.)
@@ -224,7 +224,7 @@ def distance_matrix(
     Notes
     -----
     Every TSPLIB metric follows the TSPLIB 95 definitions with
-    ``nint(x) = floor(x + 0.5)`` (:func:`tsplib_nint`, never :func:`numpy.rint`):
+    ``nint(x) = floor(x + 0.5)`` (`tsplib_nint`, never `numpy.rint`):
 
     * ``tsplib_euc_2d``: ``nint(sqrt(dx**2 + dy**2))``
     * ``tsplib_ceil_2d``: ``ceil(sqrt(dx**2 + dy**2))``

@@ -51,11 +51,11 @@ def _forwarding(
 class MultiStart(BaseRouter):
     """Run a stochastic solver from ``n_restarts`` independent seeds and keep the best tour.
 
-    Every restart is a :func:`~skroute.clone` of ``estimator`` whose ``random_state`` is a
-    :class:`numpy.random.Generator` seeded from a child of one
-    :class:`numpy.random.SeedSequence`, so the restarts are statistically independent and the
+    Every restart is a `clone` of ``estimator`` whose ``random_state`` is a
+    `numpy.random.Generator` seeded from a child of one
+    `numpy.random.SeedSequence`, so the restarts are statistically independent and the
     whole run is reproducible from ``random_state`` alone. The restarts are fitted on the
-    **shared** :class:`~skroute.RoutingProblem` through :class:`joblib.Parallel`; the result
+    **shared** `RoutingProblem` through `joblib.Parallel`; the result
     (which restart wins and its tour) is identical for any ``n_jobs`` and backend, because the
     seeds are assigned by restart index before anything runs.
 
@@ -68,7 +68,7 @@ class MultiStart(BaseRouter):
     n_restarts : int >= 1, default 10
         Number of independent restarts (outer iterations).
     n_jobs : int or None, default None
-        Workers for :class:`joblib.Parallel`: ``None`` runs the restarts one after another
+        Workers for `joblib.Parallel`: ``None`` runs the restarts one after another
         (unless an enclosing ``joblib.parallel_config`` says otherwise), ``-1`` uses every
         CPU, a positive int that many workers. Never changes the result. With a ``callback``
         and ``n_jobs`` ``None`` or ``1`` the restarts run sequentially in the calling thread
@@ -110,7 +110,7 @@ class MultiStart(BaseRouter):
         ``callback`` of ``fit`` stopped the ensemble (``estimators_`` and ``costs_`` then hold only
         the restarts that ran).
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
 
     Notes

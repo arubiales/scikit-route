@@ -143,7 +143,7 @@ def _warn_deprecated(message: str) -> None:
 
 
 class TSPBunch(Bunch):
-    """A :class:`~skroute.utils.Bunch` of a coordinate instance with a cached ``distance_matrix()``.
+    """A `Bunch` of a coordinate instance with a cached ``distance_matrix()``.
 
     Behaves like a ``dict`` with attribute access (``b.coords`` or ``b["coords"]``);
     ``keys()`` lists only the data fields. The distance matrix is a *method*, so it
@@ -251,7 +251,7 @@ def load_tsp(
     Parameters
     ----------
     name : str
-        Instance name, e.g. ``"wi29"``; see :func:`list_tsp`.
+        Instance name, e.g. ``"wi29"``; see `list_tsp`.
     n_nodes : int, optional
         Keep only ``n_nodes`` of the cities, sampled without replacement with
         ``numpy.random.default_rng(random_state)``; the first city of the file is
@@ -1035,7 +1035,7 @@ def load_qatar_costs(*, as_frame: bool = False) -> Bunch:
 
 
 def load_costs_qatar(*, as_frame: bool = False) -> Bunch:
-    """Deprecated alias of :func:`load_qatar_costs` (1.0 loaded Valencia under this name).
+    """Deprecated alias of `load_qatar_costs` (1.0 loaded Valencia under this name).
 
     Emits ``DeprecationWarning``; removed in 3.0.
 

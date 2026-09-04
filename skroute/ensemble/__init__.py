@@ -1,8 +1,8 @@
 """Ensembles: independent restarts of a stochastic solver, in parallel, keeping the best (SPEC §4.5).
 
-:class:`MultiStart` wraps any stochastic :class:`~skroute.base.BaseRouter`; it is not returned by
-:func:`skroute.all_solvers` because it needs an estimator (D27). :class:`EnsembleGenetic` and
-:class:`EnsembleSimulatedAnnealing` are the 1.0 ensembles as explicit-parameter wrappers over
+`MultiStart` wraps any stochastic `BaseRouter`; it is not returned by
+`skroute.all_solvers` because it needs an estimator (D27). `EnsembleGenetic` and
+`EnsembleSimulatedAnnealing` are the 1.0 ensembles as explicit-parameter wrappers over
 ``MultiStart`` (kept until 3.0; new code should use ``MultiStart`` directly).
 """
 
