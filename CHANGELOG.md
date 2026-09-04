@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-09-03
+## [2.0.0] - 2026-09-04
 
 A complete rewrite. Version 1.0.0a2 (2021) is the last release of the old code
 base; see the [migration guide](https://arubiales.github.io/scikit-route/migration/)
@@ -17,9 +17,11 @@ for a symbol-by-symbol map.
 - One problem model for every solver: a closed tour from a depot over a dense cost
   matrix, optionally decoded into trips under a per-trip working-time budget with a
   fixed charge per extra trip (`RoutingProblem`, `split="greedy"` or `"optimal"`).
-- Solvers: `MILP` (Dantzig–Fulkerson–Johnson with lazy subtour cuts on HiGHS),
-  `NearestNeighbour`, `Insertion`, `ClarkeWright`, `TwoOpt`, `OrOpt`, `LocalSearch`,
-  `IteratedLocalSearch`, `MultiStart`; `HeldKarp` and `AntColony` when shipped.
+- Eighteen solvers over the same core: exact `BruteForce`, `HeldKarp` and `MILP` (Dantzig–Fulkerson–Johnson
+  with lazy subtour cuts on HiGHS); construction `NearestNeighbour`, `Insertion`, `ClarkeWright` and `NRBS`;
+  local search `TwoOpt`, `OrOpt`, `LocalSearch` and `IteratedLocalSearch`; metaheuristics `SimulatedAnnealing`,
+  `TabuSearch`, `Genetic` (OX/PMX, optional memetic descent), `AntColony` (MAX-MIN) and `SOM`; the `MultiStart`
+  wrapper and the legacy `Ensemble*` names.
 - `skroute.metrics` (`route_cost`, `split_trips`), `skroute.check_router` (the
   estimator battery), `skroute.all_solvers`, `skroute.set_log_level`.
 - Datasets return `Bunch` objects; `load_tsp(name)` and a TSPLIB reader
