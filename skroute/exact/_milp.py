@@ -109,11 +109,13 @@ class MILP(BaseRouter):
     Complexity: NP-hard in the worst case; in practice a few dozen solves of an LP-sized
     programme. Memory O(n²) for the variables and constraints.
 
-    Callback events (D30): ``"start"`` has no tour; every cut round emits one ``"iteration"``
+    Callback events (D30, D31): ``"start"`` has no tour; every cut round emits one ``"iteration"``
     (its index is the solve number) whose ``extra`` carries ``edges`` (the support of the
-    solution as ``(label, label)`` pairs), ``n_components``, ``lower_bound``, ``objective`` (the
-    solve's objective in the units of ``C``) and ``n_cuts`` (constraints added so far); ``tour``
-    is ``None`` until the support is a single Hamiltonian cycle. A callback returning ``True``
+    solution as ``(label, label)`` pairs), ``edge_weights`` (the solver's value of each support
+    variable, parallel to ``edges`` and clipped to ``[0, 1]`` — ``1.0`` up to the solver's
+    integrality tolerance), ``n_components``, ``lower_bound``, ``objective`` (the solve's
+    objective in the units of ``C``) and ``n_cuts`` (constraints added so far); ``tour`` is
+    ``None`` until the support is a single Hamiltonian cycle. A callback returning ``True``
     ends the cut loop like a time-out (``is_optimal_`` is ``False`` unless that very round had
     already proven the tour).
 
@@ -225,7 +227,8 @@ class MILP(BaseRouter):
                 _extract_tour(iu[selected], ju[selected], n, depot, symmetric) if n_components == 1 else None
             )
             if self._callback is not None:
-                # D30: one event per cut round — the LP support as label pairs, the tour once it is a cycle
+                # D30: one event per cut round — the LP support as label pairs, the tour once it is a cycle;
+                # D31: the support's variable values, parallel to the edges (HiGHS is integral to ~1e-14)
                 lab = problem.labels
                 self._emit(
                     "iteration",
@@ -233,6 +236,7 @@ class MILP(BaseRouter):
                     tour,
                     None,
                     edges=list(zip(lab[iu[selected]].tolist(), lab[ju[selected]].tolist(), strict=True)),
+                    edge_weights=np.clip(res.x[selected], 0.0, 1.0).tolist(),
                     n_components=int(n_components),
                     lower_bound=float(lower),
                     objective=float(res.fun / scale),

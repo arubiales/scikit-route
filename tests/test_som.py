@@ -490,3 +490,44 @@ def test_verbose_logs_and_never_prints(small_euclidean, caplog, capsys):
     assert out == "" and err == ""
     silent = SOM(random_state=0).fit(C, coords=xy)
     assert silent.cost_ == est1.cost_
+
+
+# ------------------------------------------------------------------------ D31: the ring, in coordinate units
+def test_ring_events_map_the_neurons_back_to_the_coordinates(small_euclidean, monkeypatch):
+    C, xy = small_euclidean["C"], small_euclidean["coords"]
+    weights = _spy_epoch_weights(monkeypatch)
+    events = []
+    som = SOM(n_units=30, n_iter=500, random_state=0).fit(C, coords=xy, callback=events.append)
+    iters = [e for e in events if e.stage == "iteration"]
+    assert "ring" not in events[0].extra and "ring" not in events[-1].extra
+    assert len(iters) == som.n_iter_ == len(weights)
+    lo, hi = xy.min(axis=0), xy.max(axis=0)
+    span = float((hi - lo).max())
+    for e, w in zip(iters, weights, strict=True):
+        ring = e.extra["ring"]
+        assert isinstance(ring, np.ndarray) and ring.shape == (30, 2) and ring.dtype == np.float64
+        np.testing.assert_allclose(ring, w * span + lo, rtol=0, atol=1e-9 * span)  # the scaling inverted
+        # neurons start inside the normalised bounding box and only move towards cities: they stay inside
+        assert (ring >= lo - 1e-9 * span).all() and (ring <= hi + 1e-9 * span).all()
+    assert len({id(e.extra["ring"]) for e in iters}) == len(iters)  # a fresh array per event
+    assert not np.array_equal(iters[0].extra["ring"], iters[-1].extra["ring"])  # and the ring did move
+
+
+def test_ring_of_coincident_cities_sits_on_them():
+    coords = np.full((5, 2), 3.0)
+    events = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        SOM(random_state=0, n_iter=50).fit(_euclid_of(coords), coords=coords, callback=events.append)
+    rings = [e.extra["ring"] for e in events if e.stage == "iteration"]
+    assert rings and all(
+        np.array_equal(r, np.full((40, 2), 3.0)) for r in rings
+    )  # span 0: back onto the point
+
+
+def test_ring_is_not_built_without_a_callback(small_euclidean, monkeypatch):
+    # the inverse scaling is two numbers; the per-epoch (m, 2) product happens only behind the callback guard
+    C, xy = small_euclidean["C"], small_euclidean["coords"]
+    a = SOM(n_units=20, n_iter=300, random_state=0).fit(C, coords=xy)
+    b = SOM(n_units=20, n_iter=300, random_state=0).fit(C, coords=xy, callback=lambda e: None)
+    assert np.array_equal(a.tour_, b.tour_) and a.cost_ == b.cost_ and np.array_equal(a.history_, b.history_)

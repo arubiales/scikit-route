@@ -350,3 +350,57 @@ def test_polish_and_evaluate_matches_reference_costs():
         assert row[0] == 0 and sorted(row) == list(range(n))
         assert c == pytest.approx(reference.tour_cost(C, row))
         assert _two_opt_local_optimum(C, row, c)
+
+
+# --------------------------------------------------------------------------- D31: the trails a viewer draws
+def test_iteration_events_carry_the_strongest_trails_scaled_to_the_bound(small_euclidean):
+    C = small_euclidean["C"]
+    labels = list("abcdefghijkl")
+    events = []
+    aco = AntColony(random_state=0, rho=0.1, n_iter=10, patience=None).fit(
+        C, labels=labels, callback=events.append
+    )
+    iters = [e for e in events if e.stage == "iteration"]
+    assert "edges" not in events[0].extra and "edges" not in events[-1].extra and len(iters) == 10
+    index = {lab: i for i, lab in enumerate(labels)}
+    for e in iters:
+        edges, weights = e.extra["edges"], e.extra["edge_weights"]
+        assert len(edges) == len(weights) == 36 == len(set(edges))  # min(3 n, n (n - 1) / 2) = min(36, 66)
+        assert all(type(p) is tuple and index[p[0]] < index[p[1]] for p in edges)  # the upper triangle
+        assert all(type(w) is float and 0.0 < w <= 1.0 for w in weights)
+        assert weights == sorted(weights, reverse=True)  # strongest first
+    last = iters[-1]
+    tau, tau_max = aco.pheromone_, 1.0 / (0.1 * aco.history_[-1])  # the trail and bound of the last iteration
+    reported = [tau[index[a], index[b]] for a, b in last.extra["edges"]]
+    assert last.extra["edge_weights"] == pytest.approx([t / tau_max for t in reported], rel=1e-12)
+    iu, ju = np.triu_indices(12, 1)
+    assert sorted(reported, reverse=True) == pytest.approx(sorted(tau[iu, ju], reverse=True)[:36])
+    assert (
+        max(last.extra["edge_weights"]) <= 1.0
+    )  # the bound itself is 1; a trail only reaches it asymptotically
+
+
+def test_trails_are_arcs_on_an_asymmetric_matrix_and_capped_by_the_pool():
+    C, _ = _euclid(7, seed=7, asymmetric=True)
+    events = []
+    AntColony(random_state=0, n_iter=3, patience=None).fit(C, callback=events.append)
+    for e in events[1:-1]:
+        edges = e.extra["edges"]
+        assert len(edges) == 21 == 3 * 7 and len(set(edges)) == 21 and all(a != b for a, b in edges)
+        assert all(type(a) is int and type(b) is int for a, b in edges)  # labels, as Python scalars
+    events = []
+    AntColony(random_state=0, n_iter=2).fit(_euclid(3, seed=3)[0], callback=events.append)
+    assert all(len(e.extra["edges"]) == 3 for e in events[1:-1])  # n (n - 1) / 2 = 3 < 3 n: the whole pool
+
+
+def test_strongest_trails_are_ordered_by_strength_then_position():
+    from skroute.metaheuristics._ant_colony import _strongest_trails
+
+    tau = np.array([[0.0, 2.0, 2.0, 8.0], [2.0, 0.0, 4.0, 2.0], [2.0, 4.0, 0.0, 2.0], [8.0, 2.0, 2.0, 0.0]])
+    ii, jj = np.triu_indices(4, 1)
+    labels = np.array(["a", "b", "c", "d"])
+    edges, weights = _strongest_trails(tau, ii, jj, 4, 8.0, labels)
+    assert edges == [("a", "d"), ("b", "c"), ("a", "b"), ("a", "c")] and weights == [1.0, 0.5, 0.25, 0.25]
+    edges, weights = _strongest_trails(tau, ii, jj, 6, 8.0, labels)  # k == pool: everything, ties by position
+    assert edges == [("a", "d"), ("b", "c"), ("a", "b"), ("a", "c"), ("b", "d"), ("c", "d")]
+    assert _strongest_trails(tau * 2.0, ii, jj, 1, 8.0, labels) == ([("a", "d")], [1.0])  # never above 1

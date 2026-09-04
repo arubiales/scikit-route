@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import math
+from collections.abc import Callable, Iterator
 from numbers import Real
 
 import numpy as np
@@ -84,6 +85,7 @@ def nrbs_tour(
     mean_connection: float = 1.0,
     std_connection: float = 1.0,
     distance_weight: float = 1.0,
+    on_edge: Callable[[int, int], None] | None = None,
 ) -> np.ndarray:
     """The NRBS construction in index space; see :class:`NRBS` for the algorithm.
 
@@ -91,6 +93,10 @@ def nrbs_tour(
     first neighbour the passes attached to the depot (the direction of the 2020 result). Raises
     ``ValueError`` when a priority or a connection score is NaN (negative costs with a fractional
     exponent, or costs so large that the powers overflow to ``inf / inf``).
+
+    ``on_edge(k, c)`` is called right after every connection ``k -- c`` (index space, ``k`` the node
+    being served by the pass, ``c`` its chosen candidate; D31); ``None`` costs nothing. Below three
+    nodes no connection is made and it is never called.
     """
     n = C.shape[0]
     d = int(depot)
@@ -148,6 +154,8 @@ def nrbs_tour(
                     continue  # would close a cycle before every node is covered
                 _connect(nb, deg, parent, k, cnd)
                 n_edges += 1
+                if on_edge is not None:
+                    on_edge(k, cnd)
                 break
     if n_edges < n:  # pragma: no cover - every visit of a node with degree < 2 adds an edge (Notes)
         raise RuntimeError("NRBS left the graph open after two passes (bug in the solver)")
@@ -238,6 +246,15 @@ class NRBS(BaseRouter):
     the decoder — the search itself ignores ``max_time_work`` and a ``UserWarning`` says so (the
     returned trips still fit the budget). Deterministic.
 
+    Callback events (D30, D31): ``"start"`` has no tour; then one ``"iteration"`` per connection
+    the two passes add — ``n`` events indexed ``1 .. n`` for ``n >= 3`` (the cycle has ``n`` edges;
+    none below three nodes) — each with ``tour=None``, ``cost=nan``, ``best_cost=nan``,
+    ``extra["edges"]``, the edge set built so far as ``(label, label)`` pairs (the node served by
+    the pass first, its chosen candidate second: the graph is undirected), and ``extra["n_edges"]``;
+    ``"end"`` carries the tour read from the closed cycle. The trace is built inline and costs O(n)
+    per event only when a callback is set; a callback returning ``True`` silences the remaining
+    trace events (the passes go on: the result never depends on the callback).
+
     References
     ----------
     .. [1] A. Rubiales, scikit-route 1.0.0a2, ``skroute.heuristics.NRBS`` (2020).
@@ -282,6 +299,27 @@ class NRBS(BaseRouter):
         return RouterTags(kind="construction", budget_aware=False)
 
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
+        on_edge = None
+        if self._callback is not None:
+            lab = problem.labels.tolist()
+            edges: list[tuple[object, object]] = []
+
+            def on_edge(k: int, c: int) -> None:
+                """D31: one event per connection, with the edge set so far (a fresh list per event)."""
+                edges.append((lab[k], lab[c]))
+                if self._stop_requested:  # the passes go on; only the trace is cut short
+                    return
+                self._emit(
+                    "iteration",
+                    len(edges),
+                    None,
+                    math.nan,
+                    None,
+                    math.nan,
+                    edges=list(edges),
+                    n_edges=len(edges),
+                )
+
         return nrbs_tour(
             problem.cost,
             problem.depot,
@@ -290,4 +328,5 @@ class NRBS(BaseRouter):
             self.mean_connection,
             self.std_connection,
             self.distance_weight,
+            on_edge=on_edge,
         )

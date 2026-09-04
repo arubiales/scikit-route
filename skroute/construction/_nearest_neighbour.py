@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from .._core import _routing as core
@@ -41,6 +43,14 @@ class NearestNeighbour(BaseRouter):
     multi-trip objective only through the decoder — the search itself ignores ``max_time_work`` and
     a ``UserWarning`` says so (the returned trips still fit the budget). Deterministic.
 
+    Callback events (D30, D31): ``"start"`` has no tour; then one ``"iteration"`` per node the walk
+    appends — ``n - 1`` events indexed ``1 .. n - 1`` — each with ``tour=None``, ``cost=nan``,
+    ``best_cost=nan`` and ``extra["edges"]``, the growing path from the depot as a list of
+    ``(label, label)`` pairs (``k`` pairs at event ``k``); ``"end"`` carries the finished tour. The
+    walk itself runs in the kernel, so the trace is replayed afterwards from the returned tour and
+    costs O(n²) Python work only when a callback is set; a callback returning ``True`` silences the
+    remaining trace events (the result is the same with or without a callback).
+
     References
     ----------
     .. [1] D. S. Johnson and L. A. McGeoch, "The traveling salesman problem: a case study in
@@ -75,4 +85,17 @@ class NearestNeighbour(BaseRouter):
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
         out = np.empty(problem.n, dtype=np.int64)
         core.nearest_neighbour_tour(problem.cost, problem.depot, out)
+        if self._callback is not None:
+            self._emit_trace(problem, out)
         return out
+
+    def _emit_trace(self, problem: RoutingProblem, tour: np.ndarray) -> None:
+        """D31: replay the walk one appended node per ``"iteration"`` event (``extra["edges"]``)."""
+        lab = problem.labels[tour].tolist()
+        edges: list[tuple[object, object]] = []
+        for k in range(1, problem.n):
+            edges.append((lab[k - 1], lab[k]))
+            # every event gets its own list: a viewer that keeps the event must not see later growth
+            self._emit("iteration", k, None, math.nan, None, math.nan, edges=list(edges))
+            if self._stop_requested:  # the walk is done; only the trace can be cut short
+                break

@@ -1,9 +1,12 @@
 """D30, the progress-callback protocol: ``RouteEvent``, ``BaseRouter._emit``, the event trace of every
-solver, ``MultiStart`` forwarding and the no-overhead guard.
+solver, ``MultiStart`` forwarding and the no-overhead guard; D31, the partial structures every family
+reports (``extra["edges"]``, ``extra["edge_weights"]``, ``extra["ring"]``) and the construction steps.
 
 Check 14 of ``check_router`` (run over the roster in ``tests/test_common.py`` and over ``MultiStart`` in
 ``tests/test_ensemble.py``) enforces the generic contract; this file holds the unit tests of the plumbing
 and the solver-specific facts (which ``extra`` keys, one event per level/kick/generation, MILP edges...).
+The step-by-step traces of each construction solver are pinned in ``tests/test_construction.py``, SOM's
+ring in ``tests/test_som.py`` and AntColony's trails in ``tests/test_ant_colony.py``.
 """
 
 from __future__ import annotations
@@ -20,14 +23,18 @@ from conftest import _euclid, fit_kwargs, make
 import skroute
 from skroute import (
     MILP,
+    NRBS,
     SOM,
     AntColony,
+    ClarkeWright,
     EnsembleGenetic,
     EnsembleSimulatedAnnealing,
     Genetic,
+    Insertion,
     IteratedLocalSearch,
     LocalSearch,
     MultiStart,
+    NearestNeighbour,
     RouteEvent,
     RoutingProblem,
     SimulatedAnnealing,
@@ -36,6 +43,7 @@ from skroute import (
 )
 from skroute.base import BaseRouter, RouterTags
 from skroute.metrics import split_trips
+from skroute.utils.estimator_checks import check_callback_protocol
 
 C4 = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
 NAMES = ["d", "a", "b", "c"]
@@ -45,24 +53,27 @@ ITERATION_EXTRA = {
     "SimulatedAnnealing": {"temperature", "accepted", "n_moves"},
     "TabuSearch": {"tenure"},
     "Genetic": {"generation", "n_evaluations", "mean_cost", "n_duplicates"},
-    "AntColony": {"n_ants", "iteration_best", "deposit"},
-    "SOM": {"radius", "learning_rate", "n_samples"},
+    "AntColony": {"n_ants", "iteration_best", "deposit", "edges", "edge_weights"},
+    "SOM": {"radius", "learning_rate", "n_samples", "ring"},
     "IteratedLocalSearch": {"kick", "accepted", "current_cost"},
     "TwoOpt": {"moves_applied", "gain"},
     "OrOpt": {"moves_applied", "gain"},
     "LocalSearch": {"moves_applied", "gain"},
-    "MILP": {"edges", "n_components", "lower_bound", "objective", "n_cuts"},
+    "MILP": {"edges", "edge_weights", "n_components", "lower_bound", "objective", "n_cuts"},
+    # D31: the construction solvers emit one step event per construction step, without a tour
+    "NearestNeighbour": {"edges"},
+    "Insertion": {"edges"},
+    "ClarkeWright": {"edges", "n_trips"},
+    "NRBS": {"edges", "n_edges"},
 }
-#: Solvers that emit no iteration event of their own: construction and exact (MILP apart) and the wrappers.
-NO_ITERATIONS = {
-    "BruteForce",
-    "HeldKarp",
-    "NearestNeighbour",
-    "Insertion",
-    "ClarkeWright",
-    "NRBS",
-    "EnsembleGenetic",
-    "EnsembleSimulatedAnnealing",
+#: Solvers that emit no iteration event of their own: the exact solvers (MILP apart) and the wrappers.
+NO_ITERATIONS = {"BruteForce", "HeldKarp", "EnsembleGenetic", "EnsembleSimulatedAnnealing"}
+#: The construction solvers and their step-event count on a plain instance of ``n`` nodes (each Notes).
+CONSTRUCTION_STEPS = {
+    NearestNeighbour: lambda n: n - 1,  # one appended node per event
+    Insertion: lambda n: n - 1,  # the seed, then n - 2 insertions
+    ClarkeWright: lambda n: n - 1,  # the n - 1 singletons, then n - 2 merges into one tour
+    NRBS: lambda n: n,  # one connection per event: the cycle has n edges
 }
 
 
@@ -488,6 +499,13 @@ def test_milp_iteration_events_carry_label_edges():
         edges = e.extra["edges"]
         assert isinstance(edges, list) and len(edges) == 9  # degree 2 on 9 nodes: 9 edges in the support
         assert all(isinstance(p, tuple) and len(p) == 2 and set(p) <= set(labels) for p in edges)
+        weights = e.extra[
+            "edge_weights"
+        ]  # D31: the support's variable values, integral up to HiGHS's tolerance
+        assert isinstance(weights, list) and len(weights) == 9
+        assert all(
+            type(w) is float and 0.0 <= w <= 1.0 and w == pytest.approx(1.0, abs=1e-6) for w in weights
+        )
         assert type(e.extra["n_components"]) is int and e.extra["n_components"] >= 1
         assert e.extra["lower_bound"] <= est.cost_ + 1e-9 and type(e.extra["n_cuts"]) is int
         if e.extra["n_components"] > 1:
@@ -497,7 +515,9 @@ def test_milp_iteration_events_carry_label_edges():
     assert last.cost == pytest.approx(est.cost_) and last.extra["objective"] == pytest.approx(est.cost_)
     Ca, _ = _euclid(7, seed=7, asymmetric=True)  # arcs on an asymmetric matrix: n of them
     _, events_a = _record(MILP(), Ca)
-    assert all(len(e.extra["edges"]) == 7 for e in events_a if e.stage == "iteration")
+    assert all(
+        len(e.extra["edges"]) == len(e.extra["edge_weights"]) == 7 for e in events_a if e.stage == "iteration"
+    )
     stopped = MILP().fit(C, callback=lambda e: True)  # a stop request ends the cut loop like a time-out
     assert stopped.n_solves_ == 1 and sorted(stopped.tour_.tolist()) == list(range(9))
 
@@ -531,6 +551,7 @@ def test_som_reports_the_decaying_neighbourhood(small_euclidean):
     assert all(b < a for a, b in pairwise(radii))
     assert all(b < a for a, b in pairwise(lrs))
     assert all(b > a for a, b in pairwise(samples)) and samples[-1] == som.n_samples_
+    assert all(e.extra["ring"].shape == (96, 2) for e in iters)  # D31: pinned in tests/test_som.py
 
 
 def test_aco_reports_the_iteration_best_and_the_deposit(small_euclidean):
@@ -539,6 +560,8 @@ def test_aco_reports_the_iteration_best_and_the_deposit(small_euclidean):
     assert events[0].tour is None and events[0].extra == {"n_ants": 12}
     assert all(e.extra["n_ants"] == 12 and e.extra["iteration_best"] == e.cost for e in iters)
     assert all(e.extra["deposit"] == ("global" if e.iteration % 5 == 0 else "iteration") for e in iters)
+    # D31: min(3 n, n (n - 1) / 2) = 36 trails with their scaled strength; pinned in tests/test_ant_colony.py
+    assert all(len(e.extra["edges"]) == len(e.extra["edge_weights"]) == 36 for e in iters)
 
 
 def test_tabu_reports_the_tenure(small_euclidean):
@@ -694,3 +717,115 @@ def test_ensemble_wrappers_forward_through_multistart(small_euclidean):
         C, callback=lambda e: e.stage == "iteration"
     )
     assert stopped.stop_reason_ == "callback" and stopped.n_iter_ == 1 and len(stopped.estimators_) == 1
+
+
+# --------------------------------------------------------------------------- D31: partial structures
+@pytest.mark.parametrize("Builder", list(CONSTRUCTION_STEPS), ids=lambda s: s.__name__)
+def test_construction_steps_carry_edges_and_no_tour(Builder):
+    C, _ = _euclid(9, seed=9)
+    labels = list("abcdefghi")
+    est, events = _record(Builder(), C, labels=labels, depot="c")
+    iters = [e for e in events if e.stage == "iteration"]
+    assert len(iters) == CONSTRUCTION_STEPS[Builder](9)
+    assert [e.iteration for e in iters] == list(range(1, len(iters) + 1))
+    assert events[-1].stage == "end" and events[-1].iteration == len(iters)
+    for e in iters:
+        assert e.tour is None and e.best_tour is None and math.isnan(e.cost) and math.isnan(e.best_cost)
+        assert e.route is None and e.trips == []
+        edges = e.extra["edges"]
+        assert isinstance(edges, list) and edges
+        assert all(type(p) is tuple and len(p) == 2 and set(p) <= set(labels) for p in edges)
+    # every event owns its edge list: a recorder that keeps the events keeps the whole history
+    assert len({id(e.extra["edges"]) for e in iters}) == len(iters)
+    assert events[-1].tour is not None and events[-1].best_cost == est.cost_
+
+
+@pytest.mark.parametrize("Builder", list(CONSTRUCTION_STEPS), ids=lambda s: s.__name__)
+def test_construction_result_never_depends_on_the_callback(Builder):
+    C, _ = _euclid(30, seed=30)
+    plain = Builder().fit(C)
+    recorded, _ = _record(Builder(), C)
+    assert np.array_equal(plain.tour_, recorded.tour_) and plain.cost_ == recorded.cost_
+    seen = []
+
+    def stop_at_the_first_step(event):
+        seen.append(event)
+        return event.stage == "iteration"
+
+    stopped = Builder().fit(C, callback=stop_at_the_first_step)
+    # a stop request only silences the trace: the construction goes on and the end event still comes
+    assert [e.stage for e in seen] == ["start", "iteration", "end"]
+    assert np.array_equal(plain.tour_, stopped.tour_) and plain.cost_ == stopped.cost_
+    assert not any(hasattr(stopped, a) for a in ("history_", "n_iter_", "stop_reason_"))
+    assert "_stop_requested" not in vars(stopped)
+
+
+class _Tracer(BaseRouter):
+    """A construction solver whose step events carry the D31 extras — well formed by default
+    (``mode="labels"``), or broken in the one way ``mode`` names — so check 14's validation of the extras
+    can be exercised."""
+
+    def __init__(self, mode="labels", verbose=0):
+        self.mode = mode
+        self.verbose = verbose
+
+    def _get_tags(self):
+        return RouterTags(kind="construction")
+
+    def _solve(self, problem, rng):
+        tour = np.roll(np.arange(problem.n, dtype=np.int64), -problem.depot)
+        lab = problem.labels[tour].tolist()
+        extra = {"edges": [(lab[0], lab[1])], "edge_weights": [0.5], "ring": np.zeros((3, 2))}
+        if self.mode == "indices":  # index pairs pass under the default labels and fail under string ones
+            extra["edges"] = [(int(tour[0]), int(tour[1]))]
+        elif self.mode == "list_pairs":
+            extra["edges"] = [[lab[0], lab[1]]]
+        elif self.mode == "weights_length":
+            extra["edge_weights"] = [0.5, 0.5]
+        elif self.mode == "weights_range":
+            extra["edge_weights"] = [1.5]
+        elif self.mode == "weights_alone":
+            del extra["edges"]
+        elif self.mode == "ring_shape":
+            extra["ring"] = np.zeros((3, 3))
+        elif self.mode == "ring_nan":
+            extra["ring"] = np.full((3, 2), np.nan)
+        if self.mode == "mixed":  # finite costs around an unknown one: nan is skipped, not compared
+            cost = float(problem.evaluate(tour))
+            self._emit("iteration", 1, tour, cost)
+            self._emit("iteration", 2, None, math.nan, None, math.nan, **extra)
+            self._emit("iteration", 3, tour, cost)
+        else:
+            self._emit("iteration", 1, None, math.nan, None, math.nan, **extra)
+        return tour
+
+
+@pytest.mark.parametrize("mode", ["labels", "mixed"])
+def test_check_14_accepts_well_formed_extras_and_unknown_costs(mode):
+    check_callback_protocol(_Tracer(mode=mode))
+
+
+@pytest.mark.parametrize(
+    ("mode", "match"),
+    [
+        ("indices", "not a label of the problem"),
+        ("list_pairs", r"\(label, label\) tuple"),
+        ("weights_length", "parallel to extra\\['edges'\\]"),
+        ("weights_range", r"number in \[0, 1\]"),
+        ("weights_alone", "needs extra\\['edges'\\] alongside"),
+        ("ring_shape", r"finite float array of shape \(m, 2\)"),
+        ("ring_nan", r"finite float array of shape \(m, 2\)"),
+    ],
+)
+def test_check_14_rejects_malformed_extras(mode, match):
+    with pytest.raises(AssertionError, match=f"check 14: .*{match}"):
+        check_callback_protocol(_Tracer(mode=mode))
+
+
+def test_nan_costs_are_unknown_not_values():
+    # an iteration without a tour reports nan on both costs; the protocol then requires a finite end
+    C, _ = _euclid(6, seed=6)
+    _, events = _record(_Tracer(mode="mixed"), C)
+    costs = [(e.cost, e.best_cost) for e in events if e.stage == "iteration"]
+    assert math.isnan(costs[1][0]) and math.isnan(costs[1][1]) and costs[0] == costs[2]
+    assert math.isfinite(events[-1].cost) and math.isfinite(events[-1].best_cost)
