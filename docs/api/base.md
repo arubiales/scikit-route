@@ -57,6 +57,42 @@ True
 
 ```
 
+### Partial structures: `edges`, `edge_weights`, `ring`
+
+A solver that has no tour yet still has *something* to show — and three optional `extra` keys
+carry it, in a shape every viewer understands (D31); keys a viewer does not know are ignored.
+
+- `extra["edges"]` — a list of `(label, label)` tuples: the partial structure the solver holds when
+  `tour` is `None` or incomplete. The construction heuristics emit one `"iteration"` event **per
+  construction step**, with `tour=None`, `cost=nan` and `best_cost=nan` (nan means *unknown*, not a
+  value): the growing path of `NearestNeighbour` (`n - 1` events), the closed partial cycle of
+  `Insertion` after each placement (`n - 1`, the seed included), the current `depot -> trip ->
+  depot` legs of `ClarkeWright` before the first merge and after each accepted one (`merges + 1`,
+  plus `extra["n_trips"]`), the edge set of `NRBS` after each connection (`n`, plus
+  `extra["n_edges"]`); `MILP` reports the support of each cut round; `AntColony` its strongest
+  `min(3n, n(n-1)/2)` pheromone trails.
+- `extra["edge_weights"]` — floats in `[0, 1]` parallel to `extra["edges"]`: `AntColony`'s trail
+  strength over the current `tau_max`, `MILP`'s variable values of the support.
+- `extra["ring"]` — an `(m, 2)` float array: `SOM`'s neuron positions after each epoch, in the
+  units of `problem.coords`, so the ring can be drawn over the cities.
+
+The traces cost nothing without a callback: the kernels record nothing and the Python side replays
+nothing. Every event owns its list or array — a recorder that keeps the events keeps the history.
+
+```pycon
+>>> import math
+>>> from skroute import NearestNeighbour
+>>> trace = []
+>>> nn = NearestNeighbour().fit(C, labels=["d", "a", "b", "c"], callback=trace.append)
+>>> [e.stage for e in trace]
+['start', 'iteration', 'iteration', 'iteration', 'end']
+>>> [e.extra["edges"] for e in trace if e.stage == "iteration"]
+[[('d', 'a')], [('d', 'a'), ('a', 'b')], [('d', 'a'), ('a', 'b'), ('b', 'c')]]
+>>> trace[1].tour is None and math.isnan(trace[1].cost), trace[-1].best_tour.tolist()
+(True, ['d', 'a', 'b', 'c'])
+
+```
+
 ::: skroute.RoutingProblem
 
 ::: skroute.base.BaseRouter

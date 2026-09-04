@@ -36,6 +36,7 @@ import sys
 import tempfile
 import warnings
 from collections.abc import Callable, Iterator
+from numbers import Real
 from typing import Any
 
 import numpy as np
@@ -930,14 +931,18 @@ def _check_label_tour(tour: Any, problem: RoutingProblem, number: int, what: str
 
 
 def check_callback_protocol(estimator: BaseRouter) -> None:
-    """14. ``fit(callback=...)`` (D30): a non-callable raises ``TypeError``; the callback receives
+    """14. ``fit(callback=...)`` (D30, D31): a non-callable raises ``TypeError``; the callback receives
     ``RouteEvent`` objects forming ``start, iteration*, end`` per emitting solver, with valid label tours
-    (also under string labels and a non-first depot) each priced exactly by its ``cost``/``best_cost``,
-    iterations indexed ``1, 2, ...`` strictly increasing, a non-increasing ``best_cost`` that ends at
-    ``cost_`` with ``tour_`` (``route``/``trips`` decoding to ``route_``/``trips_``), and one iteration event
-    per entry of ``history_``; recording does not change the result; nothing survives the fit (neither the
-    callback nor a stop request); returning ``True`` stops an iterative solver after one outer iteration with
-    ``stop_reason_ == "callback"``."""
+    (also under string labels and a non-first depot) each priced exactly by its ``cost``/``best_cost`` — a
+    missing tour has a ``nan`` cost, which counts as unknown (a construction solver's step events carry no
+    tour) — iterations indexed ``1, 2, ...`` strictly increasing, a non-increasing ``best_cost`` over the
+    finite values that ends at the finite ``cost_`` with ``tour_`` (``route``/``trips`` decoding to
+    ``route_``/``trips_``), one iteration event per entry of ``history_`` for an iterative solver, and the
+    D31 extras well formed when present: ``extra["edges"]`` a list of ``(label, label)`` tuples of labels
+    of the problem, ``extra["edge_weights"]`` a parallel list of numbers in ``[0, 1]``, ``extra["ring"]``
+    a finite float ``(m, 2)`` array; recording does not change the result; nothing survives the fit
+    (neither the callback nor a stop request); returning ``True`` stops an iterative solver after one outer
+    iteration with ``stop_reason_ == "callback"``."""
     tags = estimator._get_tags()
     name = type(estimator).__name__
     C, xy = _euclid(6, seed=6)
@@ -1073,12 +1078,13 @@ def _check_event_trace(
                     f"{e.solver} {e.stage} event {e.iteration}: {what} costs {priced} under the problem's "
                     f"objective but the event reports {cost} (D30: the tour's cost as the solver knows it)",
                 )
-        if math.isfinite(e.cost) and math.isfinite(e.best_cost):
+        if math.isfinite(e.cost) and math.isfinite(e.best_cost):  # nan is unknown, not a value (D31)
             _assert(
                 e.cost >= e.best_cost - 1e-9 * max(1.0, abs(e.best_cost)),
                 14,
                 f"the current cost {e.cost} cannot beat the best-so-far {e.best_cost}",
             )
+        _check_extra_structures(e)
         _assert(repr(e).startswith("RouteEvent("), 14, "repr(event) must work and name the class")
     # one stream per emitting solver: the estimator's own events and, for a wrapper, each forwarded restart
     streams: dict[tuple[str, Any], list[RouteEvent]] = {}
@@ -1107,7 +1113,7 @@ def _check_event_trace(
             14,
             f"{where}: the end event cannot precede the last iteration",
         )
-        bests = [e.best_cost for e in seq if math.isfinite(e.best_cost)]
+        bests = [e.best_cost for e in seq if math.isfinite(e.best_cost)]  # nan = unknown, skipped (D31)
         tol = 1e-9 * max(1.0, max((abs(b) for b in bests), default=0.0))
         _assert(
             all(b <= a + tol for a, b in itertools.pairwise(bests)),
@@ -1115,6 +1121,11 @@ def _check_event_trace(
             f"{where}: best_cost must be non-increasing",
         )
         _assert(seq[-1].best_tour is not None, 14, f"{where}: the end event must carry the final tour")
+        _assert(
+            math.isfinite(seq[-1].cost) and math.isfinite(seq[-1].best_cost),
+            14,
+            f"{where}: the end event's cost and best_cost must be finite (nan is only for a missing tour)",
+        )
     _assert((name, None) in streams, 14, f"no events were emitted under the estimator's own name {name!r}")
     own = streams[(name, None)]
     end = own[-1]
@@ -1169,6 +1180,56 @@ def _check_event_trace(
                 "an iterative solver must emit one iteration event per outer iteration "
                 "(a wrapper: forward the events of its restarts with extra['restart'])",
             )
+
+
+def _check_extra_structures(e: RouteEvent) -> None:
+    """The D31 extras of one event, when present: ``edges`` a list of ``(label, label)`` tuples of labels of
+    the problem, ``edge_weights`` a list of numbers in ``[0, 1]`` parallel to ``edges``, ``ring`` a finite
+    float array of shape ``(m, 2)``. Keys a viewer does not know are ignored, so nothing else is checked."""
+    where = f"{e.solver} {e.stage} event {e.iteration}"
+    edges = e.extra.get("edges")
+    if edges is not None:
+        _assert(
+            isinstance(edges, list), 14, f"{where}: extra['edges'] must be a list of (label, label) tuples"
+        )
+        for pair in edges:
+            _assert(
+                isinstance(pair, tuple) and len(pair) == 2,
+                14,
+                f"{where}: every entry of extra['edges'] must be a (label, label) tuple, got {pair!r}",
+            )
+            for label in pair:
+                try:
+                    e.problem.index_of(label)
+                except ValueError:
+                    raise AssertionError(
+                        f"check 14: {where}: extra['edges'] carries {label!r}, which is not a label of the "
+                        "problem (D31: edges are label pairs, not index pairs)"
+                    ) from None
+    weights = e.extra.get("edge_weights")
+    if weights is not None:
+        _assert(edges is not None, 14, f"{where}: extra['edge_weights'] needs extra['edges'] alongside")
+        _assert(
+            isinstance(weights, list) and len(weights) == len(edges or []),
+            14,
+            f"{where}: extra['edge_weights'] must be a list parallel to extra['edges']",
+        )
+        _assert(
+            all(isinstance(w, Real) and not isinstance(w, bool) and 0.0 <= float(w) <= 1.0 for w in weights),
+            14,
+            f"{where}: every edge weight must be a number in [0, 1]",
+        )
+    ring = e.extra.get("ring")
+    if ring is not None:
+        _assert(
+            isinstance(ring, np.ndarray)
+            and ring.ndim == 2
+            and ring.shape[1] == 2
+            and ring.dtype.kind == "f"
+            and bool(np.isfinite(ring).all()),
+            14,
+            f"{where}: extra['ring'] must be a finite float array of shape (m, 2)",
+        )
 
 
 _CHECKS: list[tuple[str, Callable[[BaseRouter], None]]] = [
