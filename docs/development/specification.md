@@ -648,7 +648,7 @@ def is_router(obj) -> bool:
 | `fit_time_` | `float` | seconds in `_solve` |
 | `history_` | `float64 (n_iter_,)` | iterative only: best-so-far cost after each outer iteration |
 | `n_iter_` | `int` | iterative only: outer iterations actually run |
-| `stop_reason_` | `str` | iterative only: `"converged" | "max_iter" | "patience" | "time_limit"`. Allowed subsets: TwoOpt/OrOpt/LocalSearch/SOM `{"converged", "max_iter"}`; ILS/Tabu/Genetic/AntColony `{"max_iter", "patience", "time_limit"}`; SimulatedAnnealing `{"converged", "patience", "time_limit"}`; MultiStart and the Ensemble wrappers copy the best estimator's value |
+| `stop_reason_` | `str` | iterative only: `"converged" | "max_iter" | "patience" | "time_limit" | "callback"` (the last one when a `fit(callback=)` returned `True`, D30). Allowed subsets (each plus `"callback"`): TwoOpt/OrOpt/LocalSearch/SOM `{"converged", "max_iter"}`; ILS/Tabu/Genetic/AntColony `{"max_iter", "patience", "time_limit"}`; SimulatedAnnealing `{"converged", "patience", "time_limit"}`; MultiStart and the Ensemble wrappers copy the best estimator's value |
 | `is_optimal_` | `bool` | exact only |
 
 `check_is_fitted(est)` (in `utils/validation.py`) raises `NotFittedError(f"This {name} instance is not fitted yet. Call 'fit' first.")` when `cost_` is missing.

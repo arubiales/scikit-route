@@ -44,7 +44,7 @@ dependencies = [
 pandas = ["pandas>=2.2"]
 google = ["googlemaps>=4.10"]
 viz = ["matplotlib>=3.8"]
-viz-map = ["matplotlib>=3.8", "plotly>=5.24"]
+viz-map = ["matplotlib>=3.8", "plotly>=5.24", "anywidget>=0.9"]
 test = [
   "pytest>=8.0",
   "pytest-cov>=5.0",

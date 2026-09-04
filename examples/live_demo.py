@@ -13,9 +13,14 @@ The script loads the instance, builds its cost matrix and fits the solver with a
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import logging
 import sys
 from collections.abc import Sequence
+from pathlib import Path
+
+if importlib.util.find_spec("skroute") is None:  # development checkout without an installed package
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import skroute
 from skroute.datasets import load_barcelona, load_tsp

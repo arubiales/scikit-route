@@ -26,6 +26,12 @@ for a symbol-by-symbol map.
   (`read_tsplib`, `read_tsplib_tour`); `distance_matrix` with the TSPLIB metrics
   (`EUC_2D`, `CEIL_2D`, `MAN_2D`, `ATT`, `GEO`), Euclidean, Manhattan and haversine.
 - Wheels for CPython 3.11–3.14 on Linux, macOS and Windows; typed (`py.typed`).
+- Progress callbacks: `fit(..., callback=)` and `skroute.RouteEvent` report `start`/`iteration`/`end`
+  events with label-space tours from every solver; returning `True` stops an iterative solver
+  (`stop_reason_ == "callback"`); `MultiStart` forwards sequential restarts; `check_router` gains check 14.
+- `skroute.viz` (extra `viz`, maps with `viz-map`): `plot_route`, `plot_history`, `LivePlot` (watch the
+  current and best tour while `fit` runs, in scripts and notebooks), `Recorder` (record a run, animate it,
+  save a GIF or a Plotly figure with a slider) and `plot_route_map` on OpenStreetMap tiles.
 
 ### Changed
 - `fit()` takes the cost matrix (numpy, DataFrame or dict-of-dicts) and returns
