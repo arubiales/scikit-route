@@ -19,6 +19,8 @@ pip install --upgrade scikit-route          # Python >= 3.11; wheels for Linux, 
 pip install "scikit-route[pandas]"          # DataFrame inputs and as_frame=True loaders
 ```
 
+The 2020 alpha reached PyPI under the distribution name `skroute` (1.0.0a1); 2.0 is published as `scikit-route`, the name the repository has always used, so `pip install --upgrade skroute` does not find it — install `scikit-route` instead. The import name is `skroute` in both.
+
 TensorFlow, scikit-learn, googlemaps and tqdm are no longer dependencies. The old
 import paths still work for the 2.x series and emit a `DeprecationWarning`:
 
