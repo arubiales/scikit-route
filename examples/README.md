@@ -4,8 +4,9 @@
 
 Runs a solver on a bundled instance with a `skroute.viz.LivePlot` callback, so you see
 the current tour (thin, light line) and the best tour so far (thick line) being redrawn
-while `fit` runs, with the iteration, the costs and the solver's own facts (temperature,
-tenure, kick...) in the title. Needs the `viz` extra (`pip install "scikit-route[viz]"`;
+while `fit` runs, with the iteration, the costs and the solver's scalar facts
+(temperature, tenure, generation... — lists such as the kick of an iterated local search
+are skipped) in the title. Needs the `viz` extra (`pip install "scikit-route[viz]"`;
 `[viz-map]` adds Plotly for `--backend plotly` and `--map`).
 
 ```bash
@@ -28,9 +29,11 @@ python examples/live_demo.py --instance dj38 --solver SimulatedAnnealing --init 
 
 The matplotlib window appears through `plt.pause` while the solver runs; the script
 calls `plt.show()` at the end to keep the final picture open. Headless machines
-(`MPLBACKEND=Agg`) run the whole thing silently, which is how `docs/images/live_demo.gif`
-is produced: `--instance dj38 --solver SimulatedAnnealing --init random --every 30 --gif live_demo.gif`
-(a random tour of 27 722 becomes the optimum 6656).
+(`MPLBACKEND=Agg`) run the whole thing silently — the picture is rendered once at the end
+and `plt.show()` is skipped — which is how `docs/images/live_demo.gif` is produced:
+`--instance dj38 --solver SimulatedAnnealing --init random --every 30 --gif live_demo.gif`
+(a random tour of about 27 700, four times the optimum 6656, is untangled down to the
+optimum on the machine that recorded it; another platform may land within a percent).
 
 ## `LivePlot` in a notebook
 
@@ -51,7 +54,10 @@ sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labe
   place; `map=True` draws on OpenStreetMap tiles for `(lat, lon)` coordinates such as `load_barcelona().coords`.
 
 To stop a long run from another cell, fit in a thread and call `live.stop()`; the solver
-finishes its current iteration and returns with `stop_reason_ == "callback"`:
+finishes its current iteration and returns with `stop_reason_ == "callback"`. This is for
+`%matplotlib inline` and `backend="plotly"`, whose redraws are IPython display calls; a
+desktop window (macosx, Tk, Qt) must be drawn from the main thread, so there `fit` stays
+on it and a key handler on `live.fig` calls `live.stop()` (see the user guide).
 
 ```python
 import threading

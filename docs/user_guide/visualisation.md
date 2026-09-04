@@ -93,8 +93,15 @@ and never calls `plt.show()` — add that yourself after `fit` to keep the windo
 A redraw costs a few milliseconds and a fast solver emits thousands of outer iterations
 per second, so `every=` is the knob that keeps the search fast: `SimulatedAnnealing` runs
 about 1 800 levels, `IteratedLocalSearch` up to `n_iter` kicks, `TabuSearch` `n_iter`
-moves. Headless machines work too — on the `Agg` backend the figure is updated without
-being shown, which is how this page and the test-suite run.
+moves. Headless machines work too — on the `Agg` backend the lines are updated on every
+kept iteration and the picture is rendered once, at `"end"`, without being shown, which is
+how this page and the test-suite run.
+
+The figure stays open after `fit` (close it with `plt.close(live.fig)` when you watch many
+runs in one script), and the same `LivePlot` can watch the next fit: a new `"start"` opens
+a fresh figure. Under `MultiStart(..., n_jobs=1)` the inner solvers' events are forwarded,
+so every restart is drawn from scratch in the same figure and its final route stays on
+screen until the next restart begins.
 
 `examples/live_demo.py` in the repository wraps this in a small command line:
 
@@ -109,7 +116,8 @@ The same object works in Jupyter. `LivePlot` detects the kernel and picks the re
 that fits the matplotlib backend:
 
 - `%matplotlib inline` (the default) — every redraw replaces the cell output through
-  `IPython.display.display(fig, clear=True)`; keep `every=` generous, each redraw
+  `IPython.display.display(fig, clear=True)`, and the figure is closed after the last
+  one, so the cell ends with a single picture; keep `every=` generous, each redraw
   renders a PNG.
 - `%matplotlib widget` (ipympl) — the canvas is updated in place, the way a desktop
   window is.
@@ -128,8 +136,30 @@ that fits the matplotlib backend:
 
 Any callback that returns `True` asks the solver to stop after its current outer
 iteration; the fit then completes normally with `stop_reason_ == "callback"` and the
-best tour found so far. `LivePlot.stop()` arms exactly that: call it from another cell
-(run the fit in a thread so the kernel stays responsive) or from a key handler.
+best tour found so far. `LivePlot.stop()` arms exactly that, for the run in progress (a
+later fit with the same `LivePlot` starts unarmed).
+
+Redraws happen on the thread that runs `fit`, and matplotlib is not thread-safe — the
+reason `MultiStart` forwards the callback to its inner estimators only with `n_jobs=1`.
+With a desktop window (macosx, Tk, Qt) `fit` therefore stays on the main thread and the
+stop comes from the window itself: connect a key handler once the figure exists.
+
+```python
+>>> live = LivePlot(dj.coords, every=5)
+>>> def watch(event):
+...     stop = live(event)
+...     if event.stage == "start":  # the figure exists now: any key press stops the run
+...         live.fig.canvas.mpl_connect("key_press_event", lambda key_event: live.stop())
+...     return stop
+>>> sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=watch)  # doctest: +SKIP
+>>> sa.stop_reason_  # doctest: +SKIP
+'callback'
+
+```
+
+In a notebook with `%matplotlib inline` or `backend="plotly"` the redraws are
+`IPython.display` calls rather than GUI drawing, so the fit can run in a worker thread
+(the kernel stays responsive) and `stop()` comes from another cell:
 
 ```python
 >>> import threading
@@ -144,9 +174,6 @@ best tour found so far. `LivePlot.stop()` arms exactly that: call it from anothe
 'callback'
 
 ```
-
-Redraws happen on the thread that runs `fit`, and matplotlib is not thread-safe, which
-is why `MultiStart` forwards the callback to its inner estimators only with `n_jobs=1`.
 
 ## Recording a run: GIF, MP4, Plotly slider
 
@@ -169,13 +196,20 @@ True
 ```
 
 `rec.events` holds the copies (`stage`, `iteration`, `cost`, `best_cost`, `tour`,
-`best_tour`, `extra`, a reference to the problem); `rec.costs`, `rec.best_costs` and
-`rec.iterations` are the same facts as arrays. A frame is drawn for every kept event
-with a best tour, so `Recorder(every=30)` on an 1 800-level annealing gives about 60
-frames. The GIF at the top of this page is `SimulatedAnnealing(init="random",
-random_state=0)` on Djibouti (`dj38`) recorded that way and saved at 80 dpi: a random
-tour of 27 722 becomes the optimum 6656 (`python examples/live_demo.py --instance dj38
---solver SimulatedAnnealing --init random --every 30 --gif live_demo.gif`).
+`best_tour`, `extra`, a reference to the problem, and the decoded `route` and `trips`
+like a live event); `rec.costs`, `rec.best_costs` and `rec.iterations` are the same
+facts as arrays. A frame is drawn for every kept event with a best tour, so
+`Recorder(every=30)` on an 1 800-level annealing gives about 60 frames. A recorder
+accumulates — handed to a second `fit` it appends that run's events — so build one per
+run you want to replay; the events of a `MultiStart(n_jobs=1)` (one `"start"`/`"end"`
+per restart, `extra["restart"]`) are plotted against the iteration counted across the
+restarts and labelled `restart:iteration` on the slider. The GIF at the top of this page
+is `SimulatedAnnealing(init="random", random_state=0)` on Djibouti (`dj38`) recorded that
+way and saved at 80 dpi: a random tour of about 27 700 — four times the optimum 6656 —
+is untangled down to the optimum on the machine that recorded it (another platform's
+`exp` may flip a Metropolis decision and land within a percent of it):
+`python examples/live_demo.py --instance dj38 --solver SimulatedAnnealing --init random
+--every 30 --gif live_demo.gif`.
 
 ## On a map
 
@@ -208,17 +242,39 @@ Every event carries the same core fields — `solver`, `stage`, `iteration`, `co
 (the objective of the current tour, `nan` when the solver has none), `best_cost`,
 `tour` and `best_tour` (label-space open giant tours, depot first), `problem`, and the
 decoded `route` and `trips` of the best tour — plus `extra`, a dict of solver-specific
-facts. `LivePlot` prints the scalar ones in the title and skips the rest:
+facts. The keys of the `"iteration"` events (each solver's docstring is the reference):
 
 | Solver | `extra` keys | Meaning |
 |---|---|---|
-| `SimulatedAnnealing` | `temperature` | the level's temperature |
-| `TabuSearch` | `tenure` | the tenure drawn for the iteration |
-| `Genetic`, `EnsembleGenetic` | `generation`, `n_evaluations` | generation index, objective evaluations so far |
-| `IteratedLocalSearch` | `kick`, `moves_applied` | the kick applied, moves applied by the descent |
-| `SOM` | `radius` | the neighbourhood radius of the epoch |
-| `MILP` | `edges` | the edges of the current LP support (one event per cut round) |
-| `MultiStart` | `restart` | index of the restart that emitted the event |
+| `SimulatedAnnealing` | `temperature`, `accepted`, `n_moves` | the level's temperature, proposals accepted in the level, moves tried (`"start"` carries `temperature` = `t0_`) |
+| `TabuSearch` | `tenure` | the tenure applied in the iteration |
+| `Genetic` | `generation`, `n_evaluations`, `mean_cost`, `n_duplicates` | generations completed, objective evaluations so far, mean objective of the population, duplicate individuals |
+| `AntColony` | `n_ants`, `iteration_best`, `deposit` | ants per iteration, the iteration-best ant's cost, whose tour reinforced the trail (`"global"` or `"iteration"`) |
+| `IteratedLocalSearch` | `kick`, `accepted`, `current_cost` | the cut positions of the kicks applied (a list of tuples), whether the candidate replaced the current tour, the current tour's cost |
+| `TwoOpt`, `OrOpt`, `LocalSearch` | `moves_applied`, `gain` | the listed moves whose descent changed the tour (a list; `"start"` carries `moves`, the ones listed), the iteration's total cost change (`<= 0`) |
+| `SOM` | `radius`, `learning_rate`, `n_samples` | neighbourhood radius and learning rate after the epoch's decay, samples presented (`"start"` also `n_units`) |
+| `MILP` | `edges`, `n_components`, `lower_bound`, `objective`, `n_cuts` | the LP support as `(label, label)` pairs (a list), its connected components, the bound, the solve's objective, constraints added so far — one event per cut round |
+| `MultiStart`, `EnsembleSimulatedAnnealing`, `EnsembleGenetic` | `restart` on every forwarded inner event; `n_restarts` on their own `"start"` | index of the restart that emitted the event |
+| `NearestNeighbour`, `Insertion`, `ClarkeWright`, `NRBS`, `BruteForce`, `HeldKarp` | — | `"start"` and `"end"` only |
+
+`LivePlot` puts the scalar values — `bool`, `int`, `float`, `str` — in the title and
+skips lists such as `kick`, `moves_applied` and `edges`. The rows are facts of the
+solvers, not of this page:
+
+```python
+>>> def iteration_keys(solver):
+...     seen = set()
+...     solver.fit(dj.distance_matrix(), labels=dj.labels, callback=lambda e: seen.update(e.extra) if e.stage == "iteration" else None)
+...     return sorted(seen)
+>>> iteration_keys(IteratedLocalSearch(n_iter=3, patience=None, random_state=0))
+['accepted', 'current_cost', 'kick']
+>>> iteration_keys(SimulatedAnnealing(random_state=0))
+['accepted', 'n_moves', 'temperature']
+>>> from skroute import TwoOpt
+>>> iteration_keys(TwoOpt())
+['gain', 'moves_applied']
+
+```
 
 Construction and exact solvers emit `"start"` and `"end"` only (MILP also one
 `"iteration"` per cut round), so `LivePlot` shows their result and `Recorder` keeps two
