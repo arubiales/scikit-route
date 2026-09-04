@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from itertools import pairwise
 from numbers import Real
 
@@ -44,6 +45,7 @@ def savings_trips(
     shape: float = 1.0,
     T: np.ndarray | None = None,
     max_time: float = math.inf,
+    on_step: Callable[[list[list[int]]], None] | None = None,
 ) -> list[list[int]]:
     """Parallel Clarke-Wright savings; returns the savings trips of SPEC §4.2 in index space.
 
@@ -69,6 +71,10 @@ def savings_trips(
         Time matrix; required when ``max_time`` is finite.
     max_time : float, default inf
         Per-trip budget; ``inf`` means plain TSP (everything merges into one trip).
+    on_step : callable, optional
+        Called with the current trips (index paths by increasing creation index, each oriented as
+        it will be driven) once before the first merge — every customer its own trip — and once
+        after every accepted merge (D31: the estimator's callback trace). ``None`` costs nothing.
 
     Returns
     -------
@@ -81,6 +87,8 @@ def savings_trips(
     nodes = np.delete(np.arange(n, dtype=np.int64), d)
     m = nodes.size
     if m == 1:
+        if on_step is not None:
+            on_step([[int(nodes[0])]])
         return [[int(nodes[0])]]
     budget = math.isfinite(max_time)
     if budget and T is None:
@@ -100,6 +108,8 @@ def savings_trips(
     trip_of = list(range(n))  # node -> creation index of its trip
     deg = bytearray(n)  # 0 singleton, 1 endpoint, 2 interior
     deg_view = np.frombuffer(deg, dtype=np.uint8)  # live view: vectorised pre-filter of each chunk
+    if on_step is not None:
+        on_step([trips[idx] for idx in sorted(trips)])
 
     # the pairs are visited in savings order, one chunk of Python ints at a time; a pair with an
     # interior endpoint at the start of its chunk stays interior (degrees only grow), so dropping
@@ -133,6 +143,8 @@ def savings_trips(
             del trips[drop]
             deg[a] += 1
             deg[b] += 1
+            if on_step is not None:
+                on_step([trips[idx] for idx in sorted(trips)])
 
     return [trips[idx] for idx in sorted(trips)]
 
@@ -143,8 +155,11 @@ def savings_tour(
     shape: float = 1.0,
     T: np.ndarray | None = None,
     max_time: float = math.inf,
+    on_step: Callable[[list[list[int]]], None] | None = None,
 ) -> np.ndarray:
     """The giant tour of SPEC §4.2: the depot followed by the :func:`savings_trips` in order.
+
+    ``on_step`` is handed to :func:`savings_trips` unchanged.
 
     Returns
     -------
@@ -152,7 +167,7 @@ def savings_tour(
         Permutation of ``range(n)`` with ``depot`` first.
     """
     out = [int(depot)]
-    for trip in savings_trips(C, depot, shape, T, max_time):
+    for trip in savings_trips(C, depot, shape, T, max_time, on_step):
         out.extend(trip)
     return np.asarray(out, dtype=np.int64)
 
@@ -215,6 +230,16 @@ class ClarkeWright(BaseRouter):
     Supports: symmetric matrices only (an asymmetric ``X`` raises ``ValueError``); multi-trip
     objective inside the search. Deterministic.
 
+    Callback events (D30, D31): ``"start"`` has no tour; then one ``"iteration"`` before the first
+    merge — every customer its own out-and-back trip — and one per accepted merge (``merges + 1``
+    events indexed from 1), each with ``tour=None``, ``cost=nan``, ``best_cost=nan``,
+    ``extra["edges"]`` — the ``depot -> trip -> depot`` legs of every current trip as
+    ``(label, label)`` pairs in driving direction, trips by increasing creation index — and
+    ``extra["n_trips"]``, the number of savings trips at that moment; ``"end"`` carries the giant
+    tour. Refused merges emit nothing. The trace is built inline in the savings loop and costs O(n)
+    per event only when a callback is set; a callback returning ``True`` silences the remaining
+    trace events (the merges themselves go on: the result never depends on the callback).
+
     References
     ----------
     .. [1] G. Clarke and J. W. Wright, "Scheduling of vehicles from a central depot to a number
@@ -262,6 +287,31 @@ class ClarkeWright(BaseRouter):
         return RouterTags(kind="construction", requires_symmetric=True, budget_aware=True)
 
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
+        on_step = None
+        if self._callback is not None:
+            lab = problem.labels.tolist()
+            d = lab[problem.depot]
+            step = 0
+
+            def on_step(trips: list[list[int]]) -> None:
+                """D31: one event per snapshot of the trips — before the first merge and after each merge."""
+                nonlocal step
+                step += 1
+                if self._stop_requested:  # the merges go on; only the trace is cut short
+                    return
+                edges: list[tuple[object, object]] = []
+                for trip in trips:
+                    path = [lab[i] for i in trip]
+                    edges.append((d, path[0]))
+                    edges.extend(pairwise(path))
+                    edges.append((path[-1], d))
+                self._emit("iteration", step, None, math.nan, None, math.nan, edges=edges, n_trips=len(trips))
+
         return savings_tour(
-            problem.cost, problem.depot, float(self.shape), T=problem.time, max_time=problem.max_time_work
+            problem.cost,
+            problem.depot,
+            float(self.shape),
+            T=problem.time,
+            max_time=problem.max_time_work,
+            on_step=on_step,
         )

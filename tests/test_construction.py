@@ -1,15 +1,17 @@
 """Acceptance tests of the construction heuristics (SPEC §4.2): ``NearestNeighbour``, ``Insertion``,
-``ClarkeWright`` and ``NRBS``. The structural battery (checks 1-11, 13) and the tolerance tests run in
+``ClarkeWright`` and ``NRBS``. The structural battery (checks 1-11, 13, 14) and the tolerance tests run in
 ``tests/test_common.py``; here live the algorithm-specific facts: pure-Python restatements of every
 rule (exercised on tie-heavy integer matrices as well as on float ones, so the tie rules are pinned),
-the crafted instances whose answer is known by hand, the 1.0 NRBS regression pin and the multi-trip
-behaviour of ClarkeWright (savings trips checked as driven, with the decoder's arithmetic)."""
+the crafted instances whose answer is known by hand, the 1.0 NRBS regression pin, the multi-trip
+behaviour of ClarkeWright (savings trips checked as driven, with the decoder's arithmetic) and the D31
+step traces (one ``"iteration"`` event per construction step, ``extra["edges"]`` the partial structure)."""
 
 from __future__ import annotations
 
 import json
 import math
 import warnings
+from collections import Counter
 from itertools import pairwise
 from pathlib import Path
 
@@ -19,7 +21,7 @@ import reference
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from skroute import NRBS, ClarkeWright, Insertion, NearestNeighbour, RoutingProblem
+from skroute import NRBS, ClarkeWright, Insertion, NearestNeighbour, RoutingProblem, clone
 from skroute.construction._clarke_wright import _closed_duration, savings_tour, savings_trips
 from skroute.construction._insert import STRATEGIES, insertion_tour
 from skroute.construction._nrbs import nrbs_tour, row_stats
@@ -751,3 +753,172 @@ def test_construction_solvers_are_deterministic_and_not_iterative():
         a, b = est.fit(C).tour_.copy(), est.fit(C).tour_
         assert np.array_equal(a, b)
         assert not any(hasattr(est, attr) for attr in ("history_", "n_iter_", "stop_reason_", "is_optimal_"))
+
+
+# --------------------------------------------------------------------------- D31: the step traces
+def _trace(est, C, **kw):
+    """Fit with a recording callback; returns ``(est, iteration events)`` after checking the stage stream."""
+    events = []
+    est.fit(C, callback=events.append, **kw)
+    assert events[0].stage == "start" and events[-1].stage == "end"
+    iters = [e for e in events if e.stage == "iteration"]
+    assert len(events) == len(iters) + 2 and events[-1].iteration == len(iters)
+    assert all(
+        e.tour is None and e.best_tour is None and math.isnan(e.cost) and math.isnan(e.best_cost)
+        for e in iters
+    )
+    return est, iters
+
+
+def _directed(tour):
+    """Directed edge list of a closed tour, in driving direction from its first node."""
+    tour = list(tour)
+    return [(tour[k], tour[(k + 1) % len(tour)]) for k in range(len(tour))]
+
+
+def test_nearest_neighbour_trace_grows_the_path_one_node_per_event():
+    C = _random_instance(15, seed=15)
+    labels = [f"n{k}" for k in range(15)]
+    est, iters = _trace(NearestNeighbour(), C, labels=labels, depot="n4")
+    tour = est.tour_.tolist()
+    assert len(iters) == 14
+    for k, e in enumerate(iters, start=1):
+        assert e.iteration == k and e.extra["edges"] == list(pairwise(tour[: k + 1]))  # k edges, labels
+    # the last structure is the open path: the final tour's edges minus the closing leg
+    assert set(map(frozenset, iters[-1].extra["edges"])) == _edges(tour) - {frozenset((tour[-1], tour[0]))}
+
+
+@pytest.mark.parametrize("strategy", STRATEGY_NAMES)
+@pytest.mark.parametrize("asymmetric", [False, True], ids=["sym", "asym"])
+def test_insertion_trace_is_the_closed_partial_cycle_after_each_placement(strategy, asymmetric):
+    C = _random_instance(15, seed=16, asymmetric=asymmetric)
+    labels = [f"n{k}" for k in range(15)]
+    depot = 7
+    est, iters = _trace(Insertion(strategy=strategy), C, labels=labels, depot="n7")
+    assert len(iters) == 14  # the seed, then 13 insertions
+    routed = {"n7"}
+    for k, e in enumerate(iters, start=1):
+        edges = e.extra["edges"]
+        assert (
+            e.iteration == k and len(edges) == k + 1 and edges[0][0] == "n7"
+        )  # a closed cycle of k + 1 nodes
+        heads, tails = [a for a, _ in edges], [b for _, b in edges]
+        assert sorted(heads) == sorted(tails) and len(set(heads)) == k + 1
+        assert all(b == edges[(i + 1) % len(edges)][0] for i, (_, b) in enumerate(edges))  # chained
+        (new,) = set(heads) - routed  # exactly one node placed per event
+        routed.add(new)
+    seed = iters[0].extra["edges"][0][1]
+    expected_seed = int(
+        np.argmax(C[depot])
+        if strategy == "farthest"
+        else np.argmin(np.where(np.arange(15) == depot, np.inf, C[depot]))
+    )
+    assert iters[0].extra["edges"] == [("n7", seed), (seed, "n7")] and seed == f"n{expected_seed}"
+    assert iters[-1].extra["edges"] == _directed(est.tour_.tolist())  # driving direction, depot first
+
+
+@pytest.mark.parametrize("strategy", STRATEGY_NAMES)
+@pytest.mark.parametrize("kind", sorted(INSTANCES))
+def test_insertion_kernel_records_the_order_without_changing_the_tour(strategy, kind):
+    C = INSTANCES[kind](20, seed=21)
+    depot = 5
+    plain = insertion_tour(C, depot, strategy)
+    order, after = np.empty(19, dtype=np.int64), np.empty(19, dtype=np.int64)
+    recorded = insertion_tour(C, depot, strategy, order, after)
+    assert np.array_equal(plain, recorded)
+    assert after[0] == depot and sorted([*order.tolist(), depot]) == list(range(20))
+    cycle = [depot]  # replaying the record on a list rebuilds the kernel's linked list exactly
+    for node, prev in zip(order.tolist(), after.tolist(), strict=True):
+        assert prev in cycle and node not in cycle
+        cycle.insert(cycle.index(prev) + 1, node)
+    assert cycle == plain.tolist()
+    with pytest.raises(ValueError, match="together"):
+        insertion_tour(C, depot, strategy, order, None)
+    with pytest.raises(ValueError, match="shape"):
+        insertion_tour(C, depot, strategy, order[:5].copy(), after[:5].copy())
+
+
+def test_clarke_wright_trace_one_event_per_accepted_merge():
+    C = _random_instance(12, seed=12)
+    labels = list("abcdefghijkl")
+    est, iters = _trace(ClarkeWright(), C, labels=labels, depot="e")
+    assert len(iters) == 11  # 11 customers: the singletons, then 10 merges into one tour
+    assert [e.extra["n_trips"] for e in iters] == list(range(11, 0, -1))
+    customers = [x for x in labels if x != "e"]  # creation index = node index = label order here
+    assert iters[0].extra["edges"] == [pair for x in customers for pair in (("e", x), (x, "e"))]
+    for e in iters:
+        edges = e.extra["edges"]
+        # every trip leaves the depot once and comes back once; n - 1 customer legs plus one closing per trip
+        assert sum(a == "e" for a, _ in edges) == sum(b == "e" for _, b in edges) == e.extra["n_trips"]
+        assert len(edges) == 11 + e.extra["n_trips"]
+        assert Counter(x for p in edges for x in p if x != "e") == Counter({x: 2 for x in customers})
+    assert iters[-1].extra["edges"] == _directed(est.tour_.tolist())
+
+
+def test_clarke_wright_trace_under_a_budget_stops_at_the_savings_trips():
+    # the hand-checked example of the docstring: customers 2, 3, 4 under a 4-hour budget -> trips [2, 3], [4]
+    cost = {
+        1: {1: 0, 2: 5, 3: 9, 4: 10},
+        2: {1: 5, 2: 0, 3: 4, 4: 8},
+        3: {1: 9, 2: 4, 3: 0, 4: 3},
+        4: {1: 10, 2: 8, 3: 3, 4: 0},
+    }
+    hours = {
+        1: {1: 0, 2: 1, 3: 2, 4: 2},
+        2: {1: 1, 2: 0, 3: 1, 4: 2},
+        3: {1: 2, 2: 1, 3: 0, 4: 1},
+        4: {1: 2, 2: 2, 3: 1, 4: 0},
+    }
+    est, iters = _trace(ClarkeWright(), cost, time_matrix=hours, max_time_work=4.0, extra_cost=3.0)
+    assert [e.extra["n_trips"] for e in iters] == [3, 2]  # one merge accepted, the others refused
+    assert iters[0].extra["edges"] == [(1, 2), (2, 1), (1, 3), (3, 1), (1, 4), (4, 1)]
+    assert iters[-1].extra["edges"] == [(1, 2), (2, 3), (3, 1), (1, 4), (4, 1)]
+    assert est.route_.tolist() == [1, 2, 3, 1, 4, 1]
+    # one customer (below the estimator minimum; the kernel accepts it): no savings pair, still one snapshot
+    seen = []
+    assert savings_trips(np.array([[0.0, 2.0], [2.0, 0.0]]), 0, on_step=seen.append) == [[1]] and seen == [
+        [[1]]
+    ]
+
+
+def test_nrbs_trace_one_event_per_connection():
+    C = _random_instance(15, seed=17)
+    labels = [f"n{k}" for k in range(15)]
+    est, iters = _trace(NRBS(), C, labels=labels, depot="n3")
+    assert len(iters) == 15 and [e.extra["n_edges"] for e in iters] == list(range(1, 16))
+    for a, b in pairwise(iters):
+        assert b.extra["edges"][:-1] == a.extra["edges"] and b.extra["edges"] is not a.extra["edges"]
+    last = iters[-1].extra["edges"]
+    assert set(Counter(x for p in last for x in p).values()) == {2}  # a 2-regular graph...
+    assert set(map(frozenset, last)) == _edges(est.tour_.tolist())  # ... which is the tour
+    # the index-space kernel reports every connection to on_edge, in the order the passes make them
+    seen = []
+    tour = nrbs_tour(C, 3, on_edge=lambda k, c: seen.append((k, c)))
+    assert [(labels[k], labels[c]) for k, c in seen] == last and np.array_equal(
+        est.problem_.to_label_tour(tour), est.tour_
+    )
+    seen.clear()
+    nrbs_tour(np.array([[0.0, 1.0], [1.0, 0.0]]), 0, on_edge=lambda k, c: seen.append((k, c)))
+    assert seen == []  # below three nodes nothing is connected
+
+
+@pytest.mark.parametrize(
+    "est",
+    [
+        NearestNeighbour(),
+        Insertion(),
+        Insertion(strategy="cheapest"),
+        Insertion(strategy="nearest"),
+        ClarkeWright(),
+        NRBS(),
+    ],
+    ids=repr,
+)
+def test_construction_result_is_bit_identical_with_and_without_a_callback(est):
+    C = _random_instance(40, seed=40)
+    plain = clone(est).fit(C)
+    seen = []
+    traced = clone(est).fit(C, callback=seen.append)
+    assert np.array_equal(plain.tour_, traced.tour_) and plain.cost_ == traced.cost_
+    assert len(seen) >= 3 and all(e.extra["edges"] for e in seen[1:-1])
+    assert not any(hasattr(traced, a) for a in ("history_", "n_iter_", "stop_reason_"))

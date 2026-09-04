@@ -14,6 +14,11 @@
 # case. The cache therefore holds, for every unrouted node, the first minimum-cost edge met in the
 # walk from the depot: inserting a node never reorders the surviving edges, a strictly cheaper new
 # edge wins outright, and an exact tie is resolved by a full walk.
+#
+# Insertion order (D31): on request the kernel records, for each of the n - 1 steps, the node placed
+# and the tour node it was placed after (the seed counts as step 0, placed after the depot), so the
+# estimator can replay the partial cycles for its callback. Two stores per step behind one flag: the
+# tour is bit-identical with and without the recording.
 """Insertion construction kernel: :func:`insertion_tour` (see :class:`skroute.construction.Insertion`)."""
 
 from libc.math cimport INFINITY
@@ -58,7 +63,8 @@ cdef inline int64_t _best_edge(const double[:, ::1] C, const int64_t[::1] succ, 
 
 cdef void _insertion(const double[:, ::1] C, int64_t depot, int strategy,
                      int64_t[::1] succ, uint8_t[::1] routed, double[::1] min_dist,
-                     double[::1] best_cost, int64_t[::1] best_after, int64_t[::1] out) noexcept nogil:
+                     double[::1] best_cost, int64_t[::1] best_after, int64_t[::1] out,
+                     int64_t[::1] ins_node, int64_t[::1] ins_after, bint record) noexcept nogil:
     cdef Py_ssize_t n = C.shape[0], m, k
     cdef int64_t j, a, b, chosen, after
     cdef double best, c
@@ -89,6 +95,9 @@ cdef void _insertion(const double[:, ::1] C, int64_t depot, int strategy,
     succ[depot] = chosen
     succ[chosen] = depot
     routed[chosen] = 1
+    if record:                              # step 0: the seed, placed after the depot
+        ins_node[0] = chosen
+        ins_after[0] = depot
     for j in range(n):
         if routed[j]:
             continue
@@ -132,6 +141,9 @@ cdef void _insertion(const double[:, ::1] C, int64_t depot, int strategy,
         succ[after] = chosen
         succ[chosen] = b
         routed[chosen] = 1
+        if record:                          # step m - 1: `chosen` placed between `after` and `b`
+            ins_node[m - 1] = chosen
+            ins_after[m - 1] = after
         m += 1
         for j in range(n):
             if routed[j]:
@@ -163,7 +175,7 @@ cdef void _insertion(const double[:, ::1] C, int64_t depot, int strategy,
         a = succ[a]
 
 
-def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy):
+def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy, order=None, after=None):
     """Build an insertion tour over ``C`` from ``depot``.
 
     Parameters
@@ -174,15 +186,32 @@ def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy):
         Index of the depot, ``0 <= depot < n``.
     strategy : {"farthest", "cheapest", "nearest"}
         Selection rule of the next node to insert (see :class:`skroute.construction.Insertion`).
+    order : ndarray of shape (n - 1,), int64, C-contiguous, optional
+        Output: the node placed at each construction step (D31). Step 0 is the seed; step ``k``
+        is the ``k``-th insertion into the partial cycle. Both arrays or neither.
+    after : ndarray of shape (n - 1,), int64, C-contiguous, optional
+        Output: the tour node each step's node was placed after (``depot`` at step 0); its
+        successor at that moment is the other neighbour of the inserted node.
 
     Returns
     -------
     tour : ndarray of shape (n,), int64
-        A permutation of ``range(n)`` with ``depot`` at position 0.
+        A permutation of ``range(n)`` with ``depot`` at position 0 — the same array whether or
+        not the order is recorded.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skroute.construction._insert import insertion_tour
+    >>> C = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
+    >>> order, after = np.empty(3, dtype=np.int64), np.empty(3, dtype=np.int64)
+    >>> insertion_tour(C, 0, "farthest", order, after).tolist(), order.tolist(), after.tolist()
+    ([0, 1, 2, 3], [3, 1, 2], [0, 0, 1])
     """
     cdef Py_ssize_t n = C.shape[0]
     cdef int code
-    cdef int64_t[::1] succ_v, best_after_v, out_v
+    cdef bint record
+    cdef int64_t[::1] succ_v, best_after_v, out_v, ins_node_v, ins_after_v
     cdef uint8_t[::1] routed_v
     cdef double[::1] min_dist_v, best_cost_v
     if strategy not in STRATEGIES:
@@ -194,6 +223,19 @@ def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy):
         )
     if depot < 0 or depot >= n:
         raise ValueError(f"depot must be in [0, {n}), got {depot}")
+    record = order is not None or after is not None
+    if record:
+        if order is None or after is None:
+            raise ValueError("order and after must be given together (both arrays or neither)")
+        if order.shape != (n - 1,) or after.shape != (n - 1,):
+            raise ValueError(
+                f"order and after must have shape ({n - 1},), got {order.shape} and {after.shape}"
+            )
+        ins_node_v = order
+        ins_after_v = after
+    else:  # nothing is written: one-element stand-ins keep the kernel signature total
+        ins_node_v = np.empty(1, dtype=np.int64)
+        ins_after_v = np.empty(1, dtype=np.int64)
     out = np.empty(n, dtype=np.int64)
     succ = np.empty(n, dtype=np.int64)
     best_after = np.empty(n, dtype=np.int64)
@@ -207,5 +249,6 @@ def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy):
     min_dist_v = min_dist
     best_cost_v = best_cost
     with nogil:
-        _insertion(C, depot, code, succ_v, routed_v, min_dist_v, best_cost_v, best_after_v, out_v)
+        _insertion(C, depot, code, succ_v, routed_v, min_dist_v, best_cost_v, best_after_v, out_v,
+                   ins_node_v, ins_after_v, record)
     return out

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from ..base import BaseRouter, RouterTags
@@ -65,6 +67,16 @@ class Insertion(BaseRouter):
     the search itself ignores ``max_time_work`` and a ``UserWarning`` says so (the returned trips
     still fit the budget). Deterministic.
 
+    Callback events (D30, D31): ``"start"`` has no tour; then one ``"iteration"`` per node placed
+    — ``n - 1`` events indexed ``1 .. n - 1``, the seed being the first — each with ``tour=None``,
+    ``cost=nan``, ``best_cost=nan`` and ``extra["edges"]``, the closed partial cycle after that
+    placement as ``(label, label)`` pairs in driving direction (``m`` pairs for ``m`` routed nodes;
+    at the seed the two pairs ``depot -> seed -> depot`` cover the same segment); ``"end"`` carries
+    the finished tour. The kernel records the insertion order (the node placed and the node it was
+    placed after, two stores per step) only when a callback is set, and the estimator then replays
+    it on a Python list in O(n²); without a callback nothing is recorded or replayed and the tour is
+    bit-identical. A callback returning ``True`` silences the remaining trace events.
+
     References
     ----------
     .. [1] D. J. Rosenkrantz, R. E. Stearns and P. M. Lewis, "An analysis of several heuristics
@@ -102,4 +114,21 @@ class Insertion(BaseRouter):
         return RouterTags(kind="construction", budget_aware=False)
 
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
-        return insertion_tour(problem.cost, problem.depot, self.strategy)
+        if self._callback is None:
+            return insertion_tour(problem.cost, problem.depot, self.strategy)
+        order = np.empty(problem.n - 1, dtype=np.int64)
+        after = np.empty(problem.n - 1, dtype=np.int64)
+        tour = insertion_tour(problem.cost, problem.depot, self.strategy, order, after)
+        self._emit_trace(problem, order, after)
+        return tour
+
+    def _emit_trace(self, problem: RoutingProblem, order: np.ndarray, after: np.ndarray) -> None:
+        """D31: replay the recorded insertion order, one closed partial cycle per ``"iteration"`` event."""
+        lab = problem.labels.tolist()
+        cycle = [problem.depot]  # index space, depot first, closed implicitly on the depot
+        for k, (node, prev) in enumerate(zip(order.tolist(), after.tolist(), strict=True), start=1):
+            cycle.insert(cycle.index(prev) + 1, node)
+            edges = [(lab[a], lab[b]) for a, b in zip(cycle, cycle[1:] + cycle[:1], strict=True)]
+            self._emit("iteration", k, None, math.nan, None, math.nan, edges=edges)
+            if self._stop_requested:  # the tour is built; only the trace can be cut short
+                break
