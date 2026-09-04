@@ -95,11 +95,16 @@ class AntColony(BaseRouter):
     positive cost in the heuristic; the same floor bounds every ``1 / L`` of the trail, so a
     zero-cost tour (all nodes coincident, a zero-cost cycle) is returned with a finite trail.
 
-    Callback events (D30): ``"start"`` has no tour (the nearest-neighbour tour only seeds the
+    Callback events (D30, D31): ``"start"`` has no tour (the nearest-neighbour tour only seeds the
     trail) and carries ``extra["n_ants"]``; every iteration emits one ``"iteration"`` whose
-    ``tour`` is the iteration-best ant and
-    ``best_tour`` the colony's best, with the ``extra`` keys ``n_ants``, ``iteration_best`` (the
-    ant's cost) and ``deposit`` (``"global"`` or ``"iteration"``: whose tour reinforced the trail).
+    ``tour`` is the iteration-best ant and ``best_tour`` the colony's best, with the ``extra``
+    keys ``n_ants``, ``iteration_best`` (the ant's cost), ``deposit`` (``"global"`` or
+    ``"iteration"``: whose tour reinforced the trail), ``edges`` — the strongest
+    ``min(3 n, n (n - 1) / 2)`` trails after the update as ``(label, label)`` pairs, strongest
+    first (upper triangle only on a symmetric matrix; on an asymmetric one every arc competes and
+    the cap is ``min(3 n, n (n - 1))``) — and ``edge_weights``, parallel to ``edges``, each trail
+    divided by the current ``tau_max`` so the values lie in ``(0, 1]`` (the bound itself is ``1``).
+    Selecting the trails is O(n²) per iteration and happens only when a callback is set.
 
     Supports: symmetric and asymmetric matrices (the trail is directional on the latter),
     multi-trip objective; stochastic, iterative, budget-aware.
@@ -222,6 +227,13 @@ class AntColony(BaseRouter):
         best_cost, best = np.inf, nn
         # D30: the colony has no solution before its first iteration (the NN tour only seeds the trail)
         self._emit("start", 0, None, np.nan, n_ants=n_ants)
+        if self._callback is not None:
+            # D31: the trails a viewer draws — the upper triangle of a symmetric trail, every arc otherwise
+            if problem.symmetric:
+                trail_i, trail_j = np.triu_indices(n, 1)
+            else:
+                trail_i, trail_j = np.nonzero(~np.eye(n, dtype=bool))
+            n_trails = min(3 * n, trail_i.size)
         every = max(1, int(self.n_iter) // 10) if self.verbose == 1 else 1
         history: list[float] = []
         since, reason = 0, "max_iter"
@@ -259,7 +271,9 @@ class AntColony(BaseRouter):
                     "AntColony iteration %d: best %.6f, iteration best %.6f", it, best_cost, float(costs[ib])
                 )
             if self._callback is not None:
-                # D30: the iteration-best ant is the current tour, the colony's best the best-so-far
+                # D30: the iteration-best ant is the current tour, the colony's best the best-so-far;
+                # D31: the strongest trails, scaled by tau_max, so the pheromone can be drawn
+                edges, weights = _strongest_trails(tau, trail_i, trail_j, n_trails, tau_max, problem.labels)
                 self._emit(
                     "iteration",
                     it + 1,
@@ -270,6 +284,8 @@ class AntColony(BaseRouter):
                     n_ants=n_ants,
                     iteration_best=float(costs[ib]),
                     deposit="global" if (it + 1) % _GLOBAL_BEST_EVERY == 0 else "iteration",
+                    edges=edges,
+                    edge_weights=weights,
                 )
             if self._stop_requested:
                 reason = "callback"
@@ -287,3 +303,36 @@ class AntColony(BaseRouter):
         self.stop_reason_ = reason
         self.pheromone_ = tau
         return np.ascontiguousarray(best, dtype=i64)
+
+
+def _strongest_trails(
+    tau: np.ndarray, ii: np.ndarray, jj: np.ndarray, k: int, tau_max: float, labels: np.ndarray
+) -> tuple[list[tuple[Any, Any]], list[float]]:
+    """The ``k`` strongest trails among the arcs ``(ii, jj)`` as label pairs, each over ``tau_max``.
+
+    Strongest first, ties by position in ``(ii, jj)`` — also at the selection boundary, where
+    every trail strictly above the ``k``-th strength is taken and the ties at that strength are
+    filled by position — so the result is a deterministic function of the trail (D31), in O(n²)
+    (``argpartition`` finds the boundary, two linear passes select, only ``k`` items are sorted).
+    The weights are ``tau / tau_max``, in ``(0, 1]`` since the trail is clipped to
+    ``[tau_min, tau_max]``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> tau = np.array([[0.0, 4.0, 1.0], [4.0, 0.0, 2.0], [1.0, 2.0, 0.0]])
+    >>> ii, jj = np.triu_indices(3, 1)
+    >>> _strongest_trails(tau, ii, jj, 2, 4.0, np.array(["a", "b", "c"]))
+    ([('a', 'b'), ('b', 'c')], [1.0, 0.5])
+    """
+    vals = tau[ii, jj]
+    if k < vals.size:
+        cut = float(vals[np.argpartition(-vals, k - 1)[:k]].min())  # the k-th largest strength
+        above = np.flatnonzero(vals > cut)  # fewer than k of them, by construction of the cut
+        top = np.concatenate([above, np.flatnonzero(vals == cut)[: k - above.size]])
+    else:
+        top = np.arange(vals.size)
+    top = top[np.lexsort((top, -vals[top]))]  # strength descending, then position ascending
+    weights = np.minimum(vals[top] / tau_max, 1.0)
+    edges = list(zip(labels[ii[top]].tolist(), labels[jj[top]].tolist(), strict=True))
+    return edges, weights.tolist()

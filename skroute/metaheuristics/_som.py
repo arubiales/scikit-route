@@ -153,10 +153,13 @@ class SOM(BaseRouter):
     the radius reaches one ring position after roughly ``ln(0.8 n) / 0.0003`` samples, so a
     run usually stops by ``"converged"`` well before the 100 epochs.
 
-    **Callback events (D30).** ``"start"`` has no tour (the ring has not been decoded yet), with
-    the ``extra`` keys ``radius``, ``learning_rate`` and ``n_units``; every epoch emits one
+    **Callback events (D30, D31).** ``"start"`` has no tour (the ring has not been decoded yet),
+    with the ``extra`` keys ``radius``, ``learning_rate`` and ``n_units``; every epoch emits one
     ``"iteration"`` whose ``tour`` is the epoch's decoded ring and ``best_tour`` the best epoch's,
-    with ``radius`` and ``learning_rate`` (after the epoch's decay) and ``n_samples``.
+    with ``radius`` and ``learning_rate`` (after the epoch's decay), ``n_samples`` and ``ring`` —
+    an ``(n_units, 2)`` float64 copy of the neuron positions mapped back to the units of
+    ``problem.coords`` (the aspect-preserving min-max scaling inverted: ``w * span + min``), so a
+    viewer can draw the ring closing on the cities. The ring is built only when a callback is set.
 
     **Supports:** symmetric and asymmetric cost matrices (the matrix only prices the decoded
     tours), coordinates required; stochastic; iterative. **Multi-trip:** not budget-aware (D6):
@@ -255,6 +258,9 @@ class SOM(BaseRouter):
             raise ValueError("SOM needs node coordinates: fit(X, coords=...)")
         n = problem.n
         xy = normalize_coords(problem.coords)  # aspect-preserving, longer side spans [0, 1]
+        # D31: the inverse of that scaling, to report the ring in the units of the caller's coordinates
+        lo = problem.coords.min(axis=0)
+        span = float((problem.coords.max(axis=0) - lo).max())  # 0.0 when every city coincides: xy is 0
         m = 8 * n if self.n_units is None else int(self.n_units)
         radius = m / 10.0 if self.radius is None else float(self.radius)
         lr = float(self.learning_rate)
@@ -298,7 +304,8 @@ class SOM(BaseRouter):
                 best_cost, best_tour = cost, tour
             history.append(best_cost)
             if self._callback is not None:
-                # D30: the epoch's decoded ring is the current tour, the best epoch's tour the best-so-far
+                # D30: the epoch's decoded ring is the current tour, the best epoch's tour the best-so-far;
+                # D31: the ring itself, back in the units of problem.coords (a fresh array per event)
                 self._emit(
                     "iteration",
                     k + 1,
@@ -309,6 +316,7 @@ class SOM(BaseRouter):
                     radius=radius,
                     learning_rate=lr,
                     n_samples=n_samples,
+                    ring=weights * span + lo,
                 )
             if self._stop_requested:
                 reason = "callback"
