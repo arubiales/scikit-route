@@ -108,7 +108,7 @@ INFORMATIVE = (
     "n_restarts",
     "n_units",
 )
-_SCALARS = (bool, int, float, str, np.integer, np.floating)
+_SCALARS = (bool, int, float, str, np.integer, np.floating, np.bool_)
 TITLE_WIDTH = 60  # characters per title line at fontsize 10 in a 6-7 inch figure
 
 
