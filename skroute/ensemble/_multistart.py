@@ -131,7 +131,8 @@ class MultiStart(BaseRouter):
     after another and every event of every inner fit is forwarded to the callback under the inner
     class's name with ``extra["restart"]`` (the restart index); a ``True`` answer stops the running
     restart and no further restart is launched. Parallel runs (any other ``n_jobs``) forward
-    nothing: the drawing libraries behind the usual callbacks are not thread-safe.
+    nothing and a ``True`` answer to the two outer events changes nothing: the drawing libraries
+    behind the usual callbacks are not thread-safe.
 
     **Supports:** whatever the estimator supports; stochastic; iterative iff the estimator is.
 
@@ -217,6 +218,7 @@ class MultiStart(BaseRouter):
         self._emit("start", 0, None, np.nan, n_restarts=n_restarts)  # D30
         callback = self._callback
         fitted: list[BaseRouter]
+        honoured = False  # a stop request can only be honoured while the restarts run one at a time
         if callback is not None and self.n_jobs in (None, 1):
             # D30: sequential restarts forward the callback, each event tagged with its restart index; a
             # True answer stops the running restart and the launch of the next ones. Parallel runs never
@@ -226,6 +228,7 @@ class MultiStart(BaseRouter):
                 fitted.append(est.fit(problem, callback=_forwarding(self, callback, k)))
                 if self._stop_requested:
                     break
+            honoured = self._stop_requested
         else:
             fitted = Parallel(n_jobs=self.n_jobs, prefer=self.prefer)(
                 delayed(_fit_one)(est, problem) for est in restarts
@@ -252,6 +255,6 @@ class MultiStart(BaseRouter):
         for attr in ("history_", "n_iter_", "stop_reason_"):
             if hasattr(best, attr):
                 setattr(self, attr, getattr(best, attr))
-        if self._stop_requested and hasattr(self, "stop_reason_"):
+        if honoured and hasattr(self, "stop_reason_"):
             self.stop_reason_ = "callback"  # D30: the ensemble itself was cut short
         return problem.to_index_tour(best.tour_)
