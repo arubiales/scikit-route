@@ -1,6 +1,6 @@
-"""Compiled kernel of :class:`~skroute.metaheuristics.TabuSearch` (SPEC §4.4).
+"""Compiled kernel of `TabuSearch` (SPEC §4.4).
 
-:func:`tabu_step` performs one tabu-search iteration: it scans the candidate neighbourhood,
+`tabu_step` performs one tabu-search iteration: it scans the candidate neighbourhood,
 picks the best admissible move (even a worsening one), marks the edges it removes as tabu and
 applies it in place. The GIL is released around the ``noexcept nogil`` worker.
 
@@ -270,7 +270,7 @@ def tabu_step(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] tour,
     tenure : int >= 1
         Tabu tenure of the edges removed by the applied move, in iterations.
     max_time, fixed_cost, split : float, float, int
-        The objective, as in :func:`skroute._core._routing.problem_cost_py`.
+        The objective, as in `skroute._core._routing.problem_cost_py`.
     fast_path : bool
         ``True`` for a symmetric plain TSP (O(1) deltas); ``False`` for the full-evaluation path.
     symmetric : bool

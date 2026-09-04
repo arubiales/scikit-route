@@ -18,14 +18,14 @@ Calling conventions
   The successor of position ``n - 1`` is position 0. Position 0 never moves.
 * ``max_time == inf`` means plain TSP (``T`` is then never read); ``fixed_cost`` is
   ``people * extra_cost`` and is charged once per trip beyond the first.
-* Every function is ``noexcept nogil`` except :func:`problem_cost_py`, :func:`trip_starts`
+* Every function is ``noexcept nogil`` except `problem_cost_py`, `trip_starts`
   and the ``*_py`` wrappers, which are called with the GIL, validate their arguments and may
-  raise (:func:`problem_cost_py` and :func:`trip_starts` release the GIL around their kernel
+  raise (`problem_cost_py` and `trip_starts` release the GIL around their kernel
   call). The ``noexcept nogil`` kernels **cannot** validate: an ill-shaped buffer or an
   out-of-domain position is undefined behaviour there — respect the documented domains.
 * Scratch memory is ``malloc``/``free``'d from ``libc.stdlib``; a kernel that cannot raise
   falls back to a documented safe result when allocation fails (see
-  :func:`nearest_neighbour_tour`).
+  `nearest_neighbour_tour`).
 
 The pure-Python oracles these kernels are tested against live in ``tests/reference.py``.
 """
@@ -352,7 +352,7 @@ cpdef void trip_costs(const double[:, ::1] C, const int64_t[::1] tour, const int
     tour : (n,) int64, C-contiguous
         Permutation with the depot at position 0.
     starts : (k + 1,) int64, C-contiguous
-        Trip boundaries as written by :func:`trip_starts` (``starts[0] == 1``, ``starts[k] == n``).
+        Trip boundaries as written by `trip_starts` (``starts[0] == 1``, ``starts[k] == n``).
     out : (k,) float64, C-contiguous
         Receives one closed-trip cost per trip. For plain TSP (``starts == [1, n]``) ``out[0]``
         equals ``tour_cost`` bit for bit (same summation order).
@@ -377,7 +377,7 @@ cpdef void trip_times(const double[:, ::1] T, const int64_t[::1] tour, const int
                       double[::1] out) noexcept nogil:
     """Closed duration of every trip: ``out[t] = T[d, first] + ... + T[last, d]``.
 
-    The time-matrix twin of :func:`trip_costs`; under either decoder every value is
+    The time-matrix twin of `trip_costs`; under either decoder every value is
     ``<= max_time`` (up to rounding) when every single-customer trip fits (D5).
 
     Parameters
@@ -387,7 +387,7 @@ cpdef void trip_times(const double[:, ::1] T, const int64_t[::1] tour, const int
     tour : (n,) int64, C-contiguous
         Permutation with the depot at position 0.
     starts : (k + 1,) int64, C-contiguous
-        Trip boundaries as written by :func:`trip_starts` (``starts[0] == 1``, ``starts[k] == n``).
+        Trip boundaries as written by `trip_starts` (``starts[0] == 1``, ``starts[k] == n``).
     out : (k,) float64, C-contiguous
         Receives one closed-trip duration per trip (``RoutingProblem.trip_times``).
 
@@ -639,12 +639,12 @@ cpdef double two_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[
     ----------
     C : (n, n) float64, C-contiguous
         **Symmetric** cost matrix (on an asymmetric matrix the O(1) deltas are wrong; use
-        :func:`local_search_generic`).
+        `local_search_generic`).
     tour : (n,) int64, C-contiguous
         Permutation with the depot at position 0; modified in place.
     pos : (n,) int64, C-contiguous
         Inverse permutation (``pos[tour[k]] == k``), kept consistent; build it once with
-        :func:`rebuild_pos`.
+        `rebuild_pos`.
     cand : (n, k) int64, C-contiguous
         Candidate lists sorted ascending by ``C[i, :]`` (``RoutingProblem.neighbours(k)``).
     dont_look : (n,) uint8, C-contiguous
@@ -845,7 +845,7 @@ cpdef double or_opt_descent(const double[:, ::1] C, int64_t[::1] tour, int64_t[:
     Parameters
     ----------
     C : (n, n) float64, C-contiguous
-        **Symmetric** cost matrix (asymmetric matrices need :func:`local_search_generic`).
+        **Symmetric** cost matrix (asymmetric matrices need `local_search_generic`).
     tour : (n,) int64, C-contiguous
         Permutation with the depot at position 0; modified in place.
     pos : (n,) int64, C-contiguous
@@ -1049,7 +1049,7 @@ cpdef double local_search_generic(const double[:, ::1] C, const double[:, ::1] T
     cand : (n, k) int64, C-contiguous
         Candidate lists (``RoutingProblem.neighbours(k)``).
     max_time, fixed_cost, split : float, float, int
-        The objective, as in :func:`problem_cost_py`.
+        The objective, as in `problem_cost_py`.
     moves : int
         Bit mask: ``1`` = 2-opt (segment reversals), ``2`` = Or-opt without reversal
         (segment lengths ``1..max_segment``), ``4`` = swap of two nodes.
@@ -1267,7 +1267,7 @@ def optimal_split_cost_py(const double[:, ::1] C, const double[:, ::1] T, const 
     Returns
     -------
     float
-        The optimal decoded cost, never above :func:`greedy_split_cost_py` for the same tour;
+        The optimal decoded cost, never above `greedy_split_cost_py` for the same tour;
         ``inf`` when no feasible partition exists (a customer's round trip exceeds the budget).
 
     Raises
@@ -1331,7 +1331,7 @@ def two_opt_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t
 def two_opt_delta_asym_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
     """Delta of reversing ``tour[i..j]``, exact for asymmetric ``C`` (wraps ``two_opt_delta_asym``).
 
-    Same move as :func:`two_opt_delta_py`, plus the direction change of every inner arc of the
+    Same move as `two_opt_delta_py`, plus the direction change of every inner arc of the
     reversed segment; O(j - i).
 
     Parameters
@@ -1388,7 +1388,7 @@ def or_opt_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t 
     -------
     float
         ``cost(after) - cost(before)`` of the plain closed tour; the move itself is
-        :func:`move_segment_py` with the same arguments.
+        `move_segment_py` with the same arguments.
 
     Raises
     ------
@@ -1432,7 +1432,7 @@ def swap_delta_py(const double[:, ::1] C, const int64_t[::1] tour, Py_ssize_t i,
 
 
 def reverse_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
-    """Reverse ``tour[i..j]`` (inclusive) in place: the move priced by :func:`two_opt_delta_py`.
+    """Reverse ``tour[i..j]`` (inclusive) in place: the move priced by `two_opt_delta_py`.
 
     Wraps the inline ``reverse_segment``; ``pos`` is not touched. O(j - i).
 
@@ -1462,14 +1462,14 @@ def reverse_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
 
 
 def reverse_segment_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t j):
-    """:func:`reverse_segment_py` keeping ``pos[node] == position`` (wraps ``reverse_segment_pos``).
+    """`reverse_segment_py` keeping ``pos[node] == position`` (wraps ``reverse_segment_pos``).
 
     Parameters
     ----------
     tour : (n,) int64, C-contiguous
         Permutation with the depot at position 0; modified in place.
     pos : (n,) int64, C-contiguous
-        Inverse permutation (see :func:`rebuild_pos`); updated in place.
+        Inverse permutation (see `rebuild_pos`); updated in place.
     i, j : int
         Segment bounds, ``1 <= i < j <= n - 1``.
 
@@ -1484,7 +1484,7 @@ def reverse_segment_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py
 
 
 def swap_positions_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
-    """Exchange the nodes at positions ``i`` and ``j`` in place: the move priced by :func:`swap_delta_py`.
+    """Exchange the nodes at positions ``i`` and ``j`` in place: the move priced by `swap_delta_py`.
 
     Wraps the inline ``swap_positions``; ``pos`` is not touched. O(1).
 
@@ -1505,7 +1505,7 @@ def swap_positions_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t j):
 
 
 def swap_positions_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t j):
-    """:func:`swap_positions_py` keeping ``pos[node] == position`` (wraps ``swap_positions_pos``).
+    """`swap_positions_py` keeping ``pos[node] == position`` (wraps ``swap_positions_pos``).
 
     Parameters
     ----------
@@ -1529,7 +1529,7 @@ def swap_positions_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_
 def move_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j, bint reverse=False):
     """Move ``tour[i..i+L-1]`` so that it follows the node at position ``j`` (wraps ``move_segment``).
 
-    The move priced by :func:`or_opt_delta_py` with the same arguments (positions after the
+    The move priced by `or_opt_delta_py` with the same arguments (positions after the
     segment shift by ``L`` when ``j > i``). Implemented as a rotation of the affected span by three
     reversals, O(|i - j| + L), no scratch memory; ``pos`` is not touched.
 
@@ -1538,7 +1538,7 @@ def move_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
     tour : (n,) int64, C-contiguous
         Permutation with the depot at position 0; modified in place.
     i, L, j : int
-        Segment start, length and insertion anchor, in the domain of :func:`or_opt_delta_py`.
+        Segment start, length and insertion anchor, in the domain of `or_opt_delta_py`.
     reverse : bool, default False
         Insert the segment reversed.
 
@@ -1565,7 +1565,7 @@ def move_segment_py(int64_t[::1] tour, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
 
 def move_segment_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ssize_t L, Py_ssize_t j,
                         bint reverse=False):
-    """:func:`move_segment_py` keeping ``pos[node] == position`` (wraps ``move_segment_pos``).
+    """`move_segment_py` keeping ``pos[node] == position`` (wraps ``move_segment_pos``).
 
     Parameters
     ----------
@@ -1574,7 +1574,7 @@ def move_segment_pos_py(int64_t[::1] tour, int64_t[::1] pos, Py_ssize_t i, Py_ss
     pos : (n,) int64, C-contiguous
         Inverse permutation; updated in place.
     i, L, j : int
-        Segment start, length and insertion anchor, in the domain of :func:`or_opt_delta_py`.
+        Segment start, length and insertion anchor, in the domain of `or_opt_delta_py`.
     reverse : bool, default False
         Insert the segment reversed.
 

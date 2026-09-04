@@ -27,7 +27,7 @@ class MILP(BaseRouter):
 
     The tour is modelled with binary edge variables (symmetric matrix, ``n(n-1)/2`` of them,
     degree-2 equalities) or arc variables (asymmetric, ``n(n-1)``, in/out-degree-1 equalities)
-    and solved with HiGHS through :func:`scipy.optimize.milp`. Subtour-elimination
+    and solved with HiGHS through `scipy.optimize.milp`. Subtour-elimination
     constraints are added lazily: after each solve the support of the integral solution is
     split into connected components and one cut ``sum(x[e] for e inside S) <= |S| - 1`` per
     component is appended, until the solution is a single Hamiltonian cycle — a proven
@@ -60,7 +60,7 @@ class MILP(BaseRouter):
         HiGHS reported optimal (then ``lower_bound_ == cost_`` and ``gap_ == 0.0``);
         ``False`` on time-out. HiGHS proves optimality to *absolute* tolerances
         (``mip_feasibility_tolerance`` and ``mip_abs_gap``, both 1e-6, which
-        :func:`scipy.optimize.milp` does not expose), so the programme is solved on a
+        `scipy.optimize.milp` does not expose), so the programme is solved on a
         normalised objective — the costs multiplied by the power of two that brings the
         largest one into ``[8192, 16384)`` — and the certificate holds to about 1e-10 times
         the largest cost, below the library's 1e-9 relative tolerance, whatever the units of
@@ -99,7 +99,7 @@ class MILP(BaseRouter):
 
     DFJ is preferred to the Miller-Tucker-Zemlin formulation because MTZ's relaxation is
     weak: it takes hours around n = 200 where DFJ proved qa194 (9352) in about 40 s.
-    Components are found with :func:`scipy.sparse.csgraph.connected_components` (weak
+    Components are found with `scipy.sparse.csgraph.connected_components` (weak
     connectivity); HiGHS runs single-threaded and deterministically, so two fits with the
     same input give the same tour unless the time limit intervenes.
 
@@ -302,7 +302,7 @@ def _objective_scale(c: np.ndarray) -> float:
     """Power of two that puts ``max(abs(c))`` in ``[2**13, 2**14)``; ``1.0`` when there is nothing to scale.
 
     HiGHS decides integrality, the primal-dual gap and the "not better than the incumbent"
-    cutoff with absolute tolerances of 1e-6 that :func:`scipy.optimize.milp` does not expose.
+    cutoff with absolute tolerances of 1e-6 that `scipy.optimize.milp` does not expose.
     On an objective whose values are of order 1e-4 they swallow the difference between the
     optimum and its runner-up and HiGHS returns the runner-up as optimal; on one of order 1e12
     they are meaninglessly tight. Solving on ``c * scale`` puts every instance in the same

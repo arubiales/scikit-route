@@ -29,13 +29,13 @@ class NearestNeighbour(BaseRouter):
         Objective of ``route_`` recomputed by the base class (travel cost plus the fixed charge
         per extra trip when a budget was given).
     n_trips_, trips_, trip_costs_, trip_times_, fit_time_, problem_, labels_, depot_, n_nodes_
-        The other fitted attributes of :class:`~skroute.base.BaseRouter`.
+        The other fitted attributes of `BaseRouter`.
 
     Notes
     -----
     Algorithm: start at the depot; while unvisited nodes remain, append the unvisited node ``j``
     with the smallest ``C[current, j]`` (lowest index on ties); the tour closes back to the depot.
-    The whole walk runs in the compiled core (:func:`~skroute._core._routing.nearest_neighbour_tour`),
+    The whole walk runs in the compiled core (`nearest_neighbour_tour`),
     O(n²) time and O(n) extra memory. The result is typically 25 % (rounded Euclidean instances)
     to 45 % above the optimum: use it as a baseline or a warm start, not as an answer.
 

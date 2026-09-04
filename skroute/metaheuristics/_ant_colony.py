@@ -77,7 +77,7 @@ class AntColony(BaseRouter):
     pheromone_ : ndarray of shape (n, n), float64
         The trail matrix at the end of the search (index space, matrix row order).
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and the
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and the
     other fitted attributes shared by every solver.
 
     Notes

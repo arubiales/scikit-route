@@ -130,13 +130,13 @@ class SOM(BaseRouter):
         the ``callback`` of ``fit`` returned ``True``. This solver has no ``time_limit`` or
         ``patience`` parameter and never emits those values.
 
-    See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_``
+    See `BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_``
     and the other fitted attributes every solver shares.
 
     Notes
     -----
     **Algorithm** (Angéniol et al., 1988; Kohonen, 1982). Coordinates are rescaled with
-    :func:`~skroute.preprocessing.normalize_coords` (the longer side of the bounding box spans
+    `normalize_coords` (the longer side of the bounding box spans
     ``[0, 1]``, the aspect ratio is preserved, so ``radius`` and ``learning_rate`` mean the same
     on every instance). Per sample: ``winner = argmin_j ||w_j - x||``,
     ``g_j = exp(-d(j, winner)^2 / (2 radius^2))`` with ``d`` the wrapped ring distance, and
@@ -172,7 +172,7 @@ class SOM(BaseRouter):
     above it (``vm22775``, ``sw24978``, ``bm33708``, ``ch71009``) can be read and subsampled
     (``load_tsp(name, n_nodes=5000)``) but not solved whole; coordinate-only fitting with
     Euclidean costs computed on the fly (``fit(None, coords=xy)``) is a 2.1 item (D18).
-    :class:`~skroute.ensemble.MultiStart` with threads gains little on this numpy-bound solver
+    `MultiStart` with threads gains little on this numpy-bound solver
     (R9); prefer ``prefer="processes"`` there.
 
     References

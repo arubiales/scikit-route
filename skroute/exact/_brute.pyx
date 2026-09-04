@@ -151,7 +151,7 @@ def brute_force_search(const double[:, ::1] C, const double[:, ::1] T, int64_t[:
     n_evaluated : int
         Number of tours priced: ``(n-1)!`` without ``halve``; with it at least
         ``(n-1)!/2`` — the kept orientation of every pair, plus the reversal whenever the
-        kept one is within 1e-9 of the incumbent (see :func:`_search`).
+        kept one is within 1e-9 of the incumbent (see `_search`).
 
     Raises
     ------

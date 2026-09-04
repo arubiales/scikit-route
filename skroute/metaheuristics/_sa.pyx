@@ -1,10 +1,10 @@
-"""Compiled kernels of :class:`~skroute.metaheuristics.SimulatedAnnealing` (SPEC §4.4, D10).
+"""Compiled kernels of `SimulatedAnnealing` (SPEC §4.4, D10).
 
 Two entry points, both releasing the GIL around a ``noexcept nogil`` worker:
 
-* :func:`anneal_level` runs one temperature level: ``m`` proposals whose randomness
+* `anneal_level` runs one temperature level: ``m`` proposals whose randomness
   (``u``, ``ri``, ``rj``, ``mv``) the Python side pre-drew from its ``Generator``;
-* :func:`sample_deltas` prices the same proposals on a fixed tour without applying them
+* `sample_deltas` prices the same proposals on a fixed tour without applying them
   (the ``t0="auto"`` calibration).
 
 Draw -> move mapping (binding, §4.4). ``mv[s]`` is a move code: ``0`` = 2-opt, ``1`` = Or-opt,
@@ -171,7 +171,7 @@ def anneal_level(const double[:, ::1] C, const double[:, ::1] T, int64_t[::1] to
     temperature : float > 0
         Temperature of the level.
     max_time, fixed_cost, split : float, float, int
-        The objective, as in :func:`skroute._core._routing.problem_cost_py`.
+        The objective, as in `skroute._core._routing.problem_cost_py`.
     fast_path : bool
         ``True`` for a symmetric plain TSP (O(1) deltas); ``False`` for the full-evaluation path.
     scratch : (n,) int64, C-contiguous
@@ -237,8 +237,8 @@ def sample_deltas(const double[:, ::1] C, const double[:, ::1] T, const int64_t[
     """Price the proposals ``(ri, rj, mv)`` on ``tour`` without applying them.
 
     Writes ``out[s] = cost(after move s) - cost(tour)`` under the same draw -> move mapping as
-    :func:`anneal_level`, and ``NaN`` for an invalid draw. Used by the ``t0="auto"``
-    calibration (median uphill delta). Same argument conventions as :func:`anneal_level`.
+    `anneal_level`, and ``NaN`` for an invalid draw. Used by the ``t0="auto"``
+    calibration (median uphill delta). Same argument conventions as `anneal_level`.
     """
     if ri.shape[0] != rj.shape[0] or ri.shape[0] != mv.shape[0] or ri.shape[0] != out.shape[0]:
         raise ValueError("ri, rj, mv and out must have the same length")

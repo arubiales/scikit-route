@@ -1,7 +1,7 @@
 # Construction heuristics
 
 `skroute.construction` builds a tour from scratch, deterministically, in O(n²) to O(n² log n):
-no `random_state`, no iterations, no `history_`. These solvers are the natural warm starts of the
+no `random_state`, no iterations (hence no `history_`, `n_iter_` or `stop_reason_`); with a `callback` they still report one `iteration` event per construction step carrying the partial structure in `extra["edges"]`. These solvers are the natural warm starts of the
 local searches and metaheuristics (`init=est.tour_`, or simply `init="nearest_neighbour"`) and
 honest baselines when a tolerance has to be judged.
 

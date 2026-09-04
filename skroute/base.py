@@ -184,10 +184,16 @@ class RouteEvent:
     extra : dict
         Solver-specific facts: ``temperature`` (SimulatedAnnealing), ``tenure`` (TabuSearch),
         ``generation``/``n_evaluations`` (Genetic), ``kick`` (IteratedLocalSearch),
-        ``moves_applied`` (the descents), ``radius``/``learning_rate`` (SOM), ``n_ants``
-        (AntColony), ``edges``/``n_components``/``lower_bound`` (MILP's current LP support),
-        ``restart`` (added by ``MultiStart`` to every forwarded event). Each solver's docstring
-        lists its keys.
+        ``moves_applied`` (the descents), ``radius``/``learning_rate``/``ring`` (SOM), ``n_ants``
+        (AntColony), ``n_components``/``lower_bound`` (MILP), ``n_trips`` (ClarkeWright),
+        ``n_edges`` (NRBS), ``restart`` (added by ``MultiStart`` to every forwarded event). Three
+        keys are standardised by D31 so that viewers can draw the structure a solver is building:
+        ``edges`` — a list of ``(label, label)`` tuples (the growing path or partial cycle of a
+        construction heuristic, MILP's current LP support, the strongest pheromone trails of
+        AntColony); ``edge_weights`` — floats in ``[0, 1]`` parallel to ``edges`` (pheromone
+        strength, LP values); ``ring`` — an ``(m, 2)`` float array with the SOM neurons in the
+        units of ``problem.coords``. Construction solvers emit one ``"iteration"`` event per step
+        with ``tour=None``, ``cost=nan`` and ``edges``. Each solver's docstring lists its keys.
 
     Notes
     -----

@@ -80,7 +80,7 @@ def savings_trips(
     -------
     trips : list of list of int
         The savings trips by increasing creation index, each oriented as it will be driven; their
-        concatenation after the depot is the giant tour of :func:`savings_tour`.
+        concatenation after the depot is the giant tour of `savings_tour`.
     """
     n = C.shape[0]
     d = int(depot)
@@ -157,9 +157,9 @@ def savings_tour(
     max_time: float = math.inf,
     on_step: Callable[[list[list[int]]], None] | None = None,
 ) -> np.ndarray:
-    """The giant tour of SPEC §4.2: the depot followed by the :func:`savings_trips` in order.
+    """The giant tour of SPEC §4.2: the depot followed by the `savings_trips` in order.
 
-    ``on_step`` is handed to :func:`savings_trips` unchanged.
+    ``on_step`` is handed to `savings_trips` unchanged.
 
     Returns
     -------
@@ -200,7 +200,7 @@ class ClarkeWright(BaseRouter):
     cost_ : float
         Objective of ``route_`` recomputed by the base class.
     n_trips_, trips_, trip_costs_, trip_times_, fit_time_, problem_, labels_, depot_, n_nodes_
-        The other fitted attributes of :class:`~skroute.base.BaseRouter`.
+        The other fitted attributes of `BaseRouter`.
 
     Notes
     -----

@@ -87,7 +87,7 @@ def nrbs_tour(
     distance_weight: float = 1.0,
     on_edge: Callable[[int, int], None] | None = None,
 ) -> np.ndarray:
-    """The NRBS construction in index space; see :class:`NRBS` for the algorithm.
+    """The NRBS construction in index space; see `NRBS` for the algorithm.
 
     Returns an int64 permutation of ``range(n)`` starting at ``depot`` and continuing towards the
     first neighbour the passes attached to the depot (the direction of the 2020 result). Raises
@@ -209,7 +209,7 @@ class NRBS(BaseRouter):
     cost_ : float
         Objective of ``route_`` recomputed by the base class.
     n_trips_, trips_, trip_costs_, trip_times_, fit_time_, problem_, labels_, depot_, n_nodes_
-        The other fitted attributes of :class:`~skroute.base.BaseRouter`.
+        The other fitted attributes of `BaseRouter`.
 
     Notes
     -----

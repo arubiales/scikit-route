@@ -47,7 +47,7 @@ class Insertion(BaseRouter):
     cost_ : float
         Objective of ``route_`` recomputed by the base class.
     n_trips_, trips_, trip_costs_, trip_times_, fit_time_, problem_, labels_, depot_, n_nodes_
-        The other fitted attributes of :class:`~skroute.base.BaseRouter`.
+        The other fitted attributes of `BaseRouter`.
 
     Notes
     -----

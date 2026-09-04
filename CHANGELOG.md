@@ -35,6 +35,11 @@ for a symbol-by-symbol map.
 - `skroute.viz` (extra `viz`, maps with `viz-map`): `plot_route`, `plot_history`, `LivePlot` (watch the
   current and best tour while `fit` runs, in scripts and notebooks), `Recorder` (record a run, animate it,
   save a GIF or a Plotly figure with a slider) and `plot_route_map` on OpenStreetMap tiles.
+- Watch the search being built: construction solvers report the partial structure after every step
+  (`extra["edges"]`), `AntColony` its strongest pheromone trails (`extra["edge_weights"]`) and `SOM` its
+  ring (`extra["ring"]`); `LivePlot` draws them (`show=`, `trail=`), `Recorder` keeps wall-clock timestamps
+  and replays a run at time-lapse speed (`replay(speed=)`, `animate(speed=, fps=)`, `save()` to GIF or MP4,
+  a Plotly speed menu); `examples/live_demo.py --record/--speed/--set`.
 
 ### Changed
 - `fit()` takes the cost matrix (numpy, DataFrame or dict-of-dicts) and returns

@@ -1,4 +1,4 @@
-"""Kernels of :class:`skroute.metaheuristics.AntColony` (SPEC §4.4, D10, D11).
+"""Kernels of `skroute.metaheuristics.AntColony` (SPEC §4.4, D10, D11).
 
 Tour construction of a MAX-MIN Ant System over a pre-computed choice matrix
 ``choice[i, j] = tau[i, j] ** alpha * (1 / C[i, j]) ** beta`` and the per-ant polish and

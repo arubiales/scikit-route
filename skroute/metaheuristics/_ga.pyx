@@ -1,4 +1,4 @@
-"""Kernels of :class:`skroute.metaheuristics.Genetic` (SPEC §4.4, D10, D11).
+"""Kernels of `skroute.metaheuristics.Genetic` (SPEC §4.4, D10, D11).
 
 Conventions: a *chromosome* is ``tour[1:]`` — an int64 permutation of the ``n - 1`` non-depot
 node indices — and a population is an int64 ``(pop_size, n - 1)`` C-contiguous array. Every
@@ -210,7 +210,7 @@ cpdef Py_ssize_t ga_generation(
     ``u_cross[c] < p_crossover`` (else a copy of parent 1), mutation
     (``mutation`` 0 = inversion, 1 = swap, 2 = insertion) at ``mut[c]`` when ``u_mut[c] < p_mutation``,
     one extra mutation at ``remut[c]`` if the child duplicates a row already produced, then the
-    optional memetic polish (``ls_mode``/``ls_moves``, see :func:`polish_tour`) and the objective.
+    optional memetic polish (``ls_mode``/``ls_moves``, see `polish_tour`) and the objective.
 
     ``pop`` and every ``const`` array are read only; the remaining arguments are caller-owned
     scratch buffers (``present``/``mapping`` indexed by gene value, ``hashes`` one per row).

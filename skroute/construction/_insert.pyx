@@ -19,7 +19,7 @@
 # and the tour node it was placed after (the seed counts as step 0, placed after the depot), so the
 # estimator can replay the partial cycles for its callback. Two stores per step behind one flag: the
 # tour is bit-identical with and without the recording.
-"""Insertion construction kernel: :func:`insertion_tour` (see :class:`skroute.construction.Insertion`)."""
+"""Insertion construction kernel: `insertion_tour` (see `skroute.construction.Insertion`)."""
 
 from libc.math cimport INFINITY
 from libc.stdint cimport int64_t, uint8_t
@@ -185,7 +185,7 @@ def insertion_tour(const double[:, ::1] C, int64_t depot, str strategy, order=No
     depot : int
         Index of the depot, ``0 <= depot < n``.
     strategy : {"farthest", "cheapest", "nearest"}
-        Selection rule of the next node to insert (see :class:`skroute.construction.Insertion`).
+        Selection rule of the next node to insert (see `skroute.construction.Insertion`).
     order : ndarray of shape (n - 1,), int64, C-contiguous, optional
         Output: the node placed at each construction step (D31). Step 0 is the seed; step ``k``
         is the ``k``-th insertion into the partial cycle. Both arrays or neither.
