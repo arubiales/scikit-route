@@ -881,7 +881,7 @@ def test_real_plot_history_and_slider_over_multistart_events(dj):
     assert ax.lines[0].get_xdata().tolist() == list(range(1, 9))
     assert (ax.get_xlabel(), ax.get_title()) == ("Iteration (all restarts)", "MultiStart: best-so-far cost")
     steps = rec.to_plotly(dj.coords).layout.sliders[0].steps
-    assert [s.label for s in steps] == [f"{r}:{i}" for r in (0, 1) for i in (0, 1, 2, 3, 4, 4)] + ["0"]
+    assert [s.label for s in steps] == [f"{r}:{i}" for r in (0, 1) for i in (0, 1, 2, 3, 4, 4)] + ["4"]
 
 
 def test_real_plot_route_of_a_multi_trip_event(two_trips):
