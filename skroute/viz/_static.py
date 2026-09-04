@@ -59,7 +59,12 @@ def graph_objects() -> Any:
 # --------------------------------------------------------------------------- geometry helpers
 def coords_array(coords: Any, n: int | None = None) -> np.ndarray:
     """``coords`` as a float64 ``(n, 2)`` array; ``ValueError`` on any other shape or row count."""
-    xy = np.asarray(coords, dtype=np.float64)
+    try:
+        xy = np.asarray(coords, dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"coords must be an (n, 2) array of x, y positions; got {type(coords).__name__}"
+        ) from exc
     if xy.ndim != 2 or xy.shape[1] != 2:
         raise ValueError(f"coords must be an (n, 2) array of x, y positions; got shape {xy.shape}")
     if n is not None and xy.shape[0] != n:
@@ -142,9 +147,11 @@ def resolve(obj: Any, coords: Any) -> tuple[np.ndarray, list[np.ndarray], int, n
     if coords is None:
         raise ValueError("a route array needs coords=: pass the (n, 2) positions its entries index")
     trips = trips_from_array(obj)
+    if not trips:
+        raise ValueError("the route visits no node besides the depot; nothing to draw")
     xy = coords_array(coords)
-    if any(int(t.max()) >= xy.shape[0] for t in trips):
-        raise ValueError("the route indexes rows beyond the end of coords")
+    if any(int(t.min()) < 0 or int(t.max()) >= xy.shape[0] for t in trips):
+        raise ValueError("the route indexes rows beyond the end of coords (or negative rows)")
     return xy, trips, int(trips[0][0]), np.arange(xy.shape[0]), None, math.nan
 
 
@@ -316,7 +323,10 @@ def plot_history(obj_or_events: Any, ax: Axes | None = None) -> Axes:
     obj_or_events : fitted iterative estimator, Recorder or sequence of events
         An estimator with ``history_``, a [`Recorder`][skroute.viz.Recorder], or a sequence of
         progress events (the ``"iteration"`` events' ``best_cost`` is drawn against ``iteration``;
-        a ``nan`` best — MILP before its first integral solution — is skipped).
+        a ``nan`` best — MILP before its first integral solution — is skipped). Events forwarded
+        by ``MultiStart`` (``extra["restart"]``) restart their iteration count at every restart:
+        they are drawn against the iteration counted across the restarts, and the title names
+        the ensemble.
     ax : matplotlib Axes, optional
         Draw into these axes; a new figure otherwise.
 
@@ -324,6 +334,13 @@ def plot_history(obj_or_events: Any, ax: Axes | None = None) -> Axes:
     -------
     ax : matplotlib Axes
         A step plot (``steps-post``) with the iteration on x and the best cost on y.
+
+    Raises
+    ------
+    NotFittedError
+        For an estimator that was not fitted.
+    ValueError
+        For a fitted estimator without ``history_`` (a construction or exact solver).
 
     Examples
     --------
@@ -341,21 +358,50 @@ def plot_history(obj_or_events: Any, ax: Axes | None = None) -> Axes:
     ('Iteration', 'Best cost')
     """
     plt = pyplot()
+    xlabel = "Iteration"
+    if isinstance(obj_or_events, BaseRouter):
+        check_is_fitted(obj_or_events)
+        if not hasattr(obj_or_events, "history_"):
+            raise ValueError(
+                f"{type(obj_or_events).__name__} has no history_: it is not an iterative solver "
+                "(record its events with a Recorder to plot them)"
+            )
     if hasattr(obj_or_events, "history_"):
         y = np.asarray(obj_or_events.history_, dtype=np.float64)
         x = np.arange(1, y.size + 1)
         name: str | None = type(obj_or_events).__name__
     else:
-        events = getattr(obj_or_events, "events", obj_or_events)
+        events = list(getattr(obj_or_events, "events", obj_or_events))
         iters = [e for e in events if e.stage == "iteration" and math.isfinite(float(e.best_cost))]
-        x = np.array([int(e.iteration) for e in iters], dtype=np.int64)
         y = np.array([float(e.best_cost) for e in iters], dtype=np.float64)
-        name = str(iters[0].solver) if iters else None
+        x, nested = _iteration_axis(iters)
+        if nested:
+            xlabel = "Iteration (all restarts)"
+        outer = [e for e in events if e.stage == "start" and "restart" not in (e.extra or {})]
+        first = outer[0] if outer else (iters[0] if iters else None)
+        name = None if first is None else str(first.solver)
     if ax is None:
         _, ax = plt.subplots(figsize=(7, 4))
     ax.plot(x, y, drawstyle="steps-post", color=BEST_COLOR, linewidth=1.6)
-    ax.set_xlabel("Iteration")
+    ax.set_xlabel(xlabel)
     ax.set_ylabel("Best cost")
     ax.set_title(f"{name}: best-so-far cost" if name else "Best-so-far cost")
     ax.grid(True, alpha=0.3)
     return ax
+
+
+def _iteration_axis(iters: list[Any]) -> tuple[np.ndarray, bool]:
+    """The x of ``plot_history`` for iteration events: ``iteration`` itself, or — when the events come
+    from the restarts of a ``MultiStart`` (``extra["restart"]``), each restart counting from 1 again —
+    the iteration counted across the restarts, so the axis never runs backwards."""
+    x = np.array([int(e.iteration) for e in iters], dtype=np.int64)
+    if not any("restart" in (e.extra or {}) for e in iters):
+        return x, False
+    offset, previous = 0, None
+    for k, e in enumerate(iters):
+        restart = (e.extra or {}).get("restart")
+        if k and restart != previous:
+            offset = int(x[k - 1])
+        previous = restart
+        x[k] += offset
+    return x, True

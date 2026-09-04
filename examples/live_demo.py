@@ -25,6 +25,7 @@ if importlib.util.find_spec("skroute") is None:  # development checkout without 
 import skroute
 from skroute.datasets import load_barcelona, load_tsp
 from skroute.viz import LivePlot, Recorder
+from skroute.viz._live import backend_is_interactive  # the probe LivePlot itself uses for plt.pause
 
 log = logging.getLogger("skroute")
 
@@ -66,13 +67,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     skroute.set_log_level("INFO")
     cost, labels, xy, latlon = load(args.instance)
-    try:
-        solver_cls = getattr(skroute, args.solver)
-    except AttributeError:
-        parser.error(
-            f"unknown solver {args.solver!r}; try one of {[s.__name__ for s in skroute.all_solvers()]}"
-        )
-    est = solver_cls()
+    solvers = {cls.__name__: cls for cls in skroute.all_solvers()}  # the classes that take no arguments
+    if args.solver not in solvers:
+        parser.error(f"unknown solver {args.solver!r}; choose one of {sorted(solvers)}")
+    est = solvers[args.solver]()
     if "random_state" in est.get_params():
         est.set_params(random_state=args.seed)
     if args.init is not None and "init" in est.get_params():
@@ -104,7 +102,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         live.n_events,
         live.n_redraws,
     )
-    if args.backend == "matplotlib":
+    if args.backend == "matplotlib" and backend_is_interactive():  # headless (Agg): nothing to keep open
         import matplotlib.pyplot as plt
 
         plt.show()  # LivePlot never blocks; keep the final picture on screen until it is closed
