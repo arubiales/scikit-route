@@ -2,6 +2,11 @@
 
 matplotlib is imported inside the functions (never at module level), so ``import skroute.viz``
 costs nothing and a missing matplotlib raises a clear ``ImportError`` at the first call.
+
+The helpers under *structure* decode the three optional ``extra`` keys of D31 — ``edges``
+(``(label, label)`` pairs: the partial structure a solver holds), ``edge_weights`` (floats in
+``[0, 1]`` parallel to the edges: pheromone strength) and ``ring`` (an ``(m, 2)`` array: SOM's
+neurons) — into arrays every drawing here (static, live, recorded, Plotly) shares.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ from ..problem import RoutingProblem
 from ..utils.validation import check_is_fitted
 
 if TYPE_CHECKING:
+    from matplotlib.artist import Artist
     from matplotlib.axes import Axes
     from matplotlib.lines import Line2D
 
@@ -29,6 +35,14 @@ POINT_COLOR = "#404040"
 DEPOT_COLOR = "#c0392b"
 CURRENT_COLOR = "#bfbfbf"
 BEST_COLOR = "#1f5673"
+EDGE_COLOR = "#e07b39"  # the partial structure a solver holds (D31 ``extra["edges"]``), pheromone trails too
+RING_COLOR = "#2a9d8f"  # SOM's elastic ring (D31 ``extra["ring"]``)
+
+STRUCTURE_KEYS = ("edges", "edge_weights", "ring")
+SHOW_OPTIONS = ("both", "best", "current")
+# Plotly cannot vary the width along one line trace: the trails it draws are the edges whose weight
+# reaches this fraction of the strongest one (matplotlib fades the weaker ones instead).
+PLOTLY_WEIGHT_MIN = 0.25
 
 
 # --------------------------------------------------------------------------- optional imports
@@ -54,6 +68,13 @@ def graph_objects() -> Any:
     except ImportError as exc:
         raise ImportError(PLOTLY_HINT) from exc
     return go
+
+
+def check_show(show: str) -> str:
+    """Validate the ``show`` option of the live tools: ``"both"``, ``"best"`` or ``"current"``."""
+    if show not in SHOW_OPTIONS:
+        raise ValueError(f"show must be one of {SHOW_OPTIONS}; got {show!r}")
+    return show
 
 
 # --------------------------------------------------------------------------- geometry helpers
@@ -90,6 +111,15 @@ def route_index(problem: RoutingProblem, tour: Any) -> np.ndarray:
     """The decoded route of a label-space tour as one index polyline: depot, trip 1, depot, trip 2, ..."""
     trips = closed_trips(problem, tour)
     return np.concatenate([trips[0]] + [t[1:] for t in trips[1:]])
+
+
+def n_trips_of(problem: Any, tour: Any) -> int:
+    """Trips of a label-space tour under the problem's split rule (1 for a plain TSP; 0 without a tour)."""
+    if tour is None or problem is None:
+        return 0
+    if math.isfinite(getattr(problem, "max_time_work", math.inf)):  # a budget: the split rule decides
+        return len(problem.trip_starts(problem.to_index_tour(tour))) - 1
+    return 1
 
 
 def trips_from_array(route: Any) -> list[np.ndarray]:
@@ -163,6 +193,95 @@ def _problem_coords(problem: RoutingProblem, coords: Any) -> np.ndarray:
     return coords_array(coords, problem.n)
 
 
+# --------------------------------------------------------------------------- structure (D31 extras)
+def event_edges(problem: Any, extra: Any) -> np.ndarray | None:
+    """``extra["edges"]`` as an ``(m, 2)`` int64 array of row indices; ``None`` when the key is absent.
+
+    Raises ``ValueError`` when a pair is not two labels of the problem (``check_router`` enforces
+    the same on the solvers).
+    """
+    edges = (extra or {}).get("edges")
+    if edges is None:
+        return None
+    try:
+        pairs = list(edges)
+        idx = [[problem.index_of(a), problem.index_of(b)] for a, b in pairs]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("extra['edges'] must be (label, label) pairs of the problem's labels") from exc
+    if not idx:
+        return np.empty((0, 2), dtype=np.int64)
+    return np.array(idx, dtype=np.int64)
+
+
+def event_weights(extra: Any, n_edges: int) -> np.ndarray | None:
+    """``extra["edge_weights"]`` as a float64 array clipped to ``[0, 1]``; ``None`` when absent.
+
+    Raises ``ValueError`` when it is not parallel to ``extra["edges"]``.
+    """
+    weights = (extra or {}).get("edge_weights")
+    if weights is None:
+        return None
+    try:
+        w = np.asarray(weights, dtype=np.float64).ravel()
+    except (TypeError, ValueError) as exc:
+        raise ValueError("extra['edge_weights'] must be floats parallel to extra['edges']") from exc
+    if w.shape[0] != n_edges:
+        raise ValueError(
+            f"extra['edge_weights'] has {w.shape[0]} values but extra['edges'] has {n_edges} pairs"
+        )
+    return np.clip(np.nan_to_num(w, nan=0.0), 0.0, 1.0)
+
+
+def event_ring(extra: Any) -> np.ndarray | None:
+    """``extra["ring"]`` as a float64 ``(m, 2)`` array; ``None`` when absent."""
+    ring = (extra or {}).get("ring")
+    if ring is None:
+        return None
+    try:
+        r = np.asarray(ring, dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("extra['ring'] must be an (m, 2) array of neuron positions") from exc
+    if r.ndim != 2 or r.shape[1] != 2:
+        raise ValueError(f"extra['ring'] must be an (m, 2) array of neuron positions; got shape {r.shape}")
+    return r
+
+
+def segments_xy(xy: np.ndarray, idx: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The ``x`` and ``y`` of one ``Line2D`` drawing every edge of ``idx``: ``x0, x1, nan`` per edge."""
+    m = idx.shape[0]
+    if m == 0:
+        return np.empty(0), np.empty(0)
+    gap = np.full(m, np.nan)
+    x = np.column_stack((xy[idx[:, 0], 0], xy[idx[:, 1], 0], gap)).ravel()
+    y = np.column_stack((xy[idx[:, 0], 1], xy[idx[:, 1], 1], gap)).ravel()
+    return x, y
+
+
+def segments_3d(xy: np.ndarray, idx: np.ndarray) -> np.ndarray:
+    """The edges of ``idx`` as the ``(m, 2, 2)`` segments a ``LineCollection`` takes."""
+    if idx.shape[0] == 0:
+        return np.empty((0, 2, 2))
+    return np.stack((xy[idx[:, 0]], xy[idx[:, 1]]), axis=1)
+
+
+def trail_style(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Line widths and RGBA colours of pheromone trails: both grow with the weight, so the weak fade out."""
+    import matplotlib.colors
+
+    rgb = np.asarray(matplotlib.colors.to_rgb(EDGE_COLOR))
+    linewidths = 0.4 + 3.2 * weights
+    colors = np.column_stack((np.tile(rgb, (weights.shape[0], 1)), 0.08 + 0.92 * weights))
+    return linewidths, colors
+
+
+def ring_xy(ring: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The closed polyline of the ring: its rows, then the first one again."""
+    if ring.shape[0] == 0:
+        return np.empty(0), np.empty(0)
+    closed = np.vstack((ring, ring[:1]))
+    return closed[:, 0], closed[:, 1]
+
+
 # --------------------------------------------------------------------------- drawing helpers
 def colors_for_trips(n_trips: int, per_trip: bool, color: Any = None) -> list[Any]:
     """One colour per trip from the ``tab10`` cycle, or the same ``color`` for all."""
@@ -202,6 +321,34 @@ def draw_trips(
     return lines
 
 
+def draw_structure(ax: Axes, xy: np.ndarray, problem: Any, extra: Any) -> list[Artist]:
+    """Draw the D31 extras of one event once (static): the edges — faded by their weights when
+    ``edge_weights`` is present — and the ring. Returns the artists added (``[]`` without extras)."""
+    from matplotlib.collections import LineCollection
+
+    artists: list[Artist] = []
+    idx = event_edges(problem, extra)
+    if idx is not None:
+        weights = event_weights(extra, idx.shape[0])
+        if weights is None:
+            (line,) = ax.plot(*segments_xy(xy, idx), color=EDGE_COLOR, linewidth=1.6, zorder=1.5)
+            artists.append(line)
+        else:
+            linewidths, colors = trail_style(weights)
+            trails = LineCollection(
+                segments_3d(xy, idx).tolist(), linewidths=linewidths, colors=colors, zorder=0.5
+            )
+            ax.add_collection(trails)
+            artists.append(trails)
+    ring = event_ring(extra)
+    if ring is not None:
+        (line,) = ax.plot(
+            *ring_xy(ring), color=RING_COLOR, linewidth=1.2, marker="o", markersize=2.5, zorder=1.8
+        )
+        artists.append(line)
+    return artists
+
+
 def frame_axes(ax: Axes, xy: np.ndarray) -> None:
     """Equal aspect in a square data window (5 % margin), no ticks: the picture is the route, not a chart."""
     lo, hi = xy.min(axis=0), xy.max(axis=0)
@@ -225,12 +372,14 @@ def format_number(x: Any) -> str:
     return str(x)
 
 
-def route_title(name: str | None, cost: float, n_trips: int) -> str:
+def route_title(name: str | None, cost: float, n_trips: int, n_edges: int | None = None) -> str:
     parts = [] if name is None else [name]
     if math.isfinite(cost):
         parts.append(f"cost {format_number(cost)}")
     if n_trips > 1:
         parts.append(f"{n_trips} trips")
+    if n_edges is not None and not n_trips:
+        parts.append(f"{n_edges} edges")
     return " | ".join(parts)
 
 
@@ -251,10 +400,12 @@ def plot_route(
     ----------
     obj : fitted estimator, RouteEvent or array of row positions
         A fitted solver (its ``tour_`` is decoded with its ``problem_``), a progress event (its
-        ``best_tour``, or ``tour`` when there is no best yet), or a route array whose entries are
-        **row positions of** ``coords`` — the ``tour_``/``route_`` of a solver fitted without
-        ``labels=``. In the array the depot is the first entry and a repeated depot separates
-        trips (``[0, 3, 1, 0, 2, 0]`` is two trips).
+        ``best_tour``, or ``tour`` when there is no best yet; an event without any tour but with
+        ``extra["edges"]`` — one construction step — draws those edges instead, and
+        ``extra["edge_weights"]``/``extra["ring"]`` are drawn whenever present), or a route array
+        whose entries are **row positions of** ``coords`` — the ``tour_``/``route_`` of a solver
+        fitted without ``labels=``. In the array the depot is the first entry and a repeated depot
+        separates trips (``[0, 3, 1, 0, 2, 0]`` is two trips).
     coords : (n, 2) array-like, optional
         Positions in matrix row order; column 0 is drawn as x and column 1 as y. Default: the
         coordinates the problem carries (``fit(..., coords=)``). For ``(latitude, longitude)``
@@ -274,7 +425,7 @@ def plot_route(
     -------
     ax : matplotlib Axes
         Equal aspect, no ticks, one ``Line2D`` per trip; the title names the solver and the cost
-        when they are known.
+        when they are known (and the number of edges of a construction step).
 
     Examples
     --------
@@ -300,16 +451,35 @@ def plot_route(
     >>> ax = plot_route([0, 1, 0, 2, 3], xy)  # two trips: 0-1-0 and 0-2-3-0
     >>> len(ax.lines)
     2
+
+    One step of a construction heuristic — an event without a tour but with ``extra["edges"]``
+    (D31) — is drawn as its edges, ``x0, x1, nan`` per edge in a single line:
+
+    >>> from skroute import RoutingProblem
+    >>> from skroute.base import RouteEvent
+    >>> from skroute.preprocessing import distance_matrix
+    >>> problem = RoutingProblem(distance_matrix(xy), coords=xy)
+    >>> edges = {"edges": [(0, 1), (1, 2), (2, 0)]}
+    >>> step = RouteEvent("Insertion", "iteration", 2, np.nan, np.nan, None, None, problem, edges)
+    >>> ax = plot_route(step)
+    >>> len(ax.lines), len(ax.lines[0].get_xdata()), ax.get_title()
+    (1, 9, 'Insertion | 3 edges')
     """
     plt = pyplot()
     xy, trips, depot_idx, node_labels, name, cost = resolve(obj, coords)
     if ax is None:
         _, ax = plt.subplots(figsize=(7, 7))
     draw_points(ax, xy, depot_idx, node_labels, show_depot=depot, show_labels=labels)
+    n_edges = None
+    if is_event(obj):
+        extra = getattr(obj, "extra", None) or {}
+        draw_structure(ax, xy, obj.problem, extra)
+        if extra.get("edges") is not None:
+            n_edges = len(extra["edges"])
     colors = colors_for_trips(len(trips), trip_colors, line_kwargs.pop("color", None))
     draw_trips(ax, xy, trips, colors, **line_kwargs)
     frame_axes(ax, xy)
-    title = route_title(name, cost, len(trips))
+    title = route_title(name, cost, len(trips), n_edges)
     if title:
         ax.set_title(title)
     return ax
@@ -323,10 +493,10 @@ def plot_history(obj_or_events: Any, ax: Axes | None = None) -> Axes:
     obj_or_events : fitted iterative estimator, Recorder or sequence of events
         An estimator with ``history_``, a [`Recorder`][skroute.viz.Recorder], or a sequence of
         progress events (the ``"iteration"`` events' ``best_cost`` is drawn against ``iteration``;
-        a ``nan`` best — MILP before its first integral solution — is skipped). Events forwarded
-        by ``MultiStart`` (``extra["restart"]``) restart their iteration count at every restart:
-        they are drawn against the iteration counted across the restarts, and the title names
-        the ensemble.
+        a ``nan`` best — MILP before its first integral solution, a construction step — is
+        skipped). Events forwarded by ``MultiStart`` (``extra["restart"]``) restart their
+        iteration count at every restart: they are drawn against the iteration counted across the
+        restarts, and the title names the ensemble.
     ax : matplotlib Axes, optional
         Draw into these axes; a new figure otherwise.
 

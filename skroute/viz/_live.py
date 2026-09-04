@@ -1,8 +1,10 @@
-"""``LivePlot``: a callback that redraws the current and best tours while ``fit`` runs."""
+"""``LivePlot``: a callback that redraws the current and best tours — and the structure a solver is
+building (D31) — while ``fit`` runs."""
 
 from __future__ import annotations
 
 import math
+from collections import deque
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -10,15 +12,26 @@ import numpy as np
 from ._static import (
     BEST_COLOR,
     CURRENT_COLOR,
+    EDGE_COLOR,
+    RING_COLOR,
+    check_show,
     closed_trips,
     colors_for_trips,
     coords_array,
     draw_points,
     draw_trips,
+    event_edges,
+    event_ring,
+    event_weights,
     format_number,
     frame_axes,
+    n_trips_of,
     pyplot,
+    ring_xy,
     route_index,
+    segments_3d,
+    segments_xy,
+    trail_style,
 )
 
 if TYPE_CHECKING:
@@ -80,18 +93,72 @@ def backend_is_interactive() -> bool:
     return name in interactive
 
 
-def status_line(name: str, event: Any) -> str:
-    """``"Solver | iteration 12 | cost 27811 | best 27603 | temperature 1.2"`` from an event."""
-    parts = [name, f"iteration {int(event.iteration)}"]
+# The one solver fact worth a place in the title, by preference; ``restart`` (the context inside a
+# MultiStart) is always shown, lists (kick, moves_applied) never, the structures are counted instead.
+INFORMATIVE = (
+    "temperature",
+    "tenure",
+    "mean_cost",
+    "generation",
+    "iteration_best",
+    "radius",
+    "lower_bound",
+    "gain",
+    "accepted",
+    "n_restarts",
+    "n_units",
+)
+_SCALARS = (bool, int, float, str, np.integer, np.floating, np.bool_)
+TITLE_WIDTH = 60  # characters per title line at fontsize 10 in a 6-7 inch figure
+
+
+def status_parts(name: str, event: Any) -> list[str]:
+    """The pieces of a status title: name, restart, iteration, cost, best, trips, one fact, edges, ring."""
+    extra = event.extra or {}
+    scalars = {k: v for k, v in extra.items() if isinstance(v, _SCALARS)}
+    parts = [name]
+    if "restart" in scalars:
+        parts.append(f"restart {format_number(scalars.pop('restart'))}")
+    parts.append(f"iteration {int(event.iteration)}")
     cost, best = float(event.cost), float(event.best_cost)
     if math.isfinite(cost):
         parts.append(f"cost {format_number(cost)}")
     if math.isfinite(best):
         parts.append(f"best {format_number(best)}")
-    for key, value in (event.extra or {}).items():
-        if isinstance(value, bool | int | float | str | np.integer | np.floating):
-            parts.append(f"{key} {format_number(value)}")
-    return " | ".join(parts)
+    n_trips = n_trips_of(getattr(event, "problem", None), event.best_tour)
+    if n_trips > 1:
+        parts.append(f"{n_trips} trips")
+    key = next((k for k in INFORMATIVE if k in scalars), next(iter(scalars), None))
+    if key is not None:
+        parts.append(f"{key} {format_number(scalars[key])}")
+    if extra.get("edges") is not None:
+        parts.append(f"edges {len(extra['edges'])}")
+    if extra.get("ring") is not None:
+        parts.append(f"ring {len(extra['ring'])}")
+    return parts
+
+
+def status_line(name: str, event: Any, *, width: int = TITLE_WIDTH, newline: str = "\n") -> str:
+    """``"Solver | iteration 12 | cost 27811 | best 27603 | temperature 1.2"`` from an event.
+
+    After the costs come the number of trips of the best tour when it is more than one, the most
+    informative scalar fact of ``event.extra`` (``temperature``, ``tenure``, ``mean_cost``,
+    ``radius``... — one, by the order of ``INFORMATIVE``; ``restart`` follows the name inside a
+    MultiStart) and the sizes of the D31 structures — ``edges 37``, ``ring 304``. The pieces are
+    packed into lines of at most ``width`` characters, joined by ``newline``, so the title fits
+    the figure.
+    """
+    lines: list[str] = []
+    current = ""
+    for part in status_parts(name, event):
+        candidate = part if not current else f"{current} | {part}"
+        if current and len(candidate) > width:
+            lines.append(current)
+            current = part
+        else:
+            current = candidate
+    lines.append(current)
+    return newline.join(lines)
 
 
 # --------------------------------------------------------------------------- the callback
@@ -106,6 +173,14 @@ class LivePlot:
     ``"end"`` it draws the final best route with one colour per trip. It never blocks and never
     calls ``plt.show()`` — in a script the window appears through ``plt.pause``, so add
     ``plt.show()`` after ``fit`` to keep it open; in Jupyter the figure is refreshed in place.
+
+    The three optional ``extra`` keys of D31 are drawn whenever an event carries them:
+    ``extra["edges"]`` — the partial structure a solver holds (the growing path of a nearest
+    neighbour, the partial cycle of an insertion, the LP support of MILP) — as orange segments,
+    which with ``tour=None`` *is* the picture of the route being built; ``extra["edge_weights"]``
+    turns those segments into pheromone trails drawn under the tours, wider and more opaque the
+    stronger the trail; ``extra["ring"]`` — SOM's neurons — as a closed teal polyline with small
+    markers. An event without a key clears that drawing.
 
     One instance can watch several fits: a ``"start"`` that begins a new run (after the previous
     ``"end"``) opens a fresh figure and forgets a pending ``stop()``; the nested ``"start"`` and
@@ -131,12 +206,21 @@ class LivePlot:
     every : int >= 1, default 1
         Redraw on every ``every``-th iteration event (a redraw costs milliseconds; a fast solver
         emits thousands of iterations per second).
+    show : {"both", "best", "current"}, default "both"
+        Which tours to draw during the run: the current attempt (thin) and the best so far
+        (thick), only the best, or only the current. The final route at ``"end"`` and the D31
+        structures are drawn regardless.
+    trail : int >= 0, default 0
+        Keep the last ``trail`` current tours on screen, fading with age (a sense of where the
+        search has been); ``0`` draws the current tour alone.
     figsize : tuple of two floats, default (7, 7)
         Size of the matplotlib figure in inches.
     title : str, optional
         Text that replaces the solver's name in the status line.
     pause : float, default 0.001
         Seconds handed to ``plt.pause`` after each redraw (interactive matplotlib backends only).
+    trip_colors : bool, default True
+        One colour per trip on the final route; ``False`` draws every trip alike.
 
     Attributes
     ----------
@@ -160,6 +244,11 @@ class LivePlot:
     thread and stopping it from another cell is safe under ``%matplotlib inline`` and with the
     plotly backend, whose redraws are IPython display calls rather than GUI drawing.
 
+    With the matplotlib backend the artists sit in a fixed order: ``ax.lines[0]`` is the current
+    tour, ``ax.lines[1]`` the best, ``ax.lines[2]`` the edges, ``ax.lines[3]`` the ring, then the
+    ``trail`` fading tours, and the final route's lines are appended at ``"end"``; the pheromone
+    trails are a ``LineCollection`` in ``ax.collections``.
+
     Examples
     --------
     >>> from skroute import SimulatedAnnealing
@@ -172,6 +261,7 @@ class LivePlot:
     >>> sa = SimulatedAnnealing(random_state=0).fit(
     ...     wi.distance_matrix(), labels=wi.labels, callback=live
     ... )  # doctest: +SKIP
+    >>> attempts = LivePlot(wi.coords, show="current", trail=5)  # the walker and its five last positions
     >>> LivePlot(wi.coords, map=True)  # tiles need Plotly
     Traceback (most recent call last):
         ...
@@ -185,9 +275,12 @@ class LivePlot:
         backend: str = "matplotlib",
         map: bool = False,
         every: int = 1,
+        show: str = "both",
+        trail: int = 0,
         figsize: tuple[float, float] = (7, 7),
         title: str | None = None,
         pause: float = 0.001,
+        trip_colors: bool = True,
     ) -> None:
         if backend not in _BACKENDS:
             raise ValueError(f"backend must be one of {_BACKENDS}; got {backend!r}")
@@ -197,15 +290,20 @@ class LivePlot:
             )
         if not isinstance(every, int | np.integer) or isinstance(every, bool) or every < 1:
             raise ValueError(f"every must be an int >= 1; got {every!r}")
+        if not isinstance(trail, int | np.integer) or isinstance(trail, bool) or trail < 0:
+            raise ValueError(f"trail must be an int >= 0; got {trail!r}")
         if pause < 0:
             raise ValueError(f"pause must be >= 0; got {pause!r}")
         self.coords = coords_array(coords)
         self.backend = backend
         self.map = map
         self.every = int(every)
+        self.show = check_show(show)
+        self.trail = int(trail)
         self.figsize = figsize
         self.title = title
         self.pause = pause
+        self.trip_colors = bool(trip_colors)
         self.fig: Any = None
         self.ax: Axes | None = None
         self.n_events = 0
@@ -261,7 +359,13 @@ class LivePlot:
 
 
 class _MatplotlibView:
-    """The matplotlib drawing of a ``LivePlot``: two persistent lines updated in place."""
+    """The matplotlib drawing of a ``LivePlot``: persistent artists updated in place.
+
+    ``ax.lines``: current (0), best (1), edges (2), ring (3), then ``owner.trail`` fading copies of
+    past current tours; the pheromone trails are a ``LineCollection``. The final route's lines are
+    appended at ``finish``. ``silent=True`` (set by ``Recorder.animate``) skips every refresh call,
+    so the artists can be driven by a ``FuncAnimation`` instead.
+    """
 
     def __init__(self, owner: LivePlot, problem: Any) -> None:
         self.owner = owner
@@ -272,14 +376,21 @@ class _MatplotlibView:
         self.final_lines: list[Any] = []
         self.current: Any = None
         self.best: Any = None
+        self.edges: Any = None
+        self.ring: Any = None
+        self.trails: Any = None
+        self.fade: list[Any] = []
+        self.past: deque[tuple[Any, Any]] = deque(maxlen=max(1, owner.trail))
         self.notebook = in_notebook()
         self.inline = False
         self.interactive = False
+        self.silent = False
 
     # ----- stages
     def start(self, event: Any) -> None:
         plt = pyplot()
         import matplotlib
+        from matplotlib.collections import LineCollection
 
         self.inline = self.notebook and "inline" in matplotlib.get_backend().lower()
         self.interactive = not self.notebook and backend_is_interactive()
@@ -289,36 +400,50 @@ class _MatplotlibView:
         )
         (self.current,) = self.ax.plot([], [], color=CURRENT_COLOR, linewidth=0.9, zorder=1)
         (self.best,) = self.ax.plot([], [], color=BEST_COLOR, linewidth=2.2, zorder=2, solid_capstyle="round")
+        (self.edges,) = self.ax.plot([], [], color=EDGE_COLOR, linewidth=1.6, zorder=1.5)
+        (self.ring,) = self.ax.plot(
+            [], [], color=RING_COLOR, linewidth=1.2, marker="o", markersize=2.5, zorder=1.8
+        )
+        k = self.owner.trail
+        for i in range(k):
+            (line,) = self.ax.plot(
+                [], [], color=CURRENT_COLOR, linewidth=0.9, alpha=0.6 * (k - i) / (k + 1), zorder=0.8
+            )
+            self.fade.append(line)
+        self.trails = LineCollection([], zorder=0.5)
+        self.ax.add_collection(self.trails)
         frame_axes(self.ax, self.xy)
         self._set_tours(event)
+        self._set_structure(event)
         self._set_title(event)
         self._flush()
 
     def restart(self, event: Any) -> None:
         """A nested ``"start"`` (the next restart of a MultiStart): the previous restart's route goes."""
         self._clear_final()
-        self.current.set_data([], [])
-        self.best.set_data([], [])
+        self._clear_live()
         self._set_tours(event)
+        self._set_structure(event)
         self._set_title(event)
         self._flush()
 
     def update(self, event: Any) -> None:
         self._clear_final()  # a route left by an inner "end" never stays under the live lines
         self._set_tours(event)
+        self._set_structure(event)
         self._set_title(event)
         self._flush()
 
     def finish(self, event: Any, *, last: bool = True) -> None:
         """Draw the final route; ``last`` is false for the ``"end"`` of a restart inside a MultiStart."""
         assert self.ax is not None
-        self.current.set_data([], [])
-        self.best.set_data([], [])
+        self._clear_live()
         self._clear_final()
+        self._set_structure(event)  # an "end" that still describes a structure keeps it under the route
         tour = event.best_tour if event.best_tour is not None else event.tour
         trips = closed_trips(self.problem, tour) if tour is not None else []
         self.final_lines = draw_trips(
-            self.ax, self.xy, trips, colors_for_trips(len(trips), True), linewidth=2.2
+            self.ax, self.xy, trips, colors_for_trips(len(trips), self.owner.trip_colors), linewidth=2.2
         )
         self._set_title(event)
         self._flush(final=last)
@@ -329,15 +454,52 @@ class _MatplotlibView:
             line.remove()
         self.final_lines = []
 
+    def _clear_live(self) -> None:
+        self.current.set_data([], [])
+        self.best.set_data([], [])
+        self.edges.set_data([], [])
+        self.ring.set_data([], [])
+        self.trails.set_segments(np.empty((0, 2, 2)))
+        self.past.clear()
+        for line in self.fade:
+            line.set_data([], [])
+
     def _polyline(self, tour: Any) -> tuple[np.ndarray, np.ndarray]:
         idx = route_index(self.problem, tour)
         return self.xy[idx, 0], self.xy[idx, 1]
 
     def _set_tours(self, event: Any) -> None:
-        if event.tour is not None:
+        show = self.owner.show
+        if show != "best" and event.tour is not None:
+            if self.fade and len(self.current.get_xdata()):
+                self.past.append(self.current.get_data())
+                for line, (x, y) in zip(self.fade, reversed(self.past), strict=False):
+                    line.set_data(x, y)
             self.current.set_data(*self._polyline(event.tour))
-        if event.best_tour is not None:
+        if show != "current" and event.best_tour is not None:
             self.best.set_data(*self._polyline(event.best_tour))
+
+    def _set_structure(self, event: Any) -> None:
+        """Draw (or clear) the D31 extras the event carries: edges, weighted trails and the ring."""
+        extra = getattr(event, "extra", None) or {}
+        idx = event_edges(self.problem, extra)
+        weights = None if idx is None else event_weights(extra, idx.shape[0])
+        if idx is None or weights is not None:
+            self.edges.set_data([], [])
+        else:
+            self.edges.set_data(*segments_xy(self.xy, idx))
+        if idx is None or weights is None:
+            self.trails.set_segments(np.empty((0, 2, 2)))
+        else:
+            linewidths, colors = trail_style(weights)
+            self.trails.set_segments(segments_3d(self.xy, idx))
+            self.trails.set_linewidths(linewidths)
+            self.trails.set_color(colors)
+        ring = event_ring(extra)
+        if ring is None:
+            self.ring.set_data([], [])
+        else:
+            self.ring.set_data(*ring_xy(ring))
 
     def _set_title(self, event: Any) -> None:
         assert self.ax is not None
@@ -345,6 +507,8 @@ class _MatplotlibView:
 
     def _flush(self, *, final: bool = False) -> None:
         assert self.fig is not None
+        if self.silent:  # driven by a FuncAnimation (Recorder.animate): the animation refreshes
+            return
         if self.inline:
             display_figure(self.fig, clear=True)
             if final:

@@ -14,12 +14,15 @@ Every figure is drawn on the Agg backend (forced at import); ``plt.pause``/``fig
 
 from __future__ import annotations
 
+import gc
 import math
 import os
 import re
 import subprocess
 import sys
+import time
 import types
+import warnings
 from dataclasses import dataclass, field
 from itertools import pairwise
 from pathlib import Path
@@ -45,7 +48,8 @@ from skroute import (
 )
 from skroute.datasets import load_barcelona, load_tsp
 from skroute.utils import initial_tour
-from skroute.viz import LivePlot, RecordedEvent, Recorder, plot_history, plot_route, plot_route_map
+from skroute.viz import LivePlot, RecordedEvent, Recorder, _record, plot_history, plot_route, plot_route_map
+from skroute.viz._static import EDGE_COLOR, RING_COLOR
 
 matplotlib.use("Agg")
 
@@ -134,6 +138,36 @@ def closed_xy(problem, xy, label_tour):
     idx = problem.to_index_tour(label_tour)
     idx = np.append(idx, idx[0])
     return xy[idx]
+
+
+BASE_LINES = (
+    4  # LivePlot's persistent Line2D artists: current, best, edges, ring (then ``trail`` fading tours)
+)
+
+
+def final_lines(live):
+    """The lines of the final route a LivePlot drew at ``"end"`` (appended after the persistent artists)."""
+    return live._view.final_lines
+
+
+def title(ax_or_fig):
+    """A figure's status title as one line (LivePlot wraps long titles; Plotly uses ``<br>``)."""
+    text = ax_or_fig.get_title() if hasattr(ax_or_fig, "get_title") else ax_or_fig.layout.title.text
+    return text.replace("\n", " | ").replace("<br>", " | ")
+
+
+def structure_event(problem, stage="iteration", k=1, solver="Insertion", **extra):
+    """A D31 event without any tour: ``cost``/``best_cost`` nan, the structure in ``extra``."""
+    return FakeEvent(solver, stage, k, math.nan, math.nan, None, None, problem, extra)
+
+
+def with_stamps(rec, stamps):
+    """Rewrite the timestamps of a recorder's events (a controlled clock for the replay tests)."""
+    from dataclasses import replace
+
+    assert len(stamps) == len(rec.events)
+    rec.events = [replace(e, timestamp=float(t)) for e, t in zip(rec.events, stamps, strict=True)]
+    return rec
 
 
 # --------------------------------------------------------------------------- fixtures
@@ -368,11 +402,11 @@ def test_liveplot_matplotlib_full_run(dj_problem, dj):
     ax = live.ax
     current, best = ax.lines[0], ax.lines[1]
     assert len(current.get_xdata()) == 0 and len(best.get_xdata()) == 0, "the live lines are cleared at end"
-    final = ax.lines[2:]
-    assert len(final) == 1  # one trip drawn with trip colours
+    final = final_lines(live)
+    assert len(final) == 1 and ax.lines[-1] is final[0]  # one trip drawn with trip colours, appended last
     np.testing.assert_allclose(final[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour))
-    assert ax.get_title().startswith("FakeDescent | iteration 9 | cost ")
-    assert f"best {events[-1].best_cost:.6g}" in ax.get_title()
+    assert title(ax).startswith("FakeDescent | iteration 9 | cost ")
+    assert f"best {events[-1].best_cost:.6g}" in title(ax)
 
 
 def test_liveplot_lines_and_title_follow_the_events(dj_problem, dj):
@@ -380,22 +414,20 @@ def test_liveplot_lines_and_title_follow_the_events(dj_problem, dj):
     live = LivePlot(dj.coords, title="watching")
     assert live(events[0]) is False
     ax = live.ax
-    assert len(ax.lines) == 2 and len(ax.collections) == 2
+    assert len(ax.lines) == BASE_LINES and len(ax.collections) == 3  # points, depot, pheromone trails
     np.testing.assert_allclose(
         ax.lines[1].get_xydata(), closed_xy(dj_problem, dj.coords, events[0].best_tour)
     )
-    assert (
-        ax.get_title()
-        == f"watching | iteration 0 | cost {events[0].cost:.6g} | best {events[0].best_cost:.6g}"
-    )
+    assert title(ax) == f"watching | iteration 0 | cost {events[0].cost:.6g} | best {events[0].best_cost:.6g}"
     for ev in events[1:3]:
         assert live(ev) is False
         np.testing.assert_allclose(ax.lines[0].get_xydata(), closed_xy(dj_problem, dj.coords, ev.tour))
         np.testing.assert_allclose(ax.lines[1].get_xydata(), closed_xy(dj_problem, dj.coords, ev.best_tour))
-        assert ax.get_title() == (
+        assert title(ax) == (
             f"watching | iteration {ev.iteration} | cost {ev.cost:.6g} | best {ev.best_cost:.6g}"
             f" | temperature {1.0 / ev.iteration:.6g}"
         )
+    assert ax.get_title().count("\n") == 1, "a long title is wrapped onto a second line"
     assert live.n_redraws == 3
 
 
@@ -406,9 +438,9 @@ def test_liveplot_every_skips_redraws(dj_problem, dj):
         live(ev)
     assert live.n_events == 10
     assert live.n_redraws == 4  # start + iterations 1, 4 and 7
-    assert "iteration 7 |" in live.ax.get_title()
+    assert "iteration 7 |" in title(live.ax)
     live(events[-1])
-    assert live.n_redraws == 5 and "iteration 9 |" in live.ax.get_title()
+    assert live.n_redraws == 5 and "iteration 9 |" in title(live.ax)
 
 
 def test_liveplot_stop_returns_true(dj_problem, dj):
@@ -437,18 +469,18 @@ def test_liveplot_attached_mid_run_and_multi_trip_end(two_trips):
     live(events[1])  # no "start" seen: the figure is created on the first event received
     assert live.fig is not None and live.n_redraws == 2
     live(events[-1])
-    final = live.ax.lines[2:]
+    final = final_lines(live)
     assert len(final) == len(events[-1].trips) >= 1
-    assert "FakeDescent | iteration 2" in live.ax.get_title()
+    assert "FakeDescent | iteration 2" in title(live.ax)
     live(events[1])  # an iteration after an "end" without a new "start": the final route must not stay
-    assert len(live.ax.lines) == 2 and live._view.final_lines == []
+    assert len(live.ax.lines) == BASE_LINES and live._view.final_lines == []
 
 
 def test_liveplot_nested_start_resets_the_drawing_in_place(dj_problem, dj):
     """The start/end of every restart a MultiStart forwards redraw from scratch in the same figure."""
     outer = FakeEvent("MultiStart", "start", 0, math.nan, math.nan, None, None, dj_problem, {"n_restarts": 2})
     live = LivePlot(dj.coords, every=2)
-    assert live(outer) is False and live.ax.get_title() == "MultiStart | iteration 0 | n_restarts 2"
+    assert live(outer) is False and title(live.ax) == "MultiStart | iteration 0 | n_restarts 2"
     fig = live.fig
     for restart in (0, 1):
         events, _ = fake_run(lambda ev: None, dj_problem, n_iter=3, seed=restart)
@@ -472,9 +504,11 @@ def test_liveplot_nested_start_resets_the_drawing_in_place(dj_problem, dj):
                 )
             )
             if ev.stage == "iteration":
-                assert len(live.ax.lines) == 2, "the previous restart's final route is gone"
-                assert f"restart {restart}" in live.ax.get_title()
-        assert len(live.ax.lines) == 3 and live.fig is fig  # this restart's final route, same figure
+                assert len(live.ax.lines) == BASE_LINES, "the previous restart's final route is gone"
+                assert title(live.ax).startswith(f"FakeDescent | restart {restart} | iteration ")
+        assert (
+            len(live.ax.lines) == BASE_LINES + 1 and live.fig is fig
+        )  # this restart's final route, same figure
     assert live.n_events == 11 and live.n_redraws == 1 + 2 * (1 + 2 + 1)  # every=2: iterations 1 and 3
     assert len(plt.get_fignums()) == 1
 
@@ -495,7 +529,7 @@ def test_liveplot_headless_renders_once(monkeypatch, dj_problem, dj):
     events, _ = fake_run(live, dj_problem, n_iter=20)
     assert live.n_redraws == 22 and len(draws) == 1
     np.testing.assert_allclose(
-        live.ax.lines[2].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
+        final_lines(live)[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
     )
 
 
@@ -528,7 +562,7 @@ def test_liveplot_jupyter_inline_redraws_through_display(monkeypatch, tmp_path, 
     fake_run(live, dj_problem, n_iter=4)
     assert calls == [True] * 6  # every redraw replaces the cell output
     # ... and the figure is closed at the end, or the kernel would display it a second time
-    assert live.fig.number not in plt.get_fignums() and len(live.ax.lines) == 3
+    assert live.fig.number not in plt.get_fignums() and len(live.ax.lines) == BASE_LINES + 1
     rec = Recorder()
     fake_run(rec, dj_problem, n_iter=2)
     anim = rec.animate(dj.coords, figsize=(2, 2))
@@ -567,13 +601,13 @@ def test_liveplot_plotly_script_shows_once_at_end(monkeypatch, dj_problem, dj):
     events, _ = fake_run(live, dj_problem, n_iter=4)
     assert live.ax is None and isinstance(live.fig, go.Figure)
     assert shown == [live.fig]
-    assert [t.type for t in live.fig.data] == ["scatter"] * 4
+    assert [t.type for t in live.fig.data] == ["scatter"] * 6  # nodes, depot, current, best, edges, ring
     best = live.fig.data[3]
     np.testing.assert_allclose(
         np.column_stack([best.x, best.y]), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
     )
     assert live.fig.data[2].x is None or len(live.fig.data[2].x) == 0  # current line cleared at end
-    assert live.fig.layout.title.text.startswith("FakeDescent | iteration 4 | cost ")
+    assert title(live.fig).startswith("FakeDescent | iteration 4 | cost ")
     assert live.fig.layout.yaxis.scaleanchor == "x"
 
 
@@ -581,7 +615,7 @@ def test_liveplot_plotly_map(monkeypatch, bcn_problem):
     monkeypatch.setattr("plotly.basedatatypes.BaseFigure.show", lambda self, *a, **k: None)
     live = LivePlot(bcn_problem.coords, backend="plotly", map=True, every=2)
     fake_run(live, bcn_problem, n_iter=5)
-    assert [t.type for t in live.fig.data] == ["scattermap"] * 4
+    assert [t.type for t in live.fig.data] == ["scattermap"] * 6
     assert live.fig.layout.map.style == "open-street-map" and 8 < live.fig.layout.map.zoom < 13
     assert live.n_redraws == 1 + 3 + 1
     assert len(live.fig.data[3].lat) == bcn_problem.n + 1  # one closed trip, lat/lon on a map
@@ -663,35 +697,36 @@ def test_recorder_animate_and_save_gif(tmp_path, dj_problem, dj):
     fig = plt.gcf()  # the figure animate created
     assert fig.get_size_inches().tolist() == [3.0, 3.0]
     ax = fig.axes[0]
-    assert len(ax.collections) == 2  # points and depot, drawn once
+    assert len(ax.collections) == 3  # points, depot and the (empty) pheromone trails, drawn once
+    assert anim._interval == 50 and anim._repeat_delay == 1000  # a second on the final picture per loop
     path = tmp_path / "run.gif"
     anim.save(path, writer="pillow", dpi=40)
     with Image.open(path) as im:
         # 5 frames rendered; Pillow folds the "end" frame into the identical last iteration frame
         assert im.n_frames in (4, 5)
-    # the last frame drawn is the last best tour, one line, titled with its cost
-    assert len(ax.lines) == 1
-    np.testing.assert_allclose(
-        ax.lines[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
-    )
-    assert ax.get_title() == f"FakeDescent | iteration 3 | best {events[-1].best_cost:.6g}"
+    # the last frame drawn is the final route (the live lines cleared), titled like LivePlot's end
+    final = final_lines(rec._last_live)
+    assert len(final) == 1 and len(ax.lines[0].get_xdata()) == len(ax.lines[1].get_xdata()) == 0
+    np.testing.assert_allclose(final[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour))
+    last = events[-1]
+    assert title(ax) == f"FakeDescent | iteration 3 | cost {last.cost:.6g} | best {last.best_cost:.6g}"
 
 
 def test_recorder_animate_multi_trip_colours(tmp_path, two_trips):
     rec = Recorder()
     fake_run(rec, two_trips.problem_, n_iter=2)
     anim = rec.animate(SQUARE, trip_colors=True)
-    ax = plt.gcf().axes[0]
     anim.save(
         tmp_path / "trips.gif", writer="pillow", dpi=30
     )  # renders every frame; the last one stays drawn
     n_trips = len(plot_route(rec.events[-1], SQUARE).lines)  # a recorded event is drawable on its own
-    assert len(ax.lines) == n_trips >= 1
-    assert len({line.get_color() for line in ax.lines}) == n_trips
+    final = final_lines(rec._last_live)
+    assert len(final) == n_trips >= 1
+    assert len({line.get_color() for line in final}) == n_trips
+    assert "2 trips" in title(rec._last_live.ax)
     plain = rec.animate(SQUARE, trip_colors=False)
-    ax2 = plt.gcf().axes[0]
     plain.save(tmp_path / "plain.gif", writer="pillow", dpi=30)
-    assert len({line.get_color() for line in ax2.lines}) == 1
+    assert len({line.get_color() for line in final_lines(rec._last_live)}) == 1
 
 
 def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
@@ -700,11 +735,15 @@ def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
     fig = rec.to_plotly(dj.coords)
     assert isinstance(fig, go.Figure)
     assert len(fig.frames) == rec.n_frames == 5
-    assert [t.type for t in fig.data] == ["scatter"] * 3
+    assert [t.type for t in fig.data] == ["scatter"] * 6  # nodes, depot, current, best, edges, ring
     assert len(fig.layout.sliders) == 1 and len(fig.layout.sliders[0].steps) == 5
     assert [s.label for s in fig.layout.sliders[0].steps] == ["0", "1", "3", "5", "6"]
     assert [b.label for b in fig.layout.updatemenus[0].buttons] == ["Play", "Pause"]
-    assert fig.frames[-1].layout.title.text.startswith("FakeDescent | iteration 6 | best ")
+    last = rec.events[-1]
+    assert fig.frames[-1].layout.title.text == (
+        f"FakeDescent | iteration 6 | cost {last.cost:.6g} | best {last.best_cost:.6g}"
+    )
+    assert "<br>" in fig.frames[-2].layout.title.text, "a long Plotly title breaks with <br>"
     nested = Recorder()
     for restart in (0, 1):
         events, _ = fake_run(lambda ev: None, dj_problem, n_iter=2, seed=restart)
@@ -724,21 +763,18 @@ def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
             )
     steps = nested.to_plotly(dj.coords).layout.sliders[0].steps
     assert [s.label for s in steps] == ["0:0", "0:1", "0:2", "0:2", "1:0", "1:1", "1:2", "1:2"]
-    assert (
-        nested.to_plotly(dj.coords)
-        .frames[0]
-        .layout.title.text.startswith("FakeDescent | restart 0 | iteration 0")
-    )
+    nested_title = nested.to_plotly(dj.coords).frames[0].layout.title.text
+    assert nested_title.startswith("FakeDescent | restart 0 | iteration 0 | cost ")
+    end = fig.frames[-1].data  # the "end" frame: the current trace is cleared, the best is the closed route
+    assert [t.name for t in end] == ["current", "best", "edges", "ring"] and len(end[0].x) == 0
     np.testing.assert_allclose(
-        np.column_stack([fig.frames[-1].data[0].x, fig.frames[-1].data[0].y]),
-        closed_xy(dj_problem, dj.coords, rec.events[-1].best_tour),
+        np.column_stack([end[1].x, end[1].y]), closed_xy(dj_problem, dj.coords, rec.events[-1].best_tour)
     )
     geo = Recorder()
     fake_run(geo, bcn_problem, n_iter=2)
     on_map = geo.to_plotly(bcn_problem.coords, map=True)
-    assert [t.type for t in on_map.data] == [
-        "scattermap"
-    ] * 3 and on_map.layout.map.style == "open-street-map"
+    assert [t.type for t in on_map.data] == ["scattermap"] * 6
+    assert on_map.layout.map.style == "open-street-map"
     assert len(on_map.frames) == 4 and on_map.frames[0].data[0].type == "scattermap"
 
 
@@ -748,11 +784,11 @@ def test_real_liveplot_counts_events_and_redraws(dj):
     sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=live)
     assert live.n_events == sa.n_iter_ + 2  # start, one event per level, end
     assert live.n_redraws == 2 + math.ceil(sa.n_iter_ / 50)
-    final = live.ax.lines[2:]
+    final = final_lines(live)
     assert len(final) == 1
     np.testing.assert_allclose(final[0].get_xydata(), closed_xy(sa.problem_, dj.coords, sa.tour_))
-    assert live.ax.get_title().startswith(f"SimulatedAnnealing | iteration {sa.n_iter_} | cost ")
-    assert f"best {sa.cost_:.6g}" in live.ax.get_title()
+    assert title(live.ax).startswith(f"SimulatedAnnealing | iteration {sa.n_iter_} | cost ")
+    assert f"best {sa.cost_:.6g}" in title(live.ax)
 
 
 def test_real_liveplot_stop_mid_run(dj):
@@ -796,11 +832,13 @@ def test_real_liveplot_reused_for_a_second_fit_starts_afresh(dj):
     )
     assert second.stop_reason_ == "max_iter" and second.n_iter_ == 7, "the old stop request is forgotten"
     assert drawn == [1, 4, 7], "the every phase starts again"
-    assert live.fig is not fig1 and len(live.ax.lines) == 3  # a fresh figure: current, best, one final route
+    assert live.fig is not fig1 and len(live.ax.lines) == BASE_LINES + 1  # a fresh figure, one final route
     np.testing.assert_allclose(
-        live.ax.lines[2].get_xydata(), closed_xy(second.problem_, dj.coords, second.tour_)
+        final_lines(live)[0].get_xydata(), closed_xy(second.problem_, dj.coords, second.tour_)
     )
-    assert len(fig1.axes[0].lines) == 3 and len(plt.get_fignums()) == 2  # the first figure is left as it was
+    assert (
+        len(fig1.axes[0].lines) == BASE_LINES + 1 and len(plt.get_fignums()) == 2
+    )  # the first is left as it was
     wi = load_tsp("wi29")
     with pytest.raises(ValueError, match="coords has 38 rows but the problem has 29 nodes"):
         IteratedLocalSearch(n_iter=1, patience=None).fit(
@@ -824,12 +862,12 @@ def test_real_liveplot_under_multistart(dj):
     )
     assert live.n_events == 2 + 3 * 5  # its own start/end + 3 x (start, 3 iterations, end)
     assert live.n_redraws == 2 + 3 * 4  # every=2 counts from 1 in each restart: iterations 1 and 3
-    assert lines_seen == [2] * 6
+    assert lines_seen == [BASE_LINES] * 6
     assert len(plt.get_fignums()) == 1, "one figure for the whole ensemble"
-    final = live.ax.lines[2:]
+    final = final_lines(live)
     assert len(final) == 1
     np.testing.assert_allclose(final[0].get_xydata(), closed_xy(ms.problem_, dj.coords, ms.tour_))
-    assert live.ax.get_title().startswith("MultiStart | ")
+    assert title(live.ax).startswith("MultiStart | ")
 
 
 def test_real_liveplot_plotly_under_multistart_shows_once(monkeypatch, dj):
@@ -854,6 +892,10 @@ def test_real_recorder_matches_the_fit(dj):
     assert last.route.tolist() == sa.route_.tolist()
     assert [t.tolist() for t in last.trips] == [t.tolist() for t in sa.trips_]
     assert np.all(np.diff(rec.best_costs) <= 0)
+    assert np.all(np.diff(rec.timestamps) >= 0) and rec.frame_delays(speed=1e9).tolist() == [10.0] * len(rec)
+    live = rec.replay(dj.coords, speed=1e9, every=10)  # no waiting at that speed
+    assert live.n_events == len(rec) and live.n_redraws == 2 + math.ceil((len(rec) - 2) / 10)
+    np.testing.assert_allclose(final_lines(live)[0].get_xydata(), closed_xy(sa.problem_, dj.coords, sa.tour_))
 
 
 def test_real_recorder_reused_keeps_each_runs_problem(dj):
@@ -929,3 +971,429 @@ def test_plot_route_map(bcn_problem, two_trips):
         plot_route_map(two_trips)
     events, _ = fake_run(lambda ev: None, bcn_problem, n_iter=1)
     assert len(plot_route_map(events[-1]).data) == 3
+
+
+# --------------------------------------------------------------------------- D31: structures being built
+def test_liveplot_draws_construction_edges(dj_problem, dj):
+    """A construction step: ``tour=None``, nan costs and ``extra["edges"]`` -- the edges are the picture."""
+    labels = list(dj_problem.labels)
+    live = LivePlot(dj.coords)
+    assert live(structure_event(dj_problem, "start", 0)) is False  # nothing to draw yet
+    ax = live.ax
+    current, best, edges_line = ax.lines[0], ax.lines[1], ax.lines[2]
+    assert edges_line.get_color() == EDGE_COLOR and len(edges_line.get_xdata()) == 0
+    assert title(ax) == "Insertion | iteration 0"
+    for k in range(2, 7):
+        edges = list(pairwise(labels[:k]))  # the path grows one node per step (rows 0 .. k-1)
+        live(structure_event(dj_problem, "iteration", k - 1, edges=edges))
+        x, y = edges_line.get_xdata(), edges_line.get_ydata()
+        assert len(x) == 3 * len(edges) and np.isnan(x[2::3]).all() and np.isnan(y[2::3]).all()
+        np.testing.assert_allclose(x[0::3], dj.coords[: k - 1, 0])  # x0 of every edge
+        np.testing.assert_allclose(x[1::3], dj.coords[1:k, 0])  # x1 of every edge
+        np.testing.assert_allclose(y[1::3], dj.coords[1:k, 1])
+        assert len(current.get_xdata()) == 0 and len(best.get_xdata()) == 0
+        assert title(ax) == f"Insertion | iteration {k - 1} | edges {len(edges)}"
+    live(structure_event(dj_problem, "iteration", 6))  # an event without the key clears the structure
+    assert len(edges_line.get_xdata()) == 0
+    tour = dj_problem.to_label_tour(initial_tour(dj_problem, "nearest_neighbour", None))
+    cost = dj_problem.evaluate(dj_problem.to_index_tour(tour))
+    live(FakeEvent("Insertion", "end", 37, cost, cost, tour, tour, dj_problem, {}))
+    assert len(final_lines(live)) == 1 and len(edges_line.get_xdata()) == 0
+    assert title(ax) == f"Insertion | iteration 37 | cost {cost:.6g} | best {cost:.6g}"
+    with pytest.raises(ValueError, match="pairs of the problem's labels"):
+        live(structure_event(dj_problem, "iteration", 1, edges=[("nowhere", labels[0])]))
+    with pytest.raises(ValueError, match="pairs of the problem's labels"):
+        live(structure_event(dj_problem, "iteration", 1, edges=[labels[0]]))
+
+
+def test_liveplot_draws_pheromone_trails(dj_problem, dj):
+    """``extra["edge_weights"]``: the edges become a LineCollection; width and alpha follow the weight."""
+    n, labels = dj_problem.n, list(dj_problem.labels)
+    rng = np.random.default_rng(0)
+    m = 3 * n
+    a = rng.integers(0, n, m)
+    b = (a + rng.integers(1, n, m)) % n
+    edges = [(labels[i], labels[j]) for i, j in zip(a.tolist(), b.tolist(), strict=True)]
+    weights = np.linspace(0.0, 1.0, m)
+    tour = dj_problem.to_label_tour(initial_tour(dj_problem, "nearest_neighbour", None))
+    cost = dj_problem.evaluate(dj_problem.to_index_tour(tour))
+
+    def ant_event(k, **extra):
+        return FakeEvent("AntColony", "iteration", k, cost, cost, tour, tour, dj_problem, extra)
+
+    live = LivePlot(dj.coords)
+    live(FakeEvent("AntColony", "start", 0, cost, cost, tour, tour, dj_problem, {"n_ants": 10}))
+    live(ant_event(1, n_ants=10, edges=edges, edge_weights=weights))
+    ax = live.ax
+    trails = live._view.trails
+    assert trails is ax.collections[2] and len(trails.get_segments()) == m
+    np.testing.assert_allclose(trails.get_segments()[-1], dj.coords[[a[-1], b[-1]]])
+    lw = np.asarray(trails.get_linewidths())
+    assert (
+        lw.shape == (m,)
+        and np.all(np.diff(lw) > 0)
+        and lw[0] == pytest.approx(0.4)
+        and lw[-1] == pytest.approx(3.6)
+    )
+    alpha = np.asarray(trails.get_colors())[:, 3]
+    assert np.all(np.diff(alpha) > 0) and alpha[0] == pytest.approx(0.08) and alpha[-1] == pytest.approx(1.0)
+    assert trails.get_zorder() < ax.lines[0].get_zorder(), "trails go under the tours"
+    assert len(ax.lines[2].get_xdata()) == 0, "weighted edges are the collection, not the plain line"
+    assert len(ax.lines[0].get_xdata()) == len(ax.lines[1].get_xdata()) == n + 1  # the tours stay
+    assert title(ax) == f"AntColony | iteration 1 | cost {cost:.6g} | best {cost:.6g} | n_ants 10 | edges {m}"
+    live(ant_event(2, edges=edges[:3], edge_weights=[2.0, -1.0, np.nan]))  # clipped to [0, 1], nan -> 0
+    np.testing.assert_allclose(trails.get_linewidths(), [3.6, 0.4, 0.4])
+    with pytest.raises(ValueError, match=r"has 2 values but extra\['edges'\] has 3 pairs"):
+        live(ant_event(3, edges=edges[:3], edge_weights=[0.5, 0.5]))
+    live(ant_event(4, edges=edges[:3]))  # without weights: the plain line takes over
+    assert len(trails.get_segments()) == 0 and len(ax.lines[2].get_xdata()) == 9
+    live(ant_event(5))
+    assert len(trails.get_segments()) == 0 and len(ax.lines[2].get_xdata()) == 0
+    static = plot_route(
+        ant_event(6, edges=edges, edge_weights=weights)
+    )  # the static picture: same collection
+    assert len(static.collections) == 3 and len(static.collections[2].get_segments()) == m
+
+
+def test_liveplot_draws_the_som_ring(dj_problem, dj):
+    m = 20
+    theta = np.linspace(0.0, 2.0 * np.pi, m, endpoint=False)
+    center, radius = dj.coords.mean(axis=0), dj.coords.std()
+    ring = np.column_stack((center[0] + radius * np.cos(theta), center[1] + radius * np.sin(theta)))
+    live = LivePlot(dj.coords)
+    live(structure_event(dj_problem, "start", 0, solver="SOM", radius=30.4, n_units=m, ring=ring))
+    ax = live.ax
+    ring_line = ax.lines[3]
+    assert ring_line.get_color() == RING_COLOR and ring_line.get_marker() == "o"
+    xy = ring_line.get_xydata()
+    assert xy.shape == (m + 1, 2)
+    np.testing.assert_allclose(xy[:-1], ring)
+    np.testing.assert_allclose(xy[-1], ring[0])  # closed
+    assert title(ax) == f"SOM | iteration 0 | radius 30.4 | ring {m}"  # radius outranks n_units
+    tour = dj_problem.to_label_tour(initial_tour(dj_problem, "nearest_neighbour", None))
+    cost = dj_problem.evaluate(dj_problem.to_index_tour(tour))
+    live(FakeEvent("SOM", "iteration", 1, cost, cost, tour, tour, dj_problem, {"ring": ring * 0.5}))
+    np.testing.assert_allclose(ring_line.get_xydata()[:-1], ring * 0.5)
+    assert len(ax.lines[0].get_xdata()) == dj_problem.n + 1  # the epoch's decoded tour, too
+    with pytest.raises(ValueError, match=r"\(m, 2\)"):
+        live(structure_event(dj_problem, "iteration", 2, solver="SOM", ring=np.zeros((3, 3))))
+    live(FakeEvent("SOM", "iteration", 3, cost, cost, tour, tour, dj_problem, {}))
+    assert len(ring_line.get_xdata()) == 0, "cleared without the key"
+    ringed = plot_route(FakeEvent("SOM", "iteration", 4, cost, cost, tour, tour, dj_problem, {"ring": ring}))
+    assert len(ringed.lines) == 2 and len(ringed.lines[0].get_xdata()) == m + 1  # ring, then the route
+    assert ringed.get_title() == f"SOM | cost {cost:.6g}"
+
+
+def test_liveplot_show_and_trail_options(dj_problem, dj):
+    events, _ = fake_run(lambda ev: None, dj_problem, n_iter=6)
+    n1 = dj_problem.n + 1
+    best_only = LivePlot(dj.coords, show="best")
+    for ev in events[:-1]:
+        best_only(ev)
+    assert len(best_only.ax.lines[0].get_xdata()) == 0 and len(best_only.ax.lines[1].get_xdata()) == n1
+    current_only = LivePlot(dj.coords, show="current")
+    for ev in events[:-1]:
+        current_only(ev)
+    assert len(current_only.ax.lines[0].get_xdata()) == n1 and len(current_only.ax.lines[1].get_xdata()) == 0
+    current_only(events[-1])
+    assert len(final_lines(current_only)) == 1, "the final route is drawn whatever show= says"
+    trailing = LivePlot(dj.coords, trail=3)
+    trailing(events[0])
+    fade = trailing.ax.lines[BASE_LINES : BASE_LINES + 3]
+    assert len(trailing.ax.lines) == BASE_LINES + 3 and all(len(line.get_xdata()) == 0 for line in fade)
+    alphas = [line.get_alpha() for line in fade]
+    assert alphas == sorted(alphas, reverse=True) and 0 < alphas[-1] < alphas[0] < 1
+    trailing(events[1])  # the start's current tour becomes the newest ghost
+    np.testing.assert_allclose(fade[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[0].tour))
+    assert len(fade[1].get_xdata()) == 0
+    for ev in events[2:-1]:
+        trailing(ev)
+    for age, line in enumerate(fade):  # events 6 is current; 5, 4, 3 fade behind it
+        np.testing.assert_allclose(line.get_xydata(), closed_xy(dj_problem, dj.coords, events[5 - age].tour))
+    trailing(events[-1])
+    assert all(len(line.get_xdata()) == 0 for line in fade), "cleared at the end"
+    with pytest.raises(ValueError, match="show must be one of"):
+        LivePlot(dj.coords, show="all")
+    for bad in (-1, 1.5, True):
+        with pytest.raises(ValueError, match="trail must be an int >= 0"):
+            LivePlot(dj.coords, trail=bad)
+
+
+def test_plot_route_of_a_construction_step(dj_problem, dj):
+    labels = list(dj_problem.labels)
+    edges = [(labels[0], labels[1]), (labels[1], labels[2]), (labels[2], labels[0])]
+    ax = plot_route(structure_event(dj_problem, "iteration", 3, edges=edges))
+    assert len(ax.lines) == 1 and len(ax.lines[0].get_xdata()) == 9 and ax.lines[0].get_color() == EDGE_COLOR
+    assert ax.get_title() == "Insertion | 3 edges"
+    np.testing.assert_allclose(ax.lines[0].get_xydata()[[0, 1, 3, 4, 6, 7]], dj.coords[[0, 1, 1, 2, 2, 0]])
+    scaled = plot_route(
+        structure_event(dj_problem, "iteration", 3, edges=edges), dj.coords * 2.0, labels=True
+    )
+    np.testing.assert_allclose(scaled.lines[0].get_xydata()[0], 2.0 * dj.coords[0])
+    assert len(scaled.texts) == dj_problem.n
+    assert len(plot_route(structure_event(dj_problem, "start", 0)).lines) == 0  # nothing yet: just the nodes
+    with pytest.raises(ValueError, match="pairs of the problem's labels"):
+        plot_route(structure_event(dj_problem, "iteration", 1, edges=[(labels[0], "nowhere")]))
+    # a recorded construction step draws the same way
+    rec = Recorder()
+    rec(structure_event(dj_problem, "iteration", 3, edges=edges))
+    assert len(plot_route(rec.events[0]).lines[0].get_xdata()) == 9
+
+
+# --------------------------------------------------------------------------- D31: the recorder's clock
+def test_recorder_timestamps_and_structure_copies(dj_problem):
+    labels = list(dj_problem.labels)
+    edges = [(labels[0], labels[1]), (labels[1], labels[2])]
+    weights = [0.2, 0.9]
+    ring = np.zeros((4, 2))
+    rec = Recorder()
+    rec(structure_event(dj_problem, "start", 0))
+    rec(structure_event(dj_problem, "iteration", 1, edges=edges, edge_weights=weights, ring=ring, n_units=4))
+    ring[:] = 1.0  # the solver keeps working on its buffers...
+    weights[0] = 0.0
+    edges.append((labels[2], labels[3]))
+    kept = rec.events[1].extra  # ...the copies do not move
+    assert kept["edges"] == [(labels[0], labels[1]), (labels[1], labels[2])]
+    assert all(isinstance(pair, tuple) for pair in kept["edges"])
+    np.testing.assert_array_equal(kept["edge_weights"], [0.2, 0.9])
+    np.testing.assert_array_equal(kept["ring"], np.zeros((4, 2)))
+    assert kept["edge_weights"].dtype == kept["ring"].dtype == np.float64 and kept["n_units"] == 4
+    stamps = rec.timestamps
+    assert (
+        stamps.shape == (2,)
+        and stamps.dtype == np.float64
+        and 0 < stamps[0] <= stamps[1] <= time.perf_counter()
+    )
+    assert [e.drawable for e in rec.events] == [False, True] and rec.n_frames == 1
+    assert RecordedEvent("X", "start", 0, math.nan, math.nan, None, None).timestamp == 0.0
+    bare = Recorder(keep_tours=False)
+    bare(structure_event(dj_problem, "iteration", 1, edges=edges, edge_weights=weights, ring=ring, n_units=4))
+    assert bare.events[0].extra == {"n_units": 4} and bare.n_frames == 0  # the structures go with the tours
+    odd = Recorder()
+    odd(structure_event(dj_problem, "iteration", 1, edges=3, ring="not an array"))  # copied as received...
+    assert odd.events[0].extra == {"edges": 3, "ring": "not an array"}
+    with pytest.raises(ValueError, match="pairs of the problem's labels"):  # ...and reported when drawn
+        plot_route(odd.events[0])
+
+
+def test_recorder_frame_delays_follow_the_clock(dj_problem):
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=3)  # five drawable events
+    with_stamps(rec, [0.0, 0.05, 0.1, 3.0, 3.0005])
+    np.testing.assert_allclose(
+        rec.frame_delays(), [50, 50, 2000, 10, 10]
+    )  # gaps in ms, clipped, last repeated
+    np.testing.assert_allclose(rec.frame_delays(speed=10), [10, 10, 290, 10, 10])
+    np.testing.assert_allclose(rec.frame_delays(speed=0.01), [2000] * 3 + [50] * 2)  # slow motion: capped
+    for bad in (0, -1.0):
+        with pytest.raises(ValueError, match="speed must be > 0"):
+            rec.frame_delays(speed=bad)
+    labels = list(dj_problem.labels)
+    con = Recorder()  # only drawable events are frames: a construction's empty "start" is skipped
+    con(structure_event(dj_problem, "start", 0))
+    con(structure_event(dj_problem, "iteration", 1, edges=[(labels[0], labels[1])]))
+    con(structure_event(dj_problem, "iteration", 2, edges=[(labels[0], labels[1]), (labels[1], labels[2])]))
+    with_stamps(con, [0.0, 1.0, 1.5])
+    assert con.n_frames == 2 and con.frame_delays().tolist() == [500.0, 500.0]
+    with pytest.raises(ValueError, match="nothing to draw"):
+        Recorder().frame_delays()
+
+
+class FakeTimer:
+    """Stands in for the animation's event source: records every interval the frames ask for."""
+
+    def __init__(self):
+        self.intervals: list[int] = []
+        self._interval = 0
+
+    @property
+    def interval(self):
+        return self._interval
+
+    @interval.setter
+    def interval(self, value):
+        self._interval = value
+        self.intervals.append(value)
+
+    def start(self, *_):
+        pass
+
+    def stop(self, *_):
+        pass
+
+    def add_callback(self, *_):
+        pass
+
+    def remove_callback(self, *_):
+        pass
+
+
+def test_recorder_animate_speed_fps_and_interval(tmp_path, dj_problem, dj):
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=3)
+    with_stamps(rec, [0.0, 0.05, 0.1, 3.0, 3.0005])
+    lapse = rec.animate(dj.coords, speed=10, figsize=(2, 2))  # 10x: delays 10, 10, 290, 10, 10 ms
+    assert lapse._interval == 10 and lapse._repeat_delay == 1000
+    timer = FakeTimer()
+    lapse.event_source = timer
+    lapse.save(tmp_path / "lapse.gif", writer="pillow", dpi=20)  # draws every frame in order
+    # save() draws frame 0 once in _init_draw, then every frame: each one sets the wait before the next
+    assert timer.intervals == [10, 10, 10, 290, 10, 10]
+    assert rec._last_live.show == "both" and rec._last_live.figsize == (2, 2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # these animations are inspected, never rendered
+        fixed = rec.animate(dj.coords, fps=25, hold=0.5, show="best", trail=2)
+        assert fixed._interval == 40 and fixed._repeat_delay == 500
+        assert rec._last_live.show == "best" and len(rec._last_live.ax.lines) == BASE_LINES + 2
+        assert rec.animate(dj.coords, interval=7, fps=25).__dict__["_interval"] == 7  # interval wins
+        assert rec.animate(dj.coords).__dict__["_interval"] == 50  # speed=1: the recorded pace
+        del fixed
+        gc.collect()  # matplotlib warns when an animation is collected unrendered: collect it here, quietly
+    for kwargs in ({"fps": 0}, {"interval": 0}, {"hold": -1}, {"show": "none"}, {"speed": 0}):
+        with pytest.raises(ValueError):
+            rec.animate(dj.coords, **kwargs)
+
+
+def test_recorder_replay_drives_a_liveplot(monkeypatch, dj_problem, dj):
+    rec = Recorder()
+    events, _ = fake_run(rec, dj_problem, n_iter=4)  # start, 4 iterations, end
+    with_stamps(rec, [0.0, 0.5, 0.5002, 3.5002, 3.7002, 3.7002])
+    waits: list[float] = []
+    monkeypatch.setattr(
+        _record, "time", types.SimpleNamespace(perf_counter=time.perf_counter, sleep=waits.append)
+    )
+    live = rec.replay(dj.coords, speed=10)
+    assert isinstance(live, LivePlot) and live.n_events == 6 and live.n_redraws == 6
+    np.testing.assert_allclose(waits, [0.05, 0.3, 0.02], rtol=1e-6)  # gaps / 10; 0.2 ms is skipped (< 10 ms)
+    np.testing.assert_allclose(
+        final_lines(live)[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
+    )
+    waits.clear()
+    with_stamps(rec, [0.0, 100.0, 100.0, 100.0, 100.0, 100.0])
+    rec.replay(dj.coords, speed=1)
+    assert waits == [2.0], "a long gap is capped at two seconds"
+    waits.clear()
+    fast = rec.replay(dj.coords, speed=1e9, show="best", trail=2, every=2, title="again")
+    assert waits == [] and fast.show == "best" and fast.title == "again"
+    assert (
+        len(fast.ax.lines) == BASE_LINES + 2 + 1 and fast.n_redraws == 1 + 2 + 1
+    )  # every=2: iterations 1, 3
+    assert len(rec.replay(speed=1e9).ax.lines) == BASE_LINES + 1  # coords come from the recorded problem
+    with pytest.raises(ValueError, match="speed must be > 0"):
+        rec.replay(dj.coords, speed=0)
+    with pytest.raises(ValueError, match="nothing to replay"):
+        Recorder().replay(dj.coords)
+    orphan = Recorder()
+    orphan.events.append(RecordedEvent("X", "start", 0, math.nan, math.nan, None, None))
+    with pytest.raises(ValueError, match="carry no RoutingProblem"):
+        orphan.replay(dj.coords)
+    bare = Recorder()
+    fake_run(bare, RoutingProblem(dj.distance_matrix(), labels=dj.labels), n_iter=1)  # fitted without coords
+    with pytest.raises(ValueError, match="no coordinates to draw"):
+        bare.replay(speed=1e9)
+
+
+def test_recorder_save_gif_and_movie(monkeypatch, tmp_path, dj_problem, dj):
+    from matplotlib import animation
+
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=3)
+    with_stamps(rec, [0.0, 0.1, 0.2, 0.3, 0.4])
+    out = rec.save(tmp_path / "run.gif", dj.coords, fps=10, dpi=20, hold=0)
+    assert out == tmp_path / "run.gif" and out.stat().st_size > 0 and plt.get_fignums() == []
+    with Image.open(out) as im:
+        assert im.n_frames in (4, 5) and im.size == (120, 120)  # 6 in x 20 dpi
+        durations = []
+        for k in range(im.n_frames):
+            im.seek(k)
+            durations.append(im.info["duration"])
+    assert sum(durations) == 500  # five frames at 10 fps
+    # a time-lapse at 0.5x: 100 ms gaps become 200 ms = two frames each; identical frames fold, so the GIF
+    # keeps five pictures whose durations carry the pace, plus a one-second hold on the last one
+    lapse = rec.save(tmp_path / "lapse.gif", dj.coords, fps=10, speed=0.5, hold=1.0)
+    with Image.open(lapse) as im:
+        assert im.n_frames in (4, 5)
+        total = 0
+        for k in range(im.n_frames):
+            im.seek(k)
+            total += im.info["duration"]
+    assert total == 5 * 200 + 1000
+    assert len(final_lines(rec._last_live)) == 1  # the last picture is the final route
+    default = rec.save(
+        tmp_path / "default.gif", fps=10, dpi=10, hold=0, show="current"
+    )  # coords from the fit
+    assert default.stat().st_size > 0
+    monkeypatch.setattr(animation.writers, "is_available", lambda name: False)
+    with pytest.raises(RuntimeError, match="needs ffmpeg on the PATH"):
+        rec.save(tmp_path / "run.mp4", dj.coords)
+    monkeypatch.undo()
+    if animation.writers.is_available("ffmpeg"):
+        movie = rec.save(tmp_path / "run.mp4", dj.coords, fps=5, dpi=20, hold=0)
+        assert movie.stat().st_size > 0
+    for kwargs in ({"fps": 0}, {"hold": -1}, {"show": "none"}, {"speed": 0}):
+        with pytest.raises(ValueError):
+            rec.save(tmp_path / "bad.gif", dj.coords, **kwargs)
+    with pytest.raises(ValueError, match="nothing to draw"):
+        Recorder(keep_tours=False).save(tmp_path / "empty.gif", dj.coords)
+
+
+def test_recorder_to_plotly_speed_menu_and_structures(dj_problem, dj):
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=2)
+    fig = rec.to_plotly(dj.coords, fps=20)
+    play, speed = fig.layout.updatemenus
+    assert [b.label for b in play.buttons] == ["Play", "Pause"]
+    assert (
+        play.buttons[0].args[1]["frame"]["duration"] == 50
+        and play.buttons[1].args[1]["frame"]["duration"] == 0
+    )
+    assert speed.type == "dropdown" and speed.active == 1
+    assert [b.label for b in speed.buttons] == ["0.5x", "1x", "2x", "4x", "8x"]
+    assert [b.args[1]["frame"]["duration"] for b in speed.buttons] == [100, 50, 25, 12.5, 6.25]
+    assert all(b.method == "animate" for b in speed.buttons)
+    assert all(list(f.traces) == [2, 3, 4, 5] for f in fig.frames), "frames update current, best, edges, ring"
+    assert [t.name for t in fig.data] == ["nodes", "depot", "current", "best", "edges", "ring"]
+    assert len(fig.frames[1].data[0].x) == dj_problem.n + 1  # an iteration: the current tour is drawn...
+    assert not rec.to_plotly(dj.coords, show="best").frames[1].data[0].x  # ...unless only the best is wanted
+    assert not rec.to_plotly(dj.coords, show="current").frames[1].data[1].x
+    labels = list(dj_problem.labels)
+    con = Recorder()
+    con(structure_event(dj_problem, "start", 0))  # nothing to draw: not a frame
+    con(structure_event(dj_problem, "iteration", 1, edges=[(labels[0], labels[1]), (labels[1], labels[2])]))
+    ring = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+    con(
+        structure_event(
+            dj_problem,
+            "iteration",
+            2,
+            solver="SOM",
+            edges=[(labels[0], labels[1]), (labels[1], labels[2])],
+            edge_weights=[0.1, 0.9],
+            ring=ring,
+        )
+    )
+    fig = con.to_plotly(dj.coords)
+    assert len(fig.frames) == 2
+    x0, x1, x2 = dj.coords[:3, 0].tolist()
+    assert list(fig.frames[0].data[2].x) == [x0, x1, None, x1, x2]  # edges, None between them
+    assert list(fig.frames[1].data[2].x) == [x1, x2]  # only the trail whose weight reaches 0.25
+    assert list(fig.frames[1].data[3].x) == [0.0, 1.0, 1.0, 0.0] and list(fig.frames[1].data[3].y) == [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+    ]
+    assert fig.frames[1].layout.title.text == "SOM | iteration 2 | edges 2 | ring 3"
+    assert fig.layout.title.text == "Insertion | iteration 1 | edges 2"
+    with pytest.raises(ValueError, match="fps must be > 0"):
+        rec.to_plotly(dj.coords, fps=0)
+    with pytest.raises(ValueError, match="show must be one of"):
+        rec.to_plotly(dj.coords, show="none")
+    live = LivePlot(dj.coords, backend="plotly", show="best")  # the live Plotly view draws the same traces
+    live(structure_event(dj_problem, "start", 0, solver="SOM", ring=ring))
+    assert list(live.fig.data[5].x) == [0.0, 1.0, 1.0, 0.0] and [t.name for t in live.fig.data][2:] == [
+        "current",
+        "best",
+        "edges",
+        "ring",
+    ]

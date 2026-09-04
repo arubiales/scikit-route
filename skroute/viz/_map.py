@@ -13,10 +13,15 @@ from ._static import (
     BEST_COLOR,
     CURRENT_COLOR,
     DEPOT_COLOR,
+    EDGE_COLOR,
+    PLOTLY_WEIGHT_MIN,
     POINT_COLOR,
+    RING_COLOR,
     closed_trips,
     coords_array,
-    format_number,
+    event_edges,
+    event_ring,
+    event_weights,
     graph_objects,
     resolve,
     route_index,
@@ -42,6 +47,9 @@ _TAB10 = (
     "#17becf",
 )
 _OSM = "open-street-map"
+SPEED_FACTORS = (0.5, 1.0, 2.0, 4.0, 8.0)  # the speed menu of ``Recorder.to_plotly``
+# Trace positions shared by the live view and the slider figure: nodes, depot, then the four live traces.
+CURRENT, BEST, EDGES, RING = 2, 3, 4, 5
 
 
 # --------------------------------------------------------------------------- geometry
@@ -70,6 +78,10 @@ def _xy_kwargs(xy: np.ndarray, idx: Any, *, map: bool) -> dict[str, Any]:
     return {"x": pts[:, 0], "y": pts[:, 1]}
 
 
+def _pairs_kwargs(a: list[Any], b: list[Any], *, map: bool) -> dict[str, Any]:
+    return {"lat": a, "lon": b} if map else {"x": a, "y": b}
+
+
 def _polyline(xy: np.ndarray, trips: list[np.ndarray], *, map: bool) -> dict[str, Any]:
     """Every closed trip in one line trace, separated by ``None`` gaps."""
     a: list[float | None] = []
@@ -80,7 +92,47 @@ def _polyline(xy: np.ndarray, trips: list[np.ndarray], *, map: bool) -> dict[str
             b.append(None)
         a.extend(xy[trip, 0].tolist())
         b.extend(xy[trip, 1].tolist())
-    return {"lat": a, "lon": b} if map else {"x": a, "y": b}
+    return _pairs_kwargs(a, b, map=map)
+
+
+def _segments(xy: np.ndarray, idx: np.ndarray, *, map: bool) -> dict[str, Any]:
+    """Every edge of ``idx`` in one line trace, separated by ``None`` gaps."""
+    a: list[float | None] = []
+    b: list[float | None] = []
+    for k, (u, v) in enumerate(idx.tolist()):
+        if k:
+            a.append(None)
+            b.append(None)
+        a.extend((float(xy[u, 0]), float(xy[v, 0])))
+        b.extend((float(xy[u, 1]), float(xy[v, 1])))
+    return _pairs_kwargs(a, b, map=map)
+
+
+def _ring(ring: np.ndarray | None, *, map: bool) -> dict[str, Any]:
+    """The closed polyline of a SOM ring (empty without one)."""
+    if ring is None or ring.shape[0] == 0:
+        return _pairs_kwargs([], [], map=map)
+    closed = np.vstack((ring, ring[:1]))
+    return _pairs_kwargs(closed[:, 0].tolist(), closed[:, 1].tolist(), map=map)
+
+
+def _structure(
+    xy: np.ndarray, problem: Any, extra: Any, *, map: bool
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The edges and ring traces' coordinates of one event's D31 extras (empty when absent).
+
+    Plotly draws one width per trace, so with ``edge_weights`` only the trails whose weight reaches
+    ``PLOTLY_WEIGHT_MIN`` are kept (matplotlib fades the others instead).
+    """
+    idx = event_edges(problem, extra)
+    if idx is None:
+        edges = _pairs_kwargs([], [], map=map)
+    else:
+        weights = event_weights(extra, idx.shape[0])
+        if weights is not None:
+            idx = idx[weights >= PLOTLY_WEIGHT_MIN]
+        edges = _segments(xy, idx, map=map)
+    return edges, _ring(event_ring(extra), map=map)
 
 
 def _trace_cls(go: Any, *, map: bool) -> Any:
@@ -109,6 +161,27 @@ def _base_traces(go: Any, xy: np.ndarray, depot: int, labels: Any, *, map: bool)
         **_xy_kwargs(xy, [depot], map=map),
     )
     return [nodes, dep]
+
+
+def _live_traces(go: Any, *, map: bool) -> list[Any]:
+    """The four traces a run updates: current (thin), best (thick), edges (orange) and ring (teal)."""
+    cls = _trace_cls(go, map=map)
+    empty = _pairs_kwargs([], [], map=map)
+    return [
+        cls(
+            mode="lines", line={"width": 1, "color": CURRENT_COLOR}, name="current", hoverinfo="skip", **empty
+        ),
+        cls(mode="lines", line={"width": 3, "color": BEST_COLOR}, name="best", hoverinfo="skip", **empty),
+        cls(mode="lines", line={"width": 2, "color": EDGE_COLOR}, name="edges", hoverinfo="skip", **empty),
+        cls(
+            mode="lines+markers",
+            line={"width": 1.5, "color": RING_COLOR},
+            marker={"size": 4, "color": RING_COLOR},
+            name="ring",
+            hoverinfo="skip",
+            **empty,
+        ),
+    ]
 
 
 def _layout(go: Any, xy: np.ndarray, title: str, *, map: bool, zoom: float | None) -> Any:
@@ -178,7 +251,7 @@ def plot_route_map(obj: Any, coords: Any = None, *, zoom: float | None = None) -
 # --------------------------------------------------------------------------- LivePlot backend
 class PlotlyLiveView:
     """The Plotly drawing of a ``LivePlot``: a ``FigureWidget`` updated in place in a notebook, else a
-    plain ``Figure`` shown once at ``"end"``."""
+    plain ``Figure`` shown once at ``"end"``. Traces: nodes, depot, current, best, edges, ring."""
 
     def __init__(self, owner: LivePlot, problem: Any) -> None:
         self.owner = owner
@@ -193,14 +266,8 @@ class PlotlyLiveView:
 
         go = graph_objects()
         m = self.owner.map
-        cls = _trace_cls(go, map=m)
         traces = _base_traces(go, self.xy, self.problem.depot, self.problem.labels, map=m)
-        traces.append(
-            cls(mode="lines", line={"width": 1, "color": CURRENT_COLOR}, name="current", hoverinfo="skip")
-        )
-        traces.append(
-            cls(mode="lines", line={"width": 3, "color": BEST_COLOR}, name="best", hoverinfo="skip")
-        )
+        traces.extend(_live_traces(go, map=m))
         layout = _layout(go, self.xy, self._title(event), map=m, zoom=None)
         self.widget = False
         if in_notebook():
@@ -216,10 +283,11 @@ class PlotlyLiveView:
         self._set(event)
 
     def restart(self, event: Any) -> None:
-        """A nested ``"start"`` (the next restart of a MultiStart): the previous restart's route goes."""
+        """A nested ``"start"`` (the next restart of a MultiStart): the previous restart's drawing goes."""
         ctx = self.fig.batch_update() if self.widget else nullcontext()
         with ctx:
-            _assign(self.fig.data[3], _polyline(self.xy, [], map=self.owner.map))
+            for k in (CURRENT, BEST, EDGES, RING):
+                _assign(self.fig.data[k], _pairs_kwargs([], [], map=self.owner.map))
         self._set(event)
 
     def update(self, event: Any) -> None:
@@ -235,23 +303,25 @@ class PlotlyLiveView:
     def _title(self, event: Any) -> str:
         from ._live import status_line
 
-        return status_line(self.owner.title or str(event.solver), event)
+        return status_line(self.owner.title or str(event.solver), event, newline="<br>")
 
     def _set(self, event: Any, *, final: bool = False) -> None:
-        m = self.owner.map
+        m, show = self.owner.map, self.owner.show
         ctx = self.fig.batch_update() if self.widget else nullcontext()
         with ctx:
-            current, best = self.fig.data[2], self.fig.data[3]
-            if final or event.tour is None:
-                _assign(current, _polyline(self.xy, [], map=m))
+            current, best = self.fig.data[CURRENT], self.fig.data[BEST]
+            if final or event.tour is None or show == "best":
+                _assign(current, _pairs_kwargs([], [], map=m))
             else:
-                idx = route_index(self.problem, event.tour)
-                _assign(current, _xy_kwargs(self.xy, idx, map=m))
-            if event.best_tour is not None:
+                _assign(current, _xy_kwargs(self.xy, route_index(self.problem, event.tour), map=m))
+            if event.best_tour is not None and (final or show != "current"):
                 if final:
                     _assign(best, _polyline(self.xy, closed_trips(self.problem, event.best_tour), map=m))
                 else:
                     _assign(best, _xy_kwargs(self.xy, route_index(self.problem, event.best_tour), map=m))
+            edges, ring = _structure(self.xy, self.problem, getattr(event, "extra", None), map=m)
+            _assign(self.fig.data[EDGES], edges)
+            _assign(self.fig.data[RING], ring)
             self.fig.layout.title.text = self._title(event)
 
 
@@ -261,47 +331,62 @@ def _assign(trace: Any, kwargs: dict[str, Any]) -> None:
 
 
 # --------------------------------------------------------------------------- Recorder.to_plotly
-def recorder_figure(rec: Recorder, frames: list[RecordedEvent], coords: Any, *, map: bool) -> Any:
-    """A figure with one frame per recorded best tour and a slider (``Recorder.to_plotly``)."""
+def recorder_figure(
+    rec: Recorder, frames: list[RecordedEvent], coords: Any, *, map: bool, show: str, fps: float
+) -> Any:
+    """A figure with one frame per recorded drawable event, Play/Pause, a speed menu and a slider
+    (``Recorder.to_plotly``). Frame ``k`` updates the current, best, edges and ring traces."""
+    from ._live import status_line
+
     go = graph_objects()
     problem = rec.problem
     xy = coords_array(coords, None if problem is None else problem.n)
     depot = 0 if problem is None else problem.depot
     labels = np.arange(xy.shape[0]) if problem is None else problem.labels
-    cls = _trace_cls(go, map=map)
+    empty = _pairs_kwargs([], [], map=map)
 
-    def line(ev: RecordedEvent) -> Any:
-        trips = closed_trips(problem if ev.problem is None else ev.problem, ev.best_tour)
-        return cls(
-            mode="lines",
-            line={"width": 3, "color": BEST_COLOR},
-            name="best",
-            hoverinfo="skip",
-            **_polyline(xy, trips, map=map),
-        )
+    def frame_traces(ev: RecordedEvent) -> list[Any]:
+        prob = problem if ev.problem is None else ev.problem
+        current, best = dict(empty), dict(empty)
+        if ev.tour is not None and ev.stage != "end" and show != "best":
+            current = _xy_kwargs(xy, route_index(prob, ev.tour), map=map)
+        if ev.best_tour is not None and (ev.stage == "end" or show != "current"):
+            best = _polyline(xy, closed_trips(prob, ev.best_tour), map=map)
+        edges, ring = _structure(xy, prob, ev.extra, map=map)
+        template = _live_traces(go, map=map)
+        for trace, kwargs in zip(template, (current, best, edges, ring), strict=True):
+            trace.update(**kwargs)
+        return template
+
+    def title(ev: RecordedEvent) -> str:
+        return status_line(ev.solver, ev, newline="<br>")
 
     def step(ev: RecordedEvent) -> str:
         """The slider label: the iteration, prefixed by the restart index inside a MultiStart."""
         restart = (ev.extra or {}).get("restart")
         return str(ev.iteration) if restart is None else f"{restart}:{ev.iteration}"
 
-    def label(ev: RecordedEvent) -> str:
-        best = f" | best {format_number(ev.best_cost)}" if math.isfinite(ev.best_cost) else ""
-        restart = (ev.extra or {}).get("restart")
-        where = f"restart {restart} | " if restart is not None else ""
-        return f"{ev.solver} | {where}iteration {ev.iteration}{best}"
-
-    traces = [*_base_traces(go, xy, depot, labels, map=map), line(frames[0])]
-    fig = go.Figure(data=traces, layout=_layout(go, xy, label(frames[0]), map=map, zoom=None))
+    traces = [*_base_traces(go, xy, depot, labels, map=map), *frame_traces(frames[0])]
+    fig = go.Figure(data=traces, layout=_layout(go, xy, title(frames[0]), map=map, zoom=None))
+    live = [CURRENT, BEST, EDGES, RING]
     fig.frames = [
-        go.Frame(data=[line(ev)], traces=[2], name=str(k), layout={"title": {"text": label(ev)}})
+        go.Frame(
+            data=frame_traces(ev),
+            traces=live,
+            name=str(k),
+            layout={"title": {"text": title(ev)}},
+        )
         for k, ev in enumerate(frames)
     ]
-    frame_args = {
-        "frame": {"duration": 80, "redraw": map},
-        "mode": "immediate",
-        "transition": {"duration": 0},
-    }
+
+    def frame_args(duration: float) -> dict[str, Any]:
+        return {
+            "frame": {"duration": duration, "redraw": map},
+            "mode": "immediate",
+            "transition": {"duration": 0},
+        }
+
+    base = 1000.0 / fps
     fig.update_layout(
         updatemenus=[
             {
@@ -315,22 +400,39 @@ def recorder_figure(rec: Recorder, frames: list[RecordedEvent], coords: Any, *, 
                     {
                         "label": "Play",
                         "method": "animate",
-                        "args": [None, {**frame_args, "fromcurrent": True}],
+                        "args": [None, {**frame_args(base), "fromcurrent": True}],
                     },
                     {
                         "label": "Pause",
                         "method": "animate",
-                        "args": [[None], {**frame_args, "frame": {"duration": 0}}],
+                        "args": [[None], {**frame_args(0)}],
                     },
                 ],
-            }
+            },
+            {
+                "type": "dropdown",
+                "showactive": True,
+                "active": SPEED_FACTORS.index(1.0),
+                "x": 0.2,
+                "y": 0.0,
+                "xanchor": "left",
+                "yanchor": "top",
+                "buttons": [
+                    {
+                        "label": f"{factor:g}x",
+                        "method": "animate",
+                        "args": [None, {**frame_args(base / factor), "fromcurrent": True}],
+                    }
+                    for factor in SPEED_FACTORS
+                ],
+            },
         ],
         sliders=[
             {
                 "currentvalue": {"prefix": "iteration ", "visible": True},
                 "pad": {"t": 30},
                 "steps": [
-                    {"label": step(ev), "method": "animate", "args": [[str(k)], frame_args]}
+                    {"label": step(ev), "method": "animate", "args": [[str(k)], frame_args(base)]}
                     for k, ev in enumerate(frames)
                 ],
             }
