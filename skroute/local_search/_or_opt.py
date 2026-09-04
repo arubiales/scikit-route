@@ -54,10 +54,10 @@ class OrOpt(BaseRouter):
     -----
     Supports: symmetric and asymmetric matrices, multi-trip objective; deterministic.
 
-    Callback events (D30): ``"start"`` carries the ``init`` tour; each ``"iteration"`` event's
-    ``tour`` is the working tour (also the best), with ``extra["moves_applied"]`` equal to
-    ``["or_opt"]`` when the sweep changed the tour (``[]`` otherwise) and ``extra["gain"]`` the
-    sweep's cost change.
+    Callback events (D30): ``"start"`` carries the ``init`` tour with ``extra["moves"]`` (the
+    listed descents, ``["or_opt"]``); each ``"iteration"`` event's ``tour`` is the working tour
+    (also the best), with ``extra["moves_applied"]`` equal to ``["or_opt"]`` when the sweep
+    changed the tour (``[]`` otherwise) and ``extra["gain"]`` the sweep's cost change.
 
     One outer iteration = one call of the core's ``or_opt_descent`` with ``max_passes=1``
     (SPEC §4.3); the ``pos``, candidate and don't-look-bit buffers persist across iterations.

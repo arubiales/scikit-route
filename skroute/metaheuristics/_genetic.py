@@ -138,7 +138,8 @@ class Genetic(BaseRouter):
     budget or on an asymmetric matrix where every move is re-evaluated in O(n)).
 
     Callback events (D30): ``"start"`` carries the ``init`` individual as ``tour`` and the best of
-    the initial population as ``best_tour``; every generation emits one ``"iteration"`` whose
+    the initial population as ``best_tour``, with ``generation=0`` and ``n_evaluations=pop_size``
+    in ``extra``; every generation emits one ``"iteration"`` whose
     ``tour`` is the generation's best individual and ``best_tour`` the run's best, with the
     ``extra`` keys ``generation`` (generations completed), ``n_evaluations`` (objective
     evaluations so far), ``mean_cost`` (mean objective of the population) and ``n_duplicates``.

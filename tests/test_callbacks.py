@@ -22,6 +22,7 @@ from skroute import (
     MILP,
     SOM,
     AntColony,
+    EnsembleGenetic,
     EnsembleSimulatedAnnealing,
     Genetic,
     IteratedLocalSearch,
@@ -241,13 +242,31 @@ def test_start_is_synthesised_when_a_solver_emits_iterations_only():
     ids=["True", "np.True_", "False", "None", "1", "str", "list"],
 )
 def test_only_a_true_bool_requests_a_stop(answer, stops):
-    est = Probe(script=[(("iteration", 1, [0, 1, 2, 3], 22.0), {})]).fit(C4, callback=lambda e: answer)
-    assert est._stop_requested is stops
+    seen = {}
+
+    class Peek(Probe):
+        def _solve(self, problem, rng):
+            tour = super()._solve(problem, rng)
+            seen["stop"] = self._stop_requested  # observed inside the fit: the flag does not survive it
+            return tour
+
+    est = Peek(script=[(("iteration", 1, [0, 1, 2, 3], 22.0), {})]).fit(C4, callback=lambda e: answer)
+    assert seen["stop"] is stops
+    assert "_stop_requested" not in vars(est) and est._stop_requested is False
 
 
-def test_emit_rejects_an_unknown_stage_and_fit_rejects_a_non_callable():
+def test_emit_rejects_an_unknown_stage_an_end_or_a_second_start_and_fit_rejects_a_non_callable():
     with pytest.raises(ValueError, match="stage must be one of"):
         Probe(script=[(("middle", 1, [0, 1, 2, 3], 22.0), {})]).fit(C4, callback=lambda e: None)
+    # "end" is the base class's, and "start" happens once: both mistakes are reported at the offending call
+    with pytest.raises(ValueError, match="solvers never emit 'end': fit does"):
+        Probe(script=[(("end", 1, [0, 1, 2, 3], 22.0), {})]).fit(C4, callback=lambda e: None)
+    twice = [(("start", 0, None, math.nan), {}), (("start", 0, None, math.nan), {})]
+    with pytest.raises(ValueError, match="'start' is emitted once per fit"):
+        Probe(script=twice).fit(C4, callback=lambda e: None)
+    # ...but only while a callback is set: without one _emit stays a no-op whatever it is handed
+    assert Probe(script=twice).fit(C4).cost_ == 22.0
+    assert Probe(script=[(("end", 1, [0, 1, 2, 3], 22.0), {})]).fit(C4).cost_ == 22.0
     for bad in (1, "plot", object(), [print]):
         with pytest.raises(TypeError, match="callback must be a callable"):
             Probe().fit(C4, callback=bad)
@@ -276,6 +295,32 @@ def test_callback_is_removed_even_when_solve_raises():
     )
 
 
+class _Boom(Exception):
+    pass
+
+
+@pytest.mark.parametrize("stage", ["start", "iteration", "end"])
+def test_a_callback_that_raises_leaves_the_estimator_unfitted_whatever_the_stage(stage):
+    """An exception at the "end" event (or at the synthetic "start" of a construction solver) used to leave
+    a fully fitted estimator behind a fit that raised; the post-condition is now the same at every stage."""
+
+    def raise_at(e):
+        if e.stage == stage:
+            raise _Boom(stage)
+
+    solvers = [SimulatedAnnealing(random_state=0), TwoOpt()]
+    if stage != "iteration":
+        solvers.append(Probe())  # emits nothing itself: synthetic start and end from the base class
+    for est in solvers:
+        with pytest.raises(_Boom, match=stage):
+            est.fit(C4, callback=raise_at)
+        fitted = [k for k in vars(est) if k.endswith("_") and not k.startswith("_")]
+        assert fitted == [] and not hasattr(est, "cost_"), (type(est).__name__, stage, fitted)
+        assert "_callback" not in vars(est) and "_callback_state" not in vars(est)
+        assert "_stop_requested" not in vars(est)
+        assert est.fit(C4).cost_ == 22.0  # a refit on the same instance is a plain fit
+
+
 # --------------------------------------------------------------------------- every solver's trace
 #: Solvers whose search starts from the ``init`` tour (nearest neighbour by default): "start" carries it.
 START_WITH_INIT = {
@@ -286,6 +331,22 @@ START_WITH_INIT = {
     "TwoOpt",
     "OrOpt",
     "LocalSearch",
+}
+#: The ``extra`` keys the "start" event of a solver carries (documented in each solver's Notes); a solver
+#: absent here (construction, exact) gets the base class's synthetic start, whose ``extra`` is empty.
+START_EXTRA = {
+    "SimulatedAnnealing": {"temperature"},
+    "TabuSearch": set(),
+    "Genetic": {"generation", "n_evaluations"},
+    "AntColony": {"n_ants"},
+    "SOM": {"radius", "learning_rate", "n_units"},
+    "IteratedLocalSearch": set(),
+    "TwoOpt": {"moves"},
+    "OrOpt": {"moves"},
+    "LocalSearch": {"moves"},
+    "MILP": set(),
+    "EnsembleGenetic": {"n_restarts"},
+    "EnsembleSimulatedAnnealing": {"n_restarts"},
 }
 
 
@@ -318,6 +379,11 @@ def test_start_event_carries_the_init_tour_when_the_search_starts_from_one(Solve
     est, events = _record(make(Solver), inst["C"], **fit_kwargs(Solver, inst))
     start = _own(events, est)[0]
     assert start.stage == "start" and start.iteration == 0
+    keys = START_EXTRA.get(Solver.__name__, set())
+    assert set(start.extra) == keys, (Solver.__name__, start.extra)
+    assert all(f"``{k}" in Solver.__doc__ or f'"{k}"' in Solver.__doc__ for k in keys), (
+        "document the start keys"
+    )
     if Solver.__name__ in START_WITH_INIT:
         nn = est.problem_.to_label_tour(np.asarray(reference_nn(est.problem_)))
         assert start.tour.tolist() == nn.tolist() and start.best_tour is not None
@@ -342,11 +408,20 @@ def test_a_stop_requested_at_start_is_honoured_after_the_first_iteration(Solver)
     assert est.history_[-1] == pytest.approx(est.cost_)
 
 
-def test_fit_without_callback_leaves_no_trace(Solver):
+def test_fit_leaves_no_callback_trace_even_after_a_stop(Solver):
     inst = _instance9()
     est = make(Solver).fit(inst["C"], **fit_kwargs(Solver, inst))
     assert "_callback" not in vars(est) and "_callback_state" not in vars(est)
+    assert "_stop_requested" not in vars(est)
     assert est._callback is None and est._callback_state is None and est._stop_requested is False
+    stopped = make(Solver).fit(inst["C"], callback=lambda e: True, **fit_kwargs(Solver, inst))
+    assert "_stop_requested" not in vars(stopped) and stopped._stop_requested is False
+    if stopped._get_tags().iterative:
+        assert stopped.stop_reason_ == "callback"
+        # a bare _solve on the stopped instance starts clean: it does not inherit the stop request
+        rng = np.random.default_rng(0) if stopped._get_tags().stochastic else None
+        stopped._solve(stopped.problem_, rng)
+        assert stopped.stop_reason_ != "callback" and stopped.n_iter_ >= 1
 
 
 def test_sa_emits_one_event_per_temperature_level(small_euclidean):
@@ -525,6 +600,78 @@ def test_multistart_stop_request_ends_the_running_restart_and_launches_no_more(s
     assert ms.n_iter_ == ms.best_estimator_.n_iter_ and np.array_equal(
         ms.history_, ms.best_estimator_.history_
     )
+
+
+def test_multistart_forwards_sequentially_even_inside_a_parallel_config(small_euclidean):
+    """``n_jobs=None`` defers to an enclosing ``joblib.parallel_config`` — except with a callback, which must
+    never be invoked from a worker thread: the restarts then run one after another in the calling thread."""
+    import threading
+
+    from joblib import parallel_config
+
+    threads: set[int] = set()
+    events: list[RouteEvent] = []
+
+    def record(e):
+        threads.add(threading.get_ident())
+        events.append(e)
+
+    with parallel_config(n_jobs=2):
+        ms = MultiStart(SimulatedAnnealing(), n_restarts=3, random_state=0).fit(
+            small_euclidean["C"], callback=record
+        )
+    assert threads == {threading.get_ident()} and len(ms.estimators_) == 3
+    assert {e.extra["restart"] for e in events if "restart" in e.extra} == {0, 1, 2}
+    plain = MultiStart(SimulatedAnnealing(), n_restarts=3, random_state=0).fit(small_euclidean["C"])
+    assert np.array_equal(ms.tour_, plain.tour_) and ms.best_index_ == plain.best_index_
+
+
+def test_end_event_reports_n_iter_for_the_wrappers_too(small_euclidean):
+    """The wrappers emit no iteration events of their own, so ``state.last_iteration`` stays 0; their end
+    event must still report ``n_iter_`` (the winning restart's), like every other iterative solver."""
+    C = small_euclidean["C"]
+    for wrapper in (
+        MultiStart(SimulatedAnnealing(), n_restarts=2, random_state=0),
+        MultiStart(SimulatedAnnealing(), n_restarts=2, n_jobs=2, random_state=0),
+        EnsembleSimulatedAnnealing(n_simulateds=2, random_state=0),
+        EnsembleGenetic(n_genetics=2, pop_size=10, n_generations=5, patience=None, random_state=0),
+    ):
+        est, events = _record(wrapper, C)
+        end = _own(events, est)[-1]
+        assert end.stage == "end" and end.iteration == est.n_iter_ == est.best_estimator_.n_iter_ >= 1
+        assert end.iteration >= max(e.iteration for e in events)
+
+
+@pytest.mark.parametrize(
+    ("Wrapper", "kw"),
+    [(EnsembleSimulatedAnnealing, {"n_simulateds": 3}), (EnsembleGenetic, {"n_genetics": 3})],
+    ids=["EnsembleSimulatedAnnealing", "EnsembleGenetic"],
+)
+def test_ensemble_wrappers_honour_a_stop_at_their_own_start(small_euclidean, Wrapper, kw):
+    """A True answered to the WRAPPER's own start (and to nothing else) used to be lost: the wrapper set its
+    flag, handed the raw callback to a fresh MultiStart and ran every restart. It now runs exactly one."""
+    name = Wrapper.__name__
+    seen: list[RouteEvent] = []
+
+    def stop_at_own_start(e):
+        seen.append(e)
+        return e.solver == name and e.stage == "start"
+
+    est = Wrapper(random_state=0, **kw).fit(small_euclidean["C"], callback=stop_at_own_start)
+    assert len(est.estimators_) == len(est.costs_) == 1 and est.stop_reason_ == "callback"
+    assert est.estimators_[0].stop_reason_ != "callback"  # the one restart ran in full
+    assert [(e.solver, e.stage) for e in seen if "restart" not in e.extra] == [
+        (name, "start"),
+        ("MultiStart", "start"),
+        ("MultiStart", "end"),
+        (name, "end"),
+    ]
+    assert seen[-1].best_cost == est.cost_ and seen[-1].iteration == est.n_iter_
+    # the plain MultiStart under the same rule, for comparison: one restart, 'callback'
+    ms = MultiStart(est.estimators_[0].__class__(), n_restarts=3, random_state=0).fit(
+        small_euclidean["C"], callback=lambda e: e.solver == "MultiStart" and e.stage == "start"
+    )
+    assert len(ms.estimators_) == 1 and ms.stop_reason_ == "callback"
 
 
 def test_ensemble_wrappers_forward_through_multistart(small_euclidean):

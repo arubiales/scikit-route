@@ -353,10 +353,11 @@ class LocalSearch(BaseRouter):
     -----
     Supports: symmetric and asymmetric matrices, multi-trip objective; deterministic.
 
-    Callback events (D30): ``"start"`` carries the ``init`` tour; each ``"iteration"`` event's
-    ``tour`` is the working tour (also the best: a descent never goes uphill), with the ``extra``
-    keys ``moves_applied`` (the listed moves whose descent changed the tour in that iteration)
-    and ``gain`` (the iteration's total cost change, ``<= 0``).
+    Callback events (D30): ``"start"`` carries the ``init`` tour with ``extra["moves"]`` (the
+    listed descents, in order); each ``"iteration"`` event's ``tour`` is the working tour (also
+    the best: a descent never goes uphill), with the ``extra`` keys ``moves_applied`` (the listed
+    moves whose descent changed the tour in that iteration) and ``gain`` (the iteration's total
+    cost change, ``<= 0``).
 
     One outer iteration = one call of each listed descent kernel with ``max_passes=1``
     (SPEC §4.3). Symmetric plain TSP uses Bentley's neighbour-list descents with O(1) move
