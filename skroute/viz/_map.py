@@ -303,7 +303,7 @@ class PlotlyLiveView:
     def _title(self, event: Any) -> str:
         from ._live import status_line
 
-        return status_line(self.owner.title or str(event.solver), event)
+        return status_line(self.owner.title or str(event.solver), event, newline="<br>")
 
     def _set(self, event: Any, *, final: bool = False) -> None:
         m, show = self.owner.map, self.owner.show
@@ -358,22 +358,23 @@ def recorder_figure(
             trace.update(**kwargs)
         return template
 
+    def title(ev: RecordedEvent) -> str:
+        return status_line(ev.solver, ev, newline="<br>")
+
     def step(ev: RecordedEvent) -> str:
         """The slider label: the iteration, prefixed by the restart index inside a MultiStart."""
         restart = (ev.extra or {}).get("restart")
         return str(ev.iteration) if restart is None else f"{restart}:{ev.iteration}"
 
     traces = [*_base_traces(go, xy, depot, labels, map=map), *frame_traces(frames[0])]
-    fig = go.Figure(
-        data=traces, layout=_layout(go, xy, status_line(frames[0].solver, frames[0]), map=map, zoom=None)
-    )
+    fig = go.Figure(data=traces, layout=_layout(go, xy, title(frames[0]), map=map, zoom=None))
     live = [CURRENT, BEST, EDGES, RING]
     fig.frames = [
         go.Frame(
             data=frame_traces(ev),
             traces=live,
             name=str(k),
-            layout={"title": {"text": status_line(ev.solver, ev)}},
+            layout={"title": {"text": title(ev)}},
         )
         for k, ev in enumerate(frames)
     ]

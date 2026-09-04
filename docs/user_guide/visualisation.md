@@ -3,15 +3,19 @@
 Route optimisation is a spatial problem, and a solver's progress is easiest to judge by
 eye: are the crossings disappearing, is the best tour still changing, did the annealer
 freeze too early? `skroute.viz` draws the answer — a fitted solution as a static picture,
-and a running solver **live**, through the `fit(..., callback=)` protocol every solver
-implements: the solver hands a `RouteEvent` to your callback at the start of the search,
-after every outer iteration and at the end; [`LivePlot`][skroute.viz.LivePlot] redraws
-the current and best tours on each event, [`Recorder`][skroute.viz.Recorder] keeps them
-for later.
+a running solver **live**, and a finished run **again, at time-lapse speed** — through
+the `fit(..., callback=)` protocol every solver implements: the solver hands a
+`RouteEvent` to your callback at the start of the search, after every outer iteration
+(or every construction step) and at the end; [`LivePlot`][skroute.viz.LivePlot] redraws
+the attempt, the best tour and the structure being built on each event,
+[`Recorder`][skroute.viz.Recorder] keeps them, with their clock, for later.
 
 <p align="center">
-  <img src="../../images/live_demo.gif" alt="SimulatedAnnealing untangling a random tour of the 38 cities of Djibouti" width="480">
+  <img src="../../images/live_demo.gif" alt="SimulatedAnnealing untangling a random tour of the 38 cities of Djibouti: the attempts thin and grey, the best tour so far thick" width="480">
 </p>
+
+The pictures on this page are produced by the code of the repository:
+`examples/live_demo.py --record` writes them (the exact commands are given under each).
 
 ## Installing
 
@@ -68,15 +72,16 @@ without `labels=`; a repeated depot separates trips) and any `RouteEvent`:
 
 ```
 
-## Watching a run in a script
+## Watch a run live
 
 [`LivePlot`][skroute.viz.LivePlot] is a callable: pass it as the `callback` of `fit`.
 On the `"start"` event it opens the figure; on every `every`-th `"iteration"` event it
-redraws the current tour (thin, light) and the best tour so far (thick), and puts the
-solver, the iteration, both costs and the solver's own facts (the temperature of an
-annealer, the tenure of a tabu search...) in the title; on `"end"` it draws the final
-route with trip colours. It refreshes the window with `plt.pause`, so it never blocks
-and never calls `plt.show()` — add that yourself after `fit` to keep the window open.
+redraws the **current** tour — the attempt the solver is working on — as a thin light
+line and the **best** tour so far as a thick one, and puts the solver, the iteration,
+both costs and the solver's own facts (the temperature of an annealer, the tenure of a
+tabu search...) in the title; on `"end"` it draws the final route with trip colours. It
+refreshes the window with `plt.pause`, so it never blocks and never calls `plt.show()` —
+add that yourself after `fit` to keep the window open.
 
 ```python
 >>> import matplotlib.pyplot as plt
@@ -87,6 +92,17 @@ and never calls `plt.show()` — add that yourself after `fit` to keep the windo
 ...     dj.distance_matrix(), labels=dj.labels, callback=live
 ... )  # doctest: +SKIP
 >>> plt.show()  # doctest: +SKIP
+
+```
+
+`show=` picks what to draw during the run — `"both"` (the default), `"best"` alone, or
+`"current"` alone — and `trail=k` keeps the last `k` attempts on screen, fading with age,
+which gives a sense of where the search has been:
+
+```python
+>>> attempts = LivePlot(dj.coords, every=5, show="current", trail=8)  # the walker and its eight last steps
+>>> attempts.show, attempts.trail
+('current', 8)
 
 ```
 
@@ -107,10 +123,10 @@ screen until the next restart begins.
 
 ```bash
 python examples/live_demo.py --instance dj38 --solver IteratedLocalSearch
-python examples/live_demo.py --instance barcelona --solver SimulatedAnnealing --every 10
+python examples/live_demo.py --instance barcelona --solver SimulatedAnnealing --every 10 --show current --trail 5
 ```
 
-## In a notebook
+### In a notebook
 
 The same object works in Jupyter. `LivePlot` detects the kernel and picks the refresh
 that fits the matplotlib backend:
@@ -132,7 +148,160 @@ that fits the matplotlib backend:
 
 ```
 
-## Stopping a run interactively
+## Replay at time-lapse speed
+
+[`Recorder`][skroute.viz.Recorder] draws nothing while the solver runs; it copies every
+event (`every=` thins the iterations) together with the wall clock at which it arrived,
+and replays the run afterwards — as fast or as slow as you like. The deterministic descent
+below has three events; a real run has hundreds:
+
+```python
+>>> from skroute import TwoOpt
+>>> from skroute.viz import Recorder
+>>> C = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
+>>> rec = Recorder()
+>>> two = TwoOpt().fit(C, coords=xy, callback=rec)
+>>> [e.stage for e in rec.events], rec.n_frames
+(['start', 'iteration', 'end'], 3)
+>>> bool(np.all(np.diff(rec.timestamps) >= 0))  # the recorded clock, in seconds
+True
+
+```
+
+Four ways to play it back:
+
+- **`replay`** drives a `LivePlot` through the recorded events, waiting between two of
+  them for their recorded gap divided by `speed`: `rec.replay(coords, speed=10)` shows a
+  30-second run in three seconds, in a window or a notebook, exactly as it looked live.
+  It returns the `LivePlot` (so `live.fig` holds the final picture); `every=`, `show=`,
+  `trail=` and the other `LivePlot` options pass through.
+- **`animate`** builds the same frames as a matplotlib `FuncAnimation`: `plt.show()`
+  plays it, `IPython.display.HTML(anim.to_jshtml())` embeds it in a notebook. With
+  `speed=` (the default, `1.0`, is real time) every frame waits its recorded gap divided
+  by `speed`, clipped to `[10, 2000]` ms so a burst of iterations never flashes past and a
+  slow step never freezes the replay; `fps=` plays one frame per kept event at a fixed
+  rate instead; `interval=` fixes the delay in milliseconds; `hold=` is the pause on the
+  final picture before the loop restarts. `rec.frame_delays(speed=...)` returns the
+  per-frame delays in milliseconds.
+- **`save`** writes the animation: a `.gif` through pillow, an `.mp4` (or any format
+  ffmpeg writes) through matplotlib's ffmpeg writer — a clear `RuntimeError` names ffmpeg
+  when it is missing. `fps=` is the frame rate of the file; `speed=` turns it into a
+  time-lapse (each frame is held for its recorded gap divided by `speed`, rounded to
+  whole frames; a GIF folds repeated frames, so the time-lapse costs no extra bytes); the
+  coordinates default to those of the fit.
+- **`to_plotly`** gives a figure with one frame per kept event, Play/Pause buttons, a
+  speed menu — 0.5x, 1x, 2x, 4x and 8x of `fps` — and a slider over the iterations;
+  `map=True` puts it on OpenStreetMap tiles.
+
+```python
+>>> live = rec.replay(xy, speed=1e9)  # no waiting at that speed: the three events, drawn in turn
+>>> live.n_events, len(live._view.final_lines)
+(3, 1)
+>>> rec.frame_delays(speed=1e9).tolist()  # microsecond gaps at 1e9x: clipped to the 10 ms floor
+[10.0, 10.0, 10.0]
+>>> anim = rec.animate(xy, speed=10)  # doctest: +SKIP
+>>> plt.show()  # doctest: +SKIP
+>>> rec.save("descent.gif", xy, fps=20, speed=10)  # a 10x time-lapse GIF  # doctest: +SKIP
+>>> rec.save("descent.mp4", xy, fps=30)  # ffmpeg on the PATH  # doctest: +SKIP
+>>> fig = rec.to_plotly(xy)
+>>> [b.label for b in fig.layout.updatemenus[1].buttons]
+['0.5x', '1x', '2x', '4x', '8x']
+>>> len(fig.frames) == rec.n_frames and [b.label for b in fig.layout.updatemenus[0].buttons]
+['Play', 'Pause']
+>>> fig.write_html("descent.html")  # doctest: +SKIP
+
+```
+
+Every frame is drawn the way `LivePlot` draws a live event — the attempt thin, the best
+tour thick, the structures of the next two sections when the solver reports them, the
+status line as the title, the final route with trip colours at `"end"` — and `show=`
+chooses the tours (`"both"`, `"best"`, `"current"`) in `replay`, `animate`, `save` and
+`to_plotly` alike.
+
+`rec.events` holds the copies (`stage`, `iteration`, `cost`, `best_cost`, `tour`,
+`best_tour`, `extra`, `timestamp`, a reference to the problem, and the decoded `route` and
+`trips` like a live event); `rec.costs`, `rec.best_costs`, `rec.iterations` and
+`rec.timestamps` are the same facts as arrays. A frame is drawn for every kept event that
+carries something to draw — a tour, a best tour, edges or a ring — so `Recorder(every=30)`
+on an 1 800-level annealing gives about 60 frames. A recorder accumulates — handed to a
+second `fit` it appends that run's events — so build one per run you want to replay; the
+events of a `MultiStart(n_jobs=1)` (one `"start"`/`"end"` per restart, `extra["restart"]`)
+are plotted against the iteration counted across the restarts and labelled
+`restart:iteration` on the slider.
+
+The GIF at the top of this page is `SimulatedAnnealing(init="random", random_state=0)`
+on Djibouti (`dj38`) recorded every 30 levels and saved at 80 dpi: a random tour of about
+27 700 — four times the optimum 6656 — is untangled down to the optimum on the machine
+that recorded it (another platform's `exp` may flip a Metropolis decision and land within
+a percent of it); the annealer's attempts are the thin grey line, the best tour so far the
+thick one:
+
+```bash
+python examples/live_demo.py --instance dj38 --solver SimulatedAnnealing --init random --every 30 \
+    --record docs/images/live_demo.gif --fps 12
+```
+
+## See the route being built
+
+Construction heuristics have no tour until they finish — and the interesting part is how
+they get there. Under D31 they emit one `"iteration"` event per construction step with
+`tour=None`, `cost=nan`, `best_cost=nan` and `extra["edges"]`, the `(label, label)` pairs
+of the partial structure they hold: the growing path of `NearestNeighbour`, the partial
+cycle of `Insertion` after each insertion, the current trips of `ClarkeWright` after each
+merge, the edge set of `NRBS` after each connection, the LP support of `MILP` after each
+cut round. `LivePlot` and `Recorder` draw those edges as orange segments — with no tour to
+show, the edges *are* the picture — and `plot_route` draws a single step:
+
+<p align="center">
+  <img src="../../images/construction_demo.gif" alt="Farthest insertion growing the tour of Djibouti one city at a time" width="480">
+</p>
+
+```python
+>>> from skroute.base import RouteEvent
+>>> labels = dj.labels
+>>> partial = [labels[0], labels[7], labels[3]]  # the depot and the first two cities inserted
+>>> cycle = list(zip(partial, partial[1:] + partial[:1]))  # the closed partial cycle: three edges
+>>> step = RouteEvent("Insertion", "iteration", 2, np.nan, np.nan, None, None, ils.problem_, {"edges": cycle})
+>>> ax = plot_route(step)
+>>> len(ax.lines), len(ax.lines[0].get_xdata()), ax.get_title()  # one line, x0, x1, nan per edge
+(1, 9, 'Insertion | 3 edges')
+
+```
+
+The GIF is `Insertion()` (farthest insertion) on `dj38`, one frame per inserted city — a
+construction runs in a millisecond, so the file is written at a fixed frame rate rather
+than as a time-lapse:
+
+```bash
+python examples/live_demo.py --instance dj38 --solver Insertion --record docs/images/construction_demo.gif --fps 8
+```
+
+## Pheromone trails and the SOM ring
+
+Two more `extra` keys describe structures that are not tours. `AntColony` reports
+`extra["edge_weights"]`, floats in `[0, 1]` parallel to `extra["edges"]` — the pheromone
+strength of its `3n` strongest trails after each iteration — which `LivePlot` and
+`Recorder` draw under the tours as segments whose width and opacity grow with the weight,
+so the strong trails stand out and the weak ones fade (Plotly, which cannot vary the width
+along a trace, keeps the trails above a quarter of the strongest). `SOM` reports
+`extra["ring"]`, an `(m, 2)` array with the positions of its neurons in the units of
+`problem.coords` after each epoch, drawn as a closed teal polyline with small markers —
+the elastic ring closing on the cities while the decoded tour (thin) and the best epoch's
+tour (thick) follow it:
+
+<p align="center">
+  <img src="../../images/som_demo.gif" alt="The SOM ring of 304 neurons closing on the 38 cities of Djibouti" width="480">
+</p>
+
+```bash
+python examples/live_demo.py --instance dj38 --solver SOM --set n_iter=20000 --record docs/images/som_demo.gif --fps 12
+```
+
+Viewers ignore keys they do not know, and an event without a key clears that drawing, so
+a callback of your own can carry any structure through `extra` and still be drawn by the
+three tools when it uses these names. The status line counts them: `edges 37`, `ring 304`.
+
+## Stop a run interactively
 
 Any callback that returns `True` asks the solver to stop after its current outer
 iteration; the fit then completes normally with `stop_reason_ == "callback"` and the
@@ -175,48 +344,13 @@ In a notebook with `%matplotlib inline` or `backend="plotly"` the redraws are
 
 ```
 
-## Recording a run: GIF, MP4, Plotly slider
-
-[`Recorder`][skroute.viz.Recorder] draws nothing while the solver runs; it copies every
-event (`every=` thins the iterations) and replays them afterwards:
-
-```python
->>> from skroute.viz import Recorder
->>> rec = Recorder(every=5)
->>> ils = IteratedLocalSearch(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=rec)  # doctest: +SKIP
->>> rec.best_costs[-1] == ils.cost_  # doctest: +SKIP
-True
->>> anim = rec.animate(dj.coords, interval=80)  # matplotlib FuncAnimation, one frame per kept event  # doctest: +SKIP
->>> anim.save("dj38.gif", writer="pillow", dpi=80)  # doctest: +SKIP
->>> anim.save("dj38.mp4")  # needs ffmpeg on the PATH  # doctest: +SKIP
->>> fig = rec.to_plotly(dj.coords)  # frames, Play/Pause and a slider over the iterations  # doctest: +SKIP
->>> fig.write_html("dj38.html")  # doctest: +SKIP
->>> ax = rec.plot_history()  # the best-so-far curve of the kept events  # doctest: +SKIP
-
-```
-
-`rec.events` holds the copies (`stage`, `iteration`, `cost`, `best_cost`, `tour`,
-`best_tour`, `extra`, a reference to the problem, and the decoded `route` and `trips`
-like a live event); `rec.costs`, `rec.best_costs` and `rec.iterations` are the same
-facts as arrays. A frame is drawn for every kept event with a best tour, so
-`Recorder(every=30)` on an 1 800-level annealing gives about 60 frames. A recorder
-accumulates — handed to a second `fit` it appends that run's events — so build one per
-run you want to replay; the events of a `MultiStart(n_jobs=1)` (one `"start"`/`"end"`
-per restart, `extra["restart"]`) are plotted against the iteration counted across the
-restarts and labelled `restart:iteration` on the slider. The GIF at the top of this page
-is `SimulatedAnnealing(init="random", random_state=0)` on Djibouti (`dj38`) recorded that
-way and saved at 80 dpi: a random tour of about 27 700 — four times the optimum 6656 —
-is untangled down to the optimum on the machine that recorded it (another platform's
-`exp` may flip a Metropolis decision and land within a percent of it):
-`python examples/live_demo.py --instance dj38 --solver SimulatedAnnealing --init random
---every 30 --gif live_demo.gif`.
-
-## On a map
+## Maps
 
 The five road-cost tables of [`skroute.datasets`][skroute.datasets.load_barcelona]
 carry `(latitude, longitude)` coordinates. [`plot_route_map`][skroute.viz.plot_route_map]
 draws a solution on OpenStreetMap tiles with Plotly's `Scattermap`, and `map=True` does
-the same for `LivePlot(backend="plotly")` and `Recorder.to_plotly`:
+the same for `LivePlot(backend="plotly")`, `Recorder.replay(backend="plotly")` and
+`Recorder.to_plotly`:
 
 ```python
 >>> from skroute.datasets import load_barcelona
@@ -249,17 +383,18 @@ facts. The keys of the `"iteration"` events (each solver's docstring is the refe
 | `SimulatedAnnealing` | `temperature`, `accepted`, `n_moves` | the level's temperature, proposals accepted in the level, moves tried (`"start"` carries `temperature` = `t0_`) |
 | `TabuSearch` | `tenure` | the tenure applied in the iteration |
 | `Genetic` | `generation`, `n_evaluations`, `mean_cost`, `n_duplicates` | generations completed, objective evaluations so far, mean objective of the population, duplicate individuals |
-| `AntColony` | `n_ants`, `iteration_best`, `deposit` | ants per iteration, the iteration-best ant's cost, whose tour reinforced the trail (`"global"` or `"iteration"`) |
+| `AntColony` | `n_ants`, `iteration_best`, `deposit`, `edges`, `edge_weights` | ants per iteration, the iteration-best ant's cost, whose tour reinforced the trail (`"global"` or `"iteration"`); the `3n` strongest trails and their strength in `[0, 1]` (D31) |
 | `IteratedLocalSearch` | `kick`, `accepted`, `current_cost` | the cut positions of the kicks applied (a list of tuples), whether the candidate replaced the current tour, the current tour's cost |
 | `TwoOpt`, `OrOpt`, `LocalSearch` | `moves_applied`, `gain` | the listed moves whose descent changed the tour (a list; `"start"` carries `moves`, the ones listed), the iteration's total cost change (`<= 0`) |
-| `SOM` | `radius`, `learning_rate`, `n_samples` | neighbourhood radius and learning rate after the epoch's decay, samples presented (`"start"` also `n_units`) |
+| `SOM` | `radius`, `learning_rate`, `n_samples`, `ring` | neighbourhood radius and learning rate after the epoch's decay, samples presented (`"start"` also `n_units`); the neurons' positions after the epoch, `(n_units, 2)` in the units of `coords` (D31) |
 | `MILP` | `edges`, `n_components`, `lower_bound`, `objective`, `n_cuts` | the LP support as `(label, label)` pairs (a list), its connected components, the bound, the solve's objective, constraints added so far — one event per cut round |
+| `NearestNeighbour`, `Insertion`, `ClarkeWright`, `NRBS` | `edges` | one event per construction step with `tour=None` and nan costs: the partial path, cycle, trips or edge set held so far (D31) |
 | `MultiStart`, `EnsembleSimulatedAnnealing`, `EnsembleGenetic` | `restart` on every forwarded inner event; `n_restarts` on their own `"start"` | index of the restart that emitted the event |
-| `NearestNeighbour`, `Insertion`, `ClarkeWright`, `NRBS`, `BruteForce`, `HeldKarp` | — | `"start"` and `"end"` only |
+| `BruteForce`, `HeldKarp` | — | `"start"` and `"end"` only |
 
 `LivePlot` puts the scalar values — `bool`, `int`, `float`, `str` — in the title and
-skips lists such as `kick`, `moves_applied` and `edges`. The rows are facts of the
-solvers, not of this page:
+skips lists such as `kick` and `moves_applied`; the three structures are drawn instead and
+counted in the title. The rows are facts of the solvers, not of this page:
 
 ```python
 >>> def iteration_keys(solver):
@@ -270,15 +405,12 @@ solvers, not of this page:
 ['accepted', 'current_cost', 'kick']
 >>> iteration_keys(SimulatedAnnealing(random_state=0))
 ['accepted', 'n_moves', 'temperature']
->>> from skroute import TwoOpt
 >>> iteration_keys(TwoOpt())
 ['gain', 'moves_applied']
 
 ```
 
-Construction and exact solvers emit `"start"` and `"end"` only (MILP also one
-`"iteration"` per cut round), so `LivePlot` shows their result and `Recorder` keeps two
-events. Writing your own callback is the same one-argument function:
+Writing your own callback is the same one-argument function:
 
 ```python
 >>> def log_improvements(event):

@@ -93,14 +93,33 @@ def backend_is_interactive() -> bool:
     return name in interactive
 
 
-def status_line(name: str, event: Any) -> str:
-    """``"Solver | iteration 12 | cost 27811 | best 27603 | temperature 1.2"`` from an event.
+# The one solver fact worth a place in the title, by preference; ``restart`` (the context inside a
+# MultiStart) is always shown, lists (kick, moves_applied) never, the structures are counted instead.
+INFORMATIVE = (
+    "temperature",
+    "tenure",
+    "mean_cost",
+    "generation",
+    "iteration_best",
+    "radius",
+    "lower_bound",
+    "gain",
+    "accepted",
+    "n_restarts",
+    "n_units",
+)
+_SCALARS = (bool, int, float, str, np.integer, np.floating)
+TITLE_WIDTH = 60  # characters per title line at fontsize 10 in a 6-7 inch figure
 
-    After the costs come the number of trips of the best tour when it is more than one, the scalar
-    facts of ``event.extra`` (``bool``, ``int``, ``float``, ``str``) and the sizes of the D31
-    structures — ``edges 37`` for ``extra["edges"]``, ``ring 304`` for ``extra["ring"]``.
-    """
-    parts = [name, f"iteration {int(event.iteration)}"]
+
+def status_parts(name: str, event: Any) -> list[str]:
+    """The pieces of a status title: name, restart, iteration, cost, best, trips, one fact, edges, ring."""
+    extra = event.extra or {}
+    scalars = {k: v for k, v in extra.items() if isinstance(v, _SCALARS)}
+    parts = [name]
+    if "restart" in scalars:
+        parts.append(f"restart {format_number(scalars.pop('restart'))}")
+    parts.append(f"iteration {int(event.iteration)}")
     cost, best = float(event.cost), float(event.best_cost)
     if math.isfinite(cost):
         parts.append(f"cost {format_number(cost)}")
@@ -109,15 +128,37 @@ def status_line(name: str, event: Any) -> str:
     n_trips = n_trips_of(getattr(event, "problem", None), event.best_tour)
     if n_trips > 1:
         parts.append(f"{n_trips} trips")
-    extra = event.extra or {}
-    for key, value in extra.items():
-        if isinstance(value, bool | int | float | str | np.integer | np.floating):
-            parts.append(f"{key} {format_number(value)}")
+    key = next((k for k in INFORMATIVE if k in scalars), next(iter(scalars), None))
+    if key is not None:
+        parts.append(f"{key} {format_number(scalars[key])}")
     if extra.get("edges") is not None:
         parts.append(f"edges {len(extra['edges'])}")
     if extra.get("ring") is not None:
         parts.append(f"ring {len(extra['ring'])}")
-    return " | ".join(parts)
+    return parts
+
+
+def status_line(name: str, event: Any, *, width: int = TITLE_WIDTH, newline: str = "\n") -> str:
+    """``"Solver | iteration 12 | cost 27811 | best 27603 | temperature 1.2"`` from an event.
+
+    After the costs come the number of trips of the best tour when it is more than one, the most
+    informative scalar fact of ``event.extra`` (``temperature``, ``tenure``, ``mean_cost``,
+    ``radius``... — one, by the order of ``INFORMATIVE``; ``restart`` follows the name inside a
+    MultiStart) and the sizes of the D31 structures — ``edges 37``, ``ring 304``. The pieces are
+    packed into lines of at most ``width`` characters, joined by ``newline``, so the title fits
+    the figure.
+    """
+    lines: list[str] = []
+    current = ""
+    for part in status_parts(name, event):
+        candidate = part if not current else f"{current} | {part}"
+        if current and len(candidate) > width:
+            lines.append(current)
+            current = part
+        else:
+            current = candidate
+    lines.append(current)
+    return newline.join(lines)
 
 
 # --------------------------------------------------------------------------- the callback

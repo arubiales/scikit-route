@@ -1,39 +1,59 @@
 # Examples
 
-## `live_demo.py` — watch a solver work
+## `live_demo.py` — watch a solver work, record it, replay it
 
 Runs a solver on a bundled instance with a `skroute.viz.LivePlot` callback, so you see
 the current tour (thin, light line) and the best tour so far (thick line) being redrawn
 while `fit` runs, with the iteration, the costs and the solver's scalar facts
 (temperature, tenure, generation... — lists such as the kick of an iterated local search
-are skipped) in the title. Needs the `viz` extra (`pip install "scikit-route[viz]"`;
-`[viz-map]` adds Plotly for `--backend plotly` and `--map`).
+are skipped) in the title. Solvers that report the structure they are building (D31) show
+it too: the growing partial tour of a construction heuristic as orange edges, the
+pheromone trails of the ant colony fading with their strength, the SOM's elastic ring in
+teal. Needs the `viz` extra (`pip install "scikit-route[viz]"`; `[viz-map]` adds Plotly
+for `--backend plotly` and `--map`).
 
 ```bash
 python examples/live_demo.py                                                     # IteratedLocalSearch on Djibouti (dj38)
-python examples/live_demo.py --instance wi29 --solver SimulatedAnnealing --every 10
+python examples/live_demo.py --instance wi29 --solver SimulatedAnnealing --every 10 --show current --trail 5
 python examples/live_demo.py --instance barcelona --solver TabuSearch --every 5
 python examples/live_demo.py --instance barcelona --solver SimulatedAnnealing --every 30 --backend plotly --map
-python examples/live_demo.py --instance dj38 --solver SimulatedAnnealing --init random --every 30 --gif live_demo.gif
+python examples/live_demo.py --solver SimulatedAnnealing --init random --every 30 --record live_demo.gif --fps 12
+python examples/live_demo.py --solver Insertion --record construction_demo.gif --speed 0.05
+python examples/live_demo.py --solver SimulatedAnnealing --init random --every 30 --speed 10
 ```
 
 | Option | Meaning |
 |---|---|
 | `--instance wi29 \| dj38 \| barcelona` | Western Sahara (29), Djibouti (38) or the Barcelona road-cost table (19 places, `(lat, lon)` coordinates) |
 | `--solver NAME` | any class of `skroute.all_solvers()`; stochastic ones get `random_state=--seed` (default 0) |
-| `--every N` | redraw every N-th outer iteration — the knob that keeps a fast solver fast |
+| `--every N` | redraw (or keep, when recording) every N-th outer iteration — the knob that keeps a fast solver fast |
 | `--backend matplotlib \| plotly` | a matplotlib window, or a Plotly figure shown when the run ends |
 | `--map` | OpenStreetMap tiles (Plotly `Scattermap`; Barcelona only, the other instances have planar coordinates) |
-| `--gif PATH` | record the run with `Recorder` and save a GIF (Pillow) instead of watching |
+| `--show both \| best \| current` | which tours to draw: the attempt and the best, only the best, or only the attempt |
+| `--trail K` | keep the last K current tours on screen, fading with age |
+| `--record PATH` | record the run with `Recorder` and save it: `.gif` through pillow, `.mp4` (and the rest) through ffmpeg |
+| `--fps N` | frame rate of the recorded file (default 20) |
+| `--speed S` | with `--record`, a time-lapse: frames follow the recorded clock divided by S; alone, record silently and replay the run on screen S times faster |
 | `--init nearest_neighbour \| random` | starting tour of the solvers that have `init=` (a random start makes the search visible) |
 
 The matplotlib window appears through `plt.pause` while the solver runs; the script
 calls `plt.show()` at the end to keep the final picture open. Headless machines
 (`MPLBACKEND=Agg`) run the whole thing silently — the picture is rendered once at the end
-and `plt.show()` is skipped — which is how `docs/images/live_demo.gif` is produced:
-`--instance dj38 --solver SimulatedAnnealing --init random --every 30 --gif live_demo.gif`
-(a random tour of about 27 700, four times the optimum 6656, is untangled down to the
-optimum on the machine that recorded it; another platform may land within a percent).
+and `plt.show()` is skipped — which is how the GIFs of the documentation are produced:
+
+```bash
+python examples/live_demo.py --instance dj38 --solver SimulatedAnnealing --init random --every 30 \
+    --record docs/images/live_demo.gif --fps 12
+python examples/live_demo.py --instance dj38 --solver Insertion --record docs/images/construction_demo.gif --speed 0.05
+python examples/live_demo.py --instance dj38 --solver SOM --every 2 --record docs/images/som_demo.gif --fps 12
+```
+
+The first one untangles a random tour of about 27 700 — four times the optimum 6656 —
+down to the optimum on the machine that recorded it (another platform may land within a
+percent); the annealer's attempts are the thin grey line, the best tour so far the thick
+one. The second shows farthest insertion growing the tour node by node (a construction
+runs in a millisecond, so `--speed 0.05` slows the recorded clock twenty-fold); the third
+the SOM ring closing on the cities epoch by epoch.
 
 ## `LivePlot` in a notebook
 
@@ -74,7 +94,12 @@ worker.join()
 sa.stop_reason_  # 'callback'
 ```
 
-`Recorder` is the non-interactive counterpart: it keeps every event, and
-`rec.animate(coords)` (matplotlib `FuncAnimation`, `anim.save("run.gif", writer="pillow")`)
-or `rec.to_plotly(coords, map=...)` (frames and a slider) replay the run afterwards.
-The user guide page *Live visualisation* covers all of this in detail.
+## `Recorder`: replay at time-lapse speed
+
+`Recorder` is the non-interactive counterpart: it keeps every event with a wall-clock
+stamp, and afterwards `rec.replay(coords, speed=10)` drives a `LivePlot` through the run
+ten times faster than it happened, `rec.animate(coords, speed=10)` builds the matching
+matplotlib animation (`plt.show()`, or `IPython.display.HTML(anim.to_jshtml())`),
+`rec.save("run.gif", coords, speed=10)` writes it (`.mp4` with ffmpeg), and
+`rec.to_plotly(coords, map=...)` gives a figure with Play/Pause, a speed menu (0.5x to 8x)
+and a slider. The user guide page *Live visualisation* covers all of this in detail.

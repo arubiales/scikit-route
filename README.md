@@ -145,21 +145,28 @@ several seeds in parallel and keeps the best result.
 ## Watch the search
 
 Every solver accepts `fit(..., callback=)`; `skroute.viz` (extra `viz`, matplotlib) turns
-that into a live picture of the search — the current tour, the best tour so far and the
-solver's own facts, redrawn while `fit` runs — or a recording of it (`Recorder`, saved as
-a GIF or as a Plotly figure with a slider; `viz-map` adds OpenStreetMap tiles):
+that into a live picture of the search — the attempt the solver is working on (thin), the
+best tour so far (thick), the structure it is building when it reports one (the growing
+tour of a construction heuristic, the pheromone trails of the ant colony, the SOM ring)
+and its own facts, redrawn while `fit` runs — or a recording of it: `Recorder` replays a
+run at time-lapse speed, saves it as a GIF or MP4, or gives a Plotly figure with
+Play/Pause, a speed menu and a slider (`viz-map` adds OpenStreetMap tiles):
 
 <p align="center">
-  <img src="docs/images/live_demo.gif" alt="SimulatedAnnealing untangling a random tour of the 38 cities of Djibouti" width="420">
+  <img src="docs/images/live_demo.gif" alt="SimulatedAnnealing untangling a random tour of the 38 cities of Djibouti: the attempts thin and grey, the best tour so far thick" width="420">
 </p>
 
 ```python
 >>> from skroute import SimulatedAnnealing
->>> from skroute.datasets import load_barcelona
->>> from skroute.viz import LivePlot
->>> bcn = load_barcelona()  # 19 places, coords are (lat, lon)
->>> live = LivePlot(bcn.coords[:, ::-1], every=10)  # x = longitude; map=True draws on OpenStreetMap tiles
->>> sa = SimulatedAnnealing(random_state=0).fit(bcn.cost, labels=bcn.labels, callback=live)  # doctest: +SKIP
+>>> from skroute.datasets import load_tsp
+>>> from skroute.viz import LivePlot, Recorder
+>>> dj = load_tsp("dj38")
+>>> live = LivePlot(dj.coords, every=10)  # the attempts (thin) and the best (thick), redrawn as fit runs
+>>> sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=live)  # doctest: +SKIP
+>>> rec = Recorder(every=10)  # or keep every event, with its clock...
+>>> sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=rec)  # doctest: +SKIP
+>>> rec.replay(dj.coords, speed=10)  # ...and watch the run again, ten times faster  # doctest: +SKIP
+>>> rec.save("dj38.gif", dj.coords, speed=10)  # or write the time-lapse (an .mp4 with ffmpeg)  # doctest: +SKIP
 
 ```
 

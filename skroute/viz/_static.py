@@ -203,13 +203,14 @@ def event_edges(problem: Any, extra: Any) -> np.ndarray | None:
     edges = (extra or {}).get("edges")
     if edges is None:
         return None
-    pairs = list(edges)
-    if not pairs:
-        return np.empty((0, 2), dtype=np.int64)
     try:
-        return np.array([[problem.index_of(a), problem.index_of(b)] for a, b in pairs], dtype=np.int64)
+        pairs = list(edges)
+        idx = [[problem.index_of(a), problem.index_of(b)] for a, b in pairs]
     except (TypeError, ValueError) as exc:
         raise ValueError("extra['edges'] must be (label, label) pairs of the problem's labels") from exc
+    if not idx:
+        return np.empty((0, 2), dtype=np.int64)
+    return np.array(idx, dtype=np.int64)
 
 
 def event_weights(extra: Any, n_edges: int) -> np.ndarray | None:
