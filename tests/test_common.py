@@ -6,24 +6,71 @@ from __future__ import annotations
 
 import ctypes
 import dataclasses
+import logging
 import os
 import re
 import sys
+import time
 
 import numpy as np
 import pytest
 import reference
 import tolerances
-from conftest import DUMMY_SOLVERS, fit_kwargs, is_dummy, make
+from conftest import DUMMY_SOLVERS, RandomDescentRouter, fit_kwargs, is_dummy, make
 
 from skroute.base import BaseRouter, RouterTags, clone
 from skroute.exceptions import InfeasibleProblemError
-from skroute.utils import Bunch, estimator_checks
+from skroute.utils import Bunch, estimator_checks, initial_tour
 from skroute.utils.estimator_checks import CheckSkipped, check_router
 
 CHECKS = check_router.checks
 CHECK_IDS = [name for name, _ in CHECKS]
 CHECK_FNS = [fn for _, fn in CHECKS]
+
+log = logging.getLogger("skroute")
+
+
+class _WatchedRandomDescent(RandomDescentRouter):
+    """conftest's iterative dummy speaking the D30 protocol: ``"start"`` with the init tour, one
+    ``"iteration"`` event per outer iteration (the candidate, the best-so-far) and a stop request honoured
+    at the iteration boundary. The battery (check 14) requires this of every iterative solver, so the
+    pre-D30 dummy stands in for the roster only through this subclass."""
+
+    def _solve(self, problem, rng):
+        t0 = time.perf_counter()
+        best = initial_tour(problem, self.init, rng)
+        best_cost = problem.evaluate(best)
+        self._emit("start", 0, best, best_cost)
+        positions = np.arange(1, problem.n)
+        history, since, reason = [], 0, "max_iter"
+        for k in range(self.n_iter):
+            i, j = np.sort(rng.choice(positions, size=2, replace=False))
+            cand = best.copy()
+            cand[i : j + 1] = cand[i : j + 1][::-1]
+            c = problem.evaluate(cand)
+            if c < best_cost - 1e-9 * max(1.0, abs(best_cost)):
+                best, best_cost, since = cand, c, 0
+            else:
+                since += 1
+            history.append(best_cost)
+            if self.verbose:
+                log.info("_WatchedRandomDescent iteration %d: best %.6f", k, best_cost)
+            self._emit("iteration", k + 1, cand, c, best, best_cost, positions=(int(i), int(j)))
+            if self._stop_requested:
+                reason = "callback"
+                break
+            if self.time_limit is not None and time.perf_counter() - t0 > self.time_limit:
+                reason = "time_limit"
+                break
+            if self.patience is not None and since >= self.patience:
+                reason = "patience"
+                break
+        self.history_, self.n_iter_, self.stop_reason_ = np.asarray(history), len(history), reason
+        return best
+
+
+#: The dummies the whole battery runs on: conftest's, with the iterative one speaking the D30 protocol.
+BATTERY_DUMMIES = [_WatchedRandomDescent if D is RandomDescentRouter else D for D in DUMMY_SOLVERS]
 
 
 def _run(check, estimator):
@@ -122,7 +169,7 @@ def test_missing_tolerance_message():
 
 
 # --------------------------------------------------------------------------- the battery on the dummies
-@pytest.mark.parametrize("Dummy", DUMMY_SOLVERS, ids=lambda s: s.__name__)
+@pytest.mark.parametrize("Dummy", BATTERY_DUMMIES, ids=lambda s: s.__name__)
 @pytest.mark.parametrize("check", CHECK_FNS, ids=CHECK_IDS)
 def test_battery_passes_on_dummies(Dummy, check):
     _run(check, make(Dummy))
@@ -152,9 +199,7 @@ def test_multi_trip_checks_on_dummies_with_synthetic_data(Dummy, monkeypatch):
 
 def test_check_router_driver_runs_and_reports_skips(monkeypatch, recwarn):
     monkeypatch.setattr(estimator_checks, "_load_alicante", _synthetic_alicante)
-    from conftest import RandomDescentRouter
-
-    check_router(RandomDescentRouter())
+    check_router(_WatchedRandomDescent())
     assert not [w for w in recwarn if "skipped" in str(w.message)]
 
     def unavailable():
@@ -162,7 +207,7 @@ def test_check_router_driver_runs_and_reports_skips(monkeypatch, recwarn):
 
     monkeypatch.setattr(estimator_checks, "_load_alicante", unavailable)
     with pytest.warns(UserWarning, match="check_router: 4_cost_recomputed skipped: no datasets here"):
-        check_router(RandomDescentRouter())
+        check_router(_WatchedRandomDescent())
 
 
 def test_check_router_rejects_wrong_input():
@@ -342,7 +387,8 @@ class _MutatesInput(BaseRouter):
             SimulatedAnnealing,
             estimator_checks.check_iterative_contract,
             re.escape(
-                "check 10: SimulatedAnnealing may only stop by ['converged', 'patience', 'time_limit']"
+                "check 10: SimulatedAnnealing may only stop by "
+                "['callback', 'converged', 'patience', 'time_limit']"
             ),
         ),
         (
@@ -368,6 +414,70 @@ class _MutatesInput(BaseRouter):
 def test_battery_rejects_violations(Bad, check, match):
     with pytest.raises(AssertionError, match=match):
         check(Bad())
+
+
+# --------------------------------------------------------------------------- what check 14 must reject (D30)
+class _IgnoresStopRequest(_WatchedRandomDescent):
+    """Emits every event but loses the stop request."""
+
+    def _emit(self, *args, **kwargs):
+        super()._emit(*args, **kwargs)
+        self._stop_requested = False
+
+
+class _EmitsDepotLast(_WatchedRandomDescent):
+    """The iteration events carry the tour reversed: a label tour that does not start at the depot."""
+
+    def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
+        if stage == "iteration":
+            tour_idx = np.asarray(tour_idx)[::-1]
+        super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+
+class _BestCostRises(_WatchedRandomDescent):
+    """Reports a best_cost that grows with the iteration (never above the current cost, so only the
+    monotonicity check can catch it)."""
+
+    def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
+        if stage == "iteration":
+            best_cost = 1e-3 * iteration
+        super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+
+class _ResultDependsOnTheCallback(_WatchedRandomDescent):
+    """Returns the body of its tour reversed when watched: same cost on a symmetric matrix, other tour_."""
+
+    def _solve(self, problem, rng):
+        tour = super()._solve(problem, rng)
+        if self._callback is not None:
+            tour = np.concatenate(([tour[0]], tour[1:][::-1]))
+        return tour
+
+
+@pytest.mark.parametrize(
+    ("Bad", "match"),
+    [
+        (
+            RandomDescentRouter,
+            "check 14: an iterative solver must emit one iteration event per outer iteration",
+        ),
+        (_IgnoresStopRequest, "check 14: returning True from the callback must stop with 'callback'"),
+        (_EmitsDepotLast, "check 14: RouteEvent.tour must start at the depot label"),
+        (_BestCostRises, "check 14: .*best_cost must be non-increasing"),
+        (_ResultDependsOnTheCallback, "check 14: a recording callback must not change the result"),
+    ],
+    ids=[
+        "no-iteration-events",
+        "ignores-stop",
+        "depot-last",
+        "best-cost-rises",
+        "result-depends-on-callback",
+    ],
+)
+def test_check_14_rejects_callback_violations(Bad, match):
+    with pytest.raises(AssertionError, match=match):
+        estimator_checks.check_callback_protocol(Bad())
+    estimator_checks.check_callback_protocol(_WatchedRandomDescent())  # the honest dummy passes
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="ctypes.CDLL(None) is POSIX-only")
@@ -434,11 +544,14 @@ def test_allowed_stop_reasons_follow_the_table_or_the_parameters():
     from conftest import RandomDescentRouter
 
     allowed = estimator_checks._allowed_stop_reasons
-    assert allowed(RandomDescentRouter()) == {"converged", "max_iter", "patience", "time_limit"}
-    assert allowed(_NonMonotoneHistory()) == {"converged", "max_iter"}  # no patience/time_limit parameters
-    assert allowed(SimulatedAnnealing()) == {"converged", "patience", "time_limit"}  # the §3.4 table
+    # D30: "callback" joins every subset — any iterative solver may be stopped by the callback of fit
+    assert allowed(RandomDescentRouter()) == {"callback", "converged", "max_iter", "patience", "time_limit"}
+    assert allowed(_NonMonotoneHistory()) == {"callback", "converged", "max_iter"}  # no patience/time_limit
+    assert allowed(SimulatedAnnealing()) == {"callback", "converged", "patience", "time_limit"}  # §3.4 table
     assert allowed(_Wrapper(SimulatedAnnealing())) == {
+        "callback",
         "converged",
         "patience",
         "time_limit",
     }  # copies the inner's
+    assert all("callback" in v for v in estimator_checks._ALLOWED_STOP_REASONS.values())

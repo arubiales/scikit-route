@@ -370,7 +370,10 @@ The contract, in four points:
 3. `_get_tags()` returns a [`RouterTags`][skroute.RouterTags] describing what the solver
    supports: `kind`, `exact`, `stochastic` (then it must have a `random_state`
    parameter), `iterative` (then `_solve` must set `history_`, `n_iter_` and
-   `stop_reason_`), `budget_aware`, `requires_symmetric`, `requires_coords`, `max_nodes`.
+   `stop_reason_`, report each outer iteration with `self._emit(...)` and stop with
+   `stop_reason_ = "callback"` once `self._stop_requested` is set — the progress-callback
+   protocol of `fit(..., callback=)`), `budget_aware`, `requires_symmetric`,
+   `requires_coords`, `max_nodes`.
 4. `_solve(problem, rng)` returns an `int64` permutation of `range(problem.n)` with
    `problem.depot` at position 0 — **index space**, never labels. `rng` is a
    `numpy.random.Generator` for stochastic solvers and `None` otherwise;
@@ -380,7 +383,7 @@ The contract, in four points:
 solvers pass in `tests/test_common.py`: parameter protocol, unfitted state, fitted
 attributes, recomputed cost, input kinds (ndarray, DataFrame, dict-of-dicts, string
 labels), invalid inputs, tags, multi-trip, no printing, the iterative contract,
-reproducibility and the smallest sizes. It takes an **unfitted** instance, builds its own
+reproducibility, the smallest sizes and the progress callbacks. It takes an **unfitted** instance, builds its own
 small instances, and raises `AssertionError("check N: ...")` at the first failure. Here is
 a complete solver that passes it — random sampling with the best-so-far bookkeeping of
 an iterative solver:
@@ -401,14 +404,18 @@ an iterative solver:
 ...
 ...     def _solve(self, problem, rng):
 ...         others = np.delete(np.arange(problem.n), problem.depot)
-...         best, best_cost, history = None, np.inf, []
-...         for _ in range(self.n_samples):
+...         best, best_cost, history, reason = None, np.inf, [], "max_iter"
+...         for k in range(self.n_samples):
 ...             tour = np.concatenate(([problem.depot], rng.permutation(others)))
 ...             cost = problem.evaluate(tour)      # the problem's own objective, budget included
 ...             if cost < best_cost:
 ...                 best, best_cost = tour, cost
 ...             history.append(best_cost)
-...         self.history_, self.n_iter_, self.stop_reason_ = history, len(history), "max_iter"
+...             self._emit("iteration", k + 1, tour, cost, best, best_cost)  # progress callback
+...             if self._stop_requested:            # the callback returned True: stop here
+...                 reason = "callback"
+...                 break
+...         self.history_, self.n_iter_, self.stop_reason_ = history, len(history), reason
 ...         return best
 >>> check_router(RandomSampling())              # silent when every check passes
 >>> [name for name, fn in check_router.checks][:4]
