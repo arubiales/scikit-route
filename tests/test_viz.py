@@ -469,14 +469,22 @@ def test_liveplot_attached_mid_run_and_multi_trip_end(two_trips):
     problem = two_trips.problem_
     events, _ = fake_run(lambda ev: None, problem, n_iter=2)
     live = LivePlot(SQUARE)
-    live(events[1])  # no "start" seen: the figure is created on the first event received
-    assert live.fig is not None and live.n_redraws == 2
+    live(events[1])  # no "start" seen: the figure is created on the first event received, drawn once
+    assert live.fig is not None and live.n_redraws == 1
+    assert len(live.ax.lines[0].get_xdata()) >= problem.n + 1  # ...with that event's current tour on it
     live(events[-1])
     final = final_lines(live)
-    assert len(final) == len(events[-1].trips) >= 1
+    assert len(final) == len(events[-1].trips) >= 1 and live.n_redraws == 2
     assert "FakeDescent | iteration 2" in title(live.ax)
     live(events[1])  # an iteration after an "end" without a new "start": the final route must not stay
     assert len(live.ax.lines) == BASE_LINES and live._view.final_lines == []
+    thinned = LivePlot(SQUARE, every=2)  # the first event received is the first kept iteration
+    thinned(events[1])
+    thinned(events[2])
+    assert thinned.n_redraws == 1 and "iteration 1" in title(thinned.ax)
+    ended = LivePlot(SQUARE)  # attached at the very end: the figure and its final route, one redraw
+    ended(events[-1])
+    assert ended.n_redraws == 1 and len(final_lines(ended)) == len(events[-1].trips)
 
 
 def test_liveplot_nested_start_resets_the_drawing_in_place(dj_problem, dj):
@@ -537,8 +545,10 @@ def test_liveplot_headless_renders_once(monkeypatch, dj_problem, dj):
 
 
 def test_liveplot_validation(dj):
+    assert LivePlot(dj.coords).backend == "matplotlib"
+    assert LivePlot(dj.coords, map=True).backend == "plotly"  # the tiles are Plotly's: map=True selects it
     with pytest.raises(ValueError, match='map=True needs backend="plotly"'):
-        LivePlot(dj.coords, map=True)
+        LivePlot(dj.coords, backend="matplotlib", map=True)
     with pytest.raises(ValueError, match="backend must be one of"):
         LivePlot(dj.coords, backend="bokeh")
     for bad in (0, -1, 1.5, True):
@@ -684,6 +694,10 @@ def test_recorder_every_and_keep_tours(dj_problem):
     assert bare.n_frames == 0 and bare.best_costs.shape == (5,)
     with pytest.raises(ValueError, match="keep_tours=False"):
         bare.animate(dj_problem.coords)
+    with pytest.raises(ValueError, match="keep_tours=False"):
+        bare.replay(dj_problem.coords, speed=1e9)  # no blank picture: the same error as the other replays
+    with pytest.raises(ValueError, match="keep_tours=False"):
+        bare.to_plotly(dj_problem.coords)
     with pytest.raises(ValueError, match="nothing to draw"):
         Recorder().to_plotly(dj_problem.coords)
     for bad in (0, 2.0, True):
@@ -1297,9 +1311,16 @@ def test_recorder_animate_speed_fps_and_interval(tmp_path, dj_problem, dj):
     assert lapse._interval == 10 and lapse._repeat_delay == 1000
     timer = FakeTimer()
     lapse.event_source = timer
-    lapse.save(tmp_path / "lapse.gif", writer="pillow", dpi=20)  # draws every frame in order
-    # save() draws frame 0 once in _init_draw, then every frame: each one sets the wait before the next
-    assert timer.intervals == [10, 10, 10, 290, 10, 10]
+    lapse._init_draw()  # what plt.show() does: the first frame, then one _step per timer tick
+    in_force = []
+    for _ in range(7):
+        lapse._step()
+        in_force.append(timer.interval)  # the wait the timer applies before the next frame
+    # TimedAnimation._step copies the animation's interval to the timer after every frame, so a value set
+    # on the timer itself would be clobbered and every frame would wait delays[0]: each frame's own delay
+    # must be in force, then the hold before the loop restarts, then the first frame's delay again
+    assert in_force == [10, 10, 290, 10, 10, 1000, 10]
+    lapse.save(tmp_path / "lapse.gif", writer="pillow", dpi=20)  # the same frames, written in order
     assert rec._last_live.show == "both" and rec._last_live.figsize == (2, 2)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)  # these animations are inspected, never rendered
@@ -1315,17 +1336,37 @@ def test_recorder_animate_speed_fps_and_interval(tmp_path, dj_problem, dj):
             rec.animate(dj.coords, **kwargs)
 
 
+def fake_clock(monkeypatch, waits):
+    """A ``time`` for ``_record`` whose clock only advances when ``sleep`` is called (which is logged)."""
+    now = [1000.0]
+
+    def sleep(seconds):
+        waits.append(seconds)
+        now[0] += seconds
+
+    monkeypatch.setattr(_record, "time", types.SimpleNamespace(perf_counter=lambda: now[0], sleep=sleep))
+    return now
+
+
+def interactive_window(monkeypatch):
+    """Make the Agg backend look like a window to LivePlot (frames seen as drawn), without pausing."""
+    from skroute.viz import _live
+
+    monkeypatch.setattr(_live, "backend_is_interactive", lambda: True)
+    monkeypatch.setattr(plt, "pause", lambda *_: None)
+
+
 def test_recorder_replay_drives_a_liveplot(monkeypatch, dj_problem, dj):
     rec = Recorder()
     events, _ = fake_run(rec, dj_problem, n_iter=4)  # start, 4 iterations, end
     with_stamps(rec, [0.0, 0.5, 0.5002, 3.5002, 3.7002, 3.7002])
     waits: list[float] = []
-    monkeypatch.setattr(
-        _record, "time", types.SimpleNamespace(perf_counter=time.perf_counter, sleep=waits.append)
-    )
+    fake_clock(monkeypatch, waits)
+    interactive_window(monkeypatch)
     live = rec.replay(dj.coords, speed=10)
     assert isinstance(live, LivePlot) and live.n_events == 6 and live.n_redraws == 6
-    np.testing.assert_allclose(waits, [0.05, 0.3, 0.02], rtol=1e-6)  # gaps / 10; 0.2 ms is skipped (< 10 ms)
+    # gaps / 10 on a target clock: the 0.02 ms gap is too short to sleep, so it is carried into the next wait
+    np.testing.assert_allclose(waits, [0.05, 0.30002, 0.02], rtol=1e-6)
     np.testing.assert_allclose(
         final_lines(live)[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
     )
@@ -1333,6 +1374,10 @@ def test_recorder_replay_drives_a_liveplot(monkeypatch, dj_problem, dj):
     with_stamps(rec, [0.0, 100.0, 100.0, 100.0, 100.0, 100.0])
     rec.replay(dj.coords, speed=1)
     assert waits == [2.0], "a long gap is capped at two seconds"
+    waits.clear()
+    with_stamps(rec, [0.0, 100.0, 100.5, 101.0, 101.5, 102.0])
+    rec.replay(dj.coords, speed=1)
+    np.testing.assert_allclose(waits, [2.0, 0.5, 0.5, 0.5, 0.5])  # the clock jumps over the cut part of a gap
     waits.clear()
     fast = rec.replay(dj.coords, speed=1e9, show="best", trail=2, every=2, title="again")
     assert waits == [] and fast.show == "best" and fast.title == "again"
@@ -1352,6 +1397,61 @@ def test_recorder_replay_drives_a_liveplot(monkeypatch, dj_problem, dj):
     fake_run(bare, RoutingProblem(dj.distance_matrix(), labels=dj.labels), n_iter=1)  # fitted without coords
     with pytest.raises(ValueError, match="no coordinates to draw"):
         bare.replay(speed=1e9)
+
+
+def test_recorder_replay_respects_the_recorded_clock(monkeypatch, dj_problem, dj):
+    """A dense run — gaps under the 10 ms sleep grain — still lasts the recorded span over speed: the short
+    gaps accumulate instead of being dropped, and time spent drawing is absorbed by the next waits."""
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=118)  # 120 events
+    gap = 0.0167  # ~60 events per second, the pace of a metaheuristic's outer loop
+    with_stamps(rec, np.arange(len(rec)) * gap)
+    span = (len(rec) - 1) * gap
+    waits: list[float] = []
+    now = fake_clock(monkeypatch, waits)
+    interactive_window(monkeypatch)
+    for speed in (10.0, 1.0):
+        waits.clear()
+        start = now[0]
+        rec.replay(dj.coords, speed=speed)
+        # every sleep is at least the grain, the sum is the scaled span (minus at most one grain, the tail)
+        assert min(waits) >= 0.01 and len(waits) <= span / speed / 0.01 + 1
+        assert span / speed - 0.01 < sum(waits) <= span / speed + 1e-9
+        assert now[0] - start == pytest.approx(sum(waits))
+    # drawing time is absorbed: a clock that also advances 5 ms per redraw changes nothing in the total
+    waits.clear()
+    original_call = LivePlot.__call__
+
+    def slow_call(self, event):
+        now[0] += 0.005
+        return original_call(self, event)
+
+    monkeypatch.setattr(LivePlot, "__call__", slow_call)
+    start = now[0]
+    rec.replay(dj.coords, speed=1.0)
+    assert span - 0.01 < now[0] - start <= span + 0.005 + 1e-9
+    assert sum(waits) == pytest.approx(now[0] - start - 0.005 * len(rec))
+    waits.clear()
+    with_stamps(rec, np.arange(len(rec)) * 0.001)  # drawn slower than its pace: no waits, no error
+    rec.replay(dj.coords, speed=1.0)
+    assert waits == []
+
+
+def test_recorder_replay_does_not_wait_where_nothing_is_shown(monkeypatch, dj_problem, dj):
+    """On Agg (and the plotly backend outside a notebook) nothing shows before "end": no sleeping."""
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=4)
+    with_stamps(rec, [0.0, 0.5, 1.0, 1.5, 2.0, 2.5])
+    waits: list[float] = []
+    fake_clock(monkeypatch, waits)
+    live = rec.replay(dj.coords, speed=1)
+    assert waits == [] and live.n_redraws == 6 and len(final_lines(live)) == 1
+    monkeypatch.setattr("plotly.basedatatypes.BaseFigure.show", lambda self, *a, **k: None)
+    fig = rec.replay(dj.coords, speed=1, backend="plotly").fig
+    assert waits == [] and isinstance(fig, go.Figure)
+    interactive_window(monkeypatch)  # a window: paced
+    rec.replay(dj.coords, speed=1)
+    assert waits == [0.5] * 5
 
 
 def test_recorder_save_gif_and_movie(monkeypatch, tmp_path, dj_problem, dj):
@@ -1396,6 +1496,79 @@ def test_recorder_save_gif_and_movie(monkeypatch, tmp_path, dj_problem, dj):
             rec.save(tmp_path / "bad.gif", dj.coords, **kwargs)
     with pytest.raises(ValueError, match="nothing to draw"):
         Recorder(keep_tours=False).save(tmp_path / "empty.gif", dj.coords)
+
+
+def test_recorder_to_plotly_shares_the_replay_guards(dj_problem, dj, bcn_problem):
+    orphan = Recorder()
+    orphan.events.append(RecordedEvent("X", "end", 1, 1.0, 1.0, np.arange(38), np.arange(38), {}, None))
+    with pytest.raises(ValueError, match="carry no RoutingProblem"):
+        orphan.to_plotly(dj.coords)
+    with pytest.raises(ValueError, match="carry no RoutingProblem"):
+        orphan.animate(dj.coords)
+    mixed = Recorder()  # two instances in one recorder: the coordinates cannot fit both
+    fake_run(mixed, dj_problem, n_iter=1)
+    fake_run(mixed, bcn_problem, n_iter=1)
+    assert mixed.problem is bcn_problem
+    with pytest.raises(ValueError, match="coords has 19 rows but the problem has 38 nodes"):
+        mixed.to_plotly()
+    with pytest.raises(ValueError, match="coords has 19 rows but the problem has 38 nodes"):
+        mixed.animate()
+    with pytest.raises(ValueError, match="coords has 38 rows but the problem has 19 nodes"):
+        mixed.to_plotly(dj.coords)
+
+
+def test_recorder_save_closes_its_figure_when_the_writer_fails(tmp_path, dj_problem, dj):
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=2)
+    assert plt.get_fignums() == []
+    with pytest.raises(FileNotFoundError):
+        rec.save(tmp_path / "no_such_dir" / "run.gif", dj.coords, fps=5, dpi=10)
+    assert plt.get_fignums() == [], "a failed save leaves no figure behind"
+
+
+def test_viewers_copy_the_coordinates(dj_problem, dj):
+    """Mutating the caller's array after construction moves nothing that is drawn."""
+    xy = np.array(dj.coords, dtype=np.float64)
+    live = LivePlot(xy)
+    assert live.coords is not xy and live.coords.dtype == np.float64
+    events, _ = fake_run(live, dj_problem, n_iter=1)
+    xy[:] += 1000.0
+    live(events[1])
+    np.testing.assert_allclose(
+        live.ax.lines[1].get_xydata(), closed_xy(dj_problem, dj.coords, events[1].best_tour)
+    )
+    rec = Recorder()
+    fake_run(rec, dj_problem, n_iter=1)
+    kept = rec._coords(xy)
+    assert kept is not xy
+    np.testing.assert_array_equal(kept, xy)
+
+
+def test_plotly_keeps_the_trails_relative_to_the_strongest(dj_problem, dj):
+    """The Plotly cut is a quarter of the strongest trail, not an absolute 0.25: AntColony's weights are
+    ``tau / tau_max``, whose maximum sits well under 1."""
+    labels = list(dj_problem.labels)
+    edges = [(labels[0], labels[1]), (labels[1], labels[2]), (labels[2], labels[3])]
+    rec = Recorder()
+    rec(
+        structure_event(
+            dj_problem, "iteration", 1, solver="AntColony", edges=edges, edge_weights=[0.2, 0.12, 0.5]
+        )
+    )
+    fig = rec.to_plotly(dj.coords)
+    x0, x1, x2, x3 = dj.coords[:4, 0].tolist()
+    assert list(fig.frames[0].data[2].x) == [x0, x1, None, x2, x3]  # 0.2 >= 0.125 stays; 0.12 goes
+    live = LivePlot(dj.coords, backend="plotly")
+    live(
+        structure_event(dj_problem, "start", 0, solver="AntColony", edges=edges, edge_weights=[0.0, 0.0, 0.0])
+    )
+    assert list(live.fig.data[4].x) == []  # no strongest trail: nothing drawn
+    live(
+        structure_event(
+            dj_problem, "iteration", 1, solver="AntColony", edges=edges, edge_weights=[1.0, 0.3, 0.2]
+        )
+    )
+    assert list(live.fig.data[4].x) == [x0, x1, None, x1, x2]  # 0.3 stays, 0.2 (< 0.25) goes
 
 
 def test_recorder_to_plotly_speed_menu_and_structures(dj_problem, dj):

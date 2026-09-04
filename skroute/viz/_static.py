@@ -40,8 +40,8 @@ RING_COLOR = "#2a9d8f"  # SOM's elastic ring (D31 ``extra["ring"]``)
 
 STRUCTURE_KEYS = ("edges", "edge_weights", "ring")
 SHOW_OPTIONS = ("both", "best", "current")
-# Plotly cannot vary the width along one line trace: the trails it draws are the edges whose weight
-# reaches this fraction of the strongest one (matplotlib fades the weaker ones instead).
+# Plotly cannot vary the width along one line trace: the trails it draws, at one width, are the edges
+# whose weight reaches this fraction of the strongest one's (matplotlib fades the weaker ones instead).
 PLOTLY_WEIGHT_MIN = 0.25
 
 
@@ -79,9 +79,13 @@ def check_show(show: str) -> str:
 
 # --------------------------------------------------------------------------- geometry helpers
 def coords_array(coords: Any, n: int | None = None) -> np.ndarray:
-    """``coords`` as a float64 ``(n, 2)`` array; ``ValueError`` on any other shape or row count."""
+    """``coords`` as a float64 ``(n, 2)`` array; ``ValueError`` on any other shape or row count.
+
+    Always a copy: the viewers keep it for the whole run (and the recorder's replays), so a caller
+    who keeps working on its own array afterwards never moves what is drawn.
+    """
     try:
-        xy = np.asarray(coords, dtype=np.float64)
+        xy = np.array(coords, dtype=np.float64, copy=True)
     except (TypeError, ValueError) as exc:
         raise ValueError(
             f"coords must be an (n, 2) array of x, y positions; got {type(coords).__name__}"

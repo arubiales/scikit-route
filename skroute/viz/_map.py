@@ -30,7 +30,7 @@ from ._static import (
 
 if TYPE_CHECKING:
     from ._live import LivePlot
-    from ._record import RecordedEvent, Recorder
+    from ._record import RecordedEvent
 
 __all__ = ["plot_route_map"]
 
@@ -122,7 +122,7 @@ def _structure(
     """The edges and ring traces' coordinates of one event's D31 extras (empty when absent).
 
     Plotly draws one width per trace, so with ``edge_weights`` only the trails whose weight reaches
-    ``PLOTLY_WEIGHT_MIN`` are kept (matplotlib fades the others instead).
+    ``PLOTLY_WEIGHT_MIN`` of the strongest one are kept (matplotlib fades the others instead).
     """
     idx = event_edges(problem, extra)
     if idx is None:
@@ -130,7 +130,8 @@ def _structure(
     else:
         weights = event_weights(extra, idx.shape[0])
         if weights is not None:
-            idx = idx[weights >= PLOTLY_WEIGHT_MIN]
+            strongest = float(weights.max()) if weights.size else 0.0
+            idx = idx[weights >= PLOTLY_WEIGHT_MIN * strongest] if strongest > 0.0 else idx[:0]
         edges = _segments(xy, idx, map=map)
     return edges, _ring(event_ring(extra), map=map)
 
@@ -299,6 +300,11 @@ class PlotlyLiveView:
         if last and not self.widget:
             self.fig.show()
 
+    @property
+    def shows_frames(self) -> bool:
+        """Whether each redraw is seen as it happens (the widget) or only the figure shown at ``"end"``."""
+        return self.widget
+
     # ----- helpers
     def _title(self, event: Any) -> str:
         from ._live import status_line
@@ -332,17 +338,15 @@ def _assign(trace: Any, kwargs: dict[str, Any]) -> None:
 
 # --------------------------------------------------------------------------- Recorder.to_plotly
 def recorder_figure(
-    rec: Recorder, frames: list[RecordedEvent], coords: Any, *, map: bool, show: str, fps: float
+    frames: list[RecordedEvent], xy: np.ndarray, problem: Any, *, map: bool, show: str, fps: float
 ) -> Any:
     """A figure with one frame per recorded drawable event, Play/Pause, a speed menu and a slider
-    (``Recorder.to_plotly``). Frame ``k`` updates the current, best, edges and ring traces."""
+    (``Recorder.to_plotly``). Frame ``k`` updates the current, best, edges and ring traces. ``xy`` is
+    validated against ``problem`` (the frames' instance) and every other problem the frames carry."""
     from ._live import status_line
 
     go = graph_objects()
-    problem = rec.problem
-    xy = coords_array(coords, None if problem is None else problem.n)
-    depot = 0 if problem is None else problem.depot
-    labels = np.arange(xy.shape[0]) if problem is None else problem.labels
+    depot, labels = problem.depot, problem.labels
     empty = _pairs_kwargs([], [], map=map)
 
     def frame_traces(ev: RecordedEvent) -> list[Any]:
