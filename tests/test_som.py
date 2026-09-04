@@ -493,8 +493,10 @@ def test_verbose_logs_and_never_prints(small_euclidean, caplog, capsys):
 
 
 # ------------------------------------------------------------------------ D31: the ring, in coordinate units
-def test_ring_events_map_the_neurons_back_to_the_coordinates(small_euclidean, monkeypatch):
-    C, xy = small_euclidean["C"], small_euclidean["coords"]
+@pytest.mark.parametrize("offset", [(0.0, 0.0), (-500.0, 20.0)], ids=["at_origin", "translated"])
+def test_ring_events_map_the_neurons_back_to_the_coordinates(small_euclidean, monkeypatch, offset):
+    # a translation leaves the normalised cities (hence the run) untouched: only the reported ring moves
+    C, xy = small_euclidean["C"], small_euclidean["coords"] + np.array(offset)
     weights = _spy_epoch_weights(monkeypatch)
     events = []
     som = SOM(n_units=30, n_iter=500, random_state=0).fit(C, coords=xy, callback=events.append)
@@ -503,12 +505,18 @@ def test_ring_events_map_the_neurons_back_to_the_coordinates(small_euclidean, mo
     assert len(iters) == som.n_iter_ == len(weights)
     lo, hi = xy.min(axis=0), xy.max(axis=0)
     span = float((hi - lo).max())
+    depot = som.problem_.depot
     for e, w in zip(iters, weights, strict=True):
         ring = e.extra["ring"]
         assert isinstance(ring, np.ndarray) and ring.shape == (30, 2) and ring.dtype == np.float64
         np.testing.assert_allclose(ring, w * span + lo, rtol=0, atol=1e-9 * span)  # the scaling inverted
         # neurons start inside the normalised bounding box and only move towards cities: they stay inside
         assert (ring >= lo - 1e-9 * span).all() and (ring <= hi + 1e-9 * span).all()
+        # independent of that formula: decoding the reported ring against the caller's own coordinates
+        # gives back the event's tour, so the ring really sits in those units (an inverted or mis-scaled
+        # mapping applied consistently would still pass the assert_allclose above)
+        decoded = som.problem_.to_label_tour(_ring_to_tour(_winners(xy, ring), depot))
+        assert decoded.tolist() == e.tour.tolist()
     assert len({id(e.extra["ring"]) for e in iters}) == len(iters)  # a fresh array per event
     assert not np.array_equal(iters[0].extra["ring"], iters[-1].extra["ring"])  # and the ring did move
 
@@ -526,8 +534,21 @@ def test_ring_of_coincident_cities_sits_on_them():
 
 
 def test_ring_is_not_built_without_a_callback(small_euclidean, monkeypatch):
-    # the inverse scaling is two numbers; the per-epoch (m, 2) product happens only behind the callback guard
+    # the inverse scaling is two numbers; the per-epoch (m, 2) product happens only behind the callback guard:
+    # without a callback SOM reaches _emit for its "start" alone, and never with a ring
     C, xy = small_euclidean["C"], small_euclidean["coords"]
+    calls = []
+    orig = SOM._emit
+
+    def spy(self, stage, iteration, *args, **extra):
+        calls.append((stage, sorted(extra)))
+        return orig(self, stage, iteration, *args, **extra)
+
+    monkeypatch.setattr(SOM, "_emit", spy)
     a = SOM(n_units=20, n_iter=300, random_state=0).fit(C, coords=xy)
+    assert [stage for stage, _ in calls] == ["start"] and "ring" not in calls[0][1]
+    calls.clear()
     b = SOM(n_units=20, n_iter=300, random_state=0).fit(C, coords=xy, callback=lambda e: None)
+    epochs = [keys for stage, keys in calls if stage == "iteration"]
+    assert len(epochs) == b.n_iter_ >= 1 and all("ring" in keys for keys in epochs)
     assert np.array_equal(a.tour_, b.tour_) and a.cost_ == b.cost_ and np.array_equal(a.history_, b.history_)

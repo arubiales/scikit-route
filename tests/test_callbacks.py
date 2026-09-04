@@ -760,6 +760,25 @@ def test_construction_result_never_depends_on_the_callback(Builder):
     assert "_stop_requested" not in vars(stopped)
 
 
+@pytest.mark.parametrize("Builder", list(CONSTRUCTION_STEPS), ids=lambda s: s.__name__)
+def test_a_true_answered_at_start_silences_every_construction_step(Builder):
+    # the builders emit their "start" explicitly and read the answer before the first step: unlike an
+    # iterative solver (which still runs one iteration), a builder then emits no step event at all
+    C, _ = _euclid(9, seed=9)
+    plain = Builder().fit(C)
+    seen = []
+
+    def stop_at_start(event):
+        seen.append(event)
+        return event.stage == "start"
+
+    stopped = Builder().fit(C, callback=stop_at_start)
+    assert [(e.stage, e.iteration) for e in seen] == [("start", 0), ("end", 0)]
+    assert seen[0].tour is None and math.isnan(seen[0].cost) and "edges" not in seen[0].extra
+    assert np.array_equal(plain.tour_, stopped.tour_) and plain.cost_ == stopped.cost_
+    assert "_stop_requested" not in vars(stopped)
+
+
 class _Tracer(BaseRouter):
     """A construction solver whose step events carry the D31 extras — well formed by default
     (``mode="labels"``), or broken in the one way ``mode`` names — so check 14's validation of the extras
@@ -790,11 +809,24 @@ class _Tracer(BaseRouter):
             extra["ring"] = np.zeros((3, 3))
         elif self.mode == "ring_nan":
             extra["ring"] = np.full((3, 2), np.nan)
+        if self.mode == "chatty":  # keeps tracing after a stop request: check 14 allows one more event only
+            for k in (1, 2, 3):
+                self._emit("iteration", k, None, math.nan, None, math.nan, **extra)
+            return tour
+        if self.mode == "aborts":  # lets a stop request change the build: forbidden for a construction solver
+            self._emit("iteration", 1, None, math.nan, None, math.nan, **extra)
+            return np.concatenate([tour[:1], tour[1:][::-1]]) if self._stop_requested else tour
         if self.mode == "mixed":  # finite costs around an unknown one: nan is skipped, not compared
             cost = float(problem.evaluate(tour))
-            self._emit("iteration", 1, tour, cost)
-            self._emit("iteration", 2, None, math.nan, None, math.nan, **extra)
-            self._emit("iteration", 3, tour, cost)
+            steps = [
+                (tour, cost, None, None, {}),
+                (None, math.nan, None, math.nan, extra),
+                (tour, cost, None, None, {}),
+            ]
+            for k, (t, c, bt, bc, ex) in enumerate(steps, start=1):
+                if self._stop_requested:  # a stop request silences the trace, as in the real builders
+                    break
+                self._emit("iteration", k, t, c, bt, bc, **ex)
         else:
             self._emit("iteration", 1, None, math.nan, None, math.nan, **extra)
         return tour
@@ -815,6 +847,8 @@ def test_check_14_accepts_well_formed_extras_and_unknown_costs(mode):
         ("weights_alone", "needs extra\\['edges'\\] alongside"),
         ("ring_shape", r"finite float array of shape \(m, 2\)"),
         ("ring_nan", r"finite float array of shape \(m, 2\)"),
+        ("chatty", "at most one more iteration event"),
+        ("aborts", "must not change the result of a construction solver"),
     ],
 )
 def test_check_14_rejects_malformed_extras(mode, match):

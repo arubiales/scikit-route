@@ -942,7 +942,8 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
     of the problem, ``extra["edge_weights"]`` a parallel list of numbers in ``[0, 1]``, ``extra["ring"]``
     a finite float ``(m, 2)`` array; recording does not change the result; nothing survives the fit
     (neither the callback nor a stop request); returning ``True`` stops an iterative solver after one outer
-    iteration with ``stop_reason_ == "callback"``."""
+    iteration with ``stop_reason_ == "callback"`` and silences the trace of a non-iterative one (at most one
+    more iteration event before ``"end"``; the result of a construction solver is unchanged, D31)."""
     tags = estimator._get_tags()
     name = type(estimator).__name__
     C, xy = _euclid(6, seed=6)
@@ -1024,9 +1025,29 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
         _assert(len(own_iters) <= 1, 14, "no iteration event may follow a stop request")
         _assert(seen[-1].stage == "end" and seen[-1].solver == name, 14, "the end event must follow a stop")
     else:  # not iterative (or a parallel wrapper that forwards nothing): a True answer must be harmless
-        est = _fit(_fresh(estimator), C, coords=xy, callback=lambda event: True)
+        answered: list[RouteEvent] = []
+
+        def stop_everywhere(event: RouteEvent) -> bool:
+            answered.append(event)
+            return True
+
+        est = _fit(_fresh(estimator), C, coords=xy, callback=stop_everywhere)
         _check_fitted_structure(est, 6, 14)
         _assert("_stop_requested" not in vars(est), 14, "a stop request must not survive the fit")
+        own_stages = [e.stage for e in answered if e.solver == name and "restart" not in e.extra]
+        _assert(
+            own_stages in (["start", "end"], ["start", "iteration", "end"]),
+            14,
+            "after a True answer a non-iterative solver may emit at most one more iteration event before "
+            f"'end' (a stop request silences the trace, D31), got {own_stages}",
+        )
+        if tags.kind == "construction":
+            _assert(
+                np.array_equal(est.tour_, plain.tour_) and est.cost_ == plain.cost_,
+                14,
+                "a stop request must not change the result of a construction solver: it only silences the "
+                "trace (D31)",
+            )
 
 
 def _check_event_trace(

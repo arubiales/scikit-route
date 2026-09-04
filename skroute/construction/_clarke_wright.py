@@ -238,7 +238,8 @@ class ClarkeWright(BaseRouter):
     ``extra["n_trips"]``, the number of savings trips at that moment; ``"end"`` carries the giant
     tour. Refused merges emit nothing. The trace is built inline in the savings loop and costs O(n)
     per event only when a callback is set; a callback returning ``True`` silences the remaining
-    trace events (the merges themselves go on: the result never depends on the callback).
+    trace events — every step when it answers at ``"start"`` (the merges themselves go on: the
+    result never depends on the callback).
 
     References
     ----------
@@ -287,8 +288,9 @@ class ClarkeWright(BaseRouter):
         return RouterTags(kind="construction", requires_symmetric=True, budget_aware=True)
 
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
+        self._emit("start", 0, None, math.nan)  # explicit: a True answered here silences every step
         on_step = None
-        if self._callback is not None:
+        if self._callback is not None and not self._stop_requested:
             lab = problem.labels.tolist()
             d = lab[problem.depot]
             step = 0

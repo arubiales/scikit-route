@@ -166,17 +166,20 @@ class RouteEvent:
         Outer iteration index: 0 at ``"start"``, ``1, 2, ...`` for the iterations, and the last
         iteration index at ``"end"`` — ``n_iter_`` for every iterative solver, the wrappers
         included (``MultiStart`` and the Ensembles emit no iterations of their own and report the
-        winning restart's ``n_iter_``).
+        winning restart's ``n_iter_``); for a construction solver, the number of step events it
+        emitted (D31).
     cost : float
         Objective of ``tour`` as the solver knows it; ``nan`` when there is no tour yet.
     best_cost : float
         Objective of ``best_tour``; ``nan`` when there is none yet. Non-increasing over the
-        events of one fit; at ``"end"`` it equals the recomputed ``cost_``.
+        finite values of one fit (``nan`` means unknown, not a value — D31); at ``"end"`` it
+        equals the recomputed ``cost_``.
     tour : ndarray of shape (n,) or None
         The solver's CURRENT solution as a label-space open giant tour, depot first — the tour it
         is working on (the annealing walker, the candidate of an iterated local search, the best
         individual of a generation...); ``None`` when the solver has no tour yet (``MILP`` before
-        its first integral solution, a construction heuristic at ``"start"``).
+        its first integral solution, a construction heuristic at every event before ``"end"`` —
+        D31).
     best_tour : ndarray of shape (n,) or None
         The best-so-far tour in the same format; at ``"end"`` exactly ``tour_``.
     problem : RoutingProblem

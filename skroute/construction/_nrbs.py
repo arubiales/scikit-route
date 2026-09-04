@@ -253,7 +253,8 @@ class NRBS(BaseRouter):
     the pass first, its chosen candidate second: the graph is undirected), and ``extra["n_edges"]``;
     ``"end"`` carries the tour read from the closed cycle. The trace is built inline and costs O(n)
     per event only when a callback is set; a callback returning ``True`` silences the remaining
-    trace events (the passes go on: the result never depends on the callback).
+    trace events — every step when it answers at ``"start"`` (the passes go on: the result never
+    depends on the callback).
 
     References
     ----------
@@ -299,8 +300,9 @@ class NRBS(BaseRouter):
         return RouterTags(kind="construction", budget_aware=False)
 
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
+        self._emit("start", 0, None, math.nan)  # explicit: a True answered here silences every step
         on_edge = None
-        if self._callback is not None:
+        if self._callback is not None and not self._stop_requested:
             lab = problem.labels.tolist()
             edges: list[tuple[object, object]] = []
 
