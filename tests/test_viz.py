@@ -136,6 +136,28 @@ def closed_xy(problem, xy, label_tour):
     return xy[idx]
 
 
+BASE_LINES = 4  # LivePlot's persistent Line2D artists: current, best, edges, ring (then ``trail`` fading tours)
+
+
+def final_lines(live):
+    """The lines of the final route a LivePlot drew at ``"end"`` (appended after the persistent artists)."""
+    return live._view.final_lines
+
+
+def structure_event(problem, stage="iteration", k=1, solver="Insertion", **extra):
+    """A D31 event without any tour: ``cost``/``best_cost`` nan, the structure in ``extra``."""
+    return FakeEvent(solver, stage, k, math.nan, math.nan, None, None, problem, extra)
+
+
+def with_stamps(rec, stamps):
+    """Rewrite the timestamps of a recorder's events (a controlled clock for the replay tests)."""
+    from dataclasses import replace
+
+    assert len(stamps) == len(rec.events)
+    rec.events = [replace(e, timestamp=float(t)) for e, t in zip(rec.events, stamps, strict=True)]
+    return rec
+
+
 # --------------------------------------------------------------------------- fixtures
 @pytest.fixture(autouse=True)
 def _close_figures():
@@ -368,8 +390,8 @@ def test_liveplot_matplotlib_full_run(dj_problem, dj):
     ax = live.ax
     current, best = ax.lines[0], ax.lines[1]
     assert len(current.get_xdata()) == 0 and len(best.get_xdata()) == 0, "the live lines are cleared at end"
-    final = ax.lines[2:]
-    assert len(final) == 1  # one trip drawn with trip colours
+    final = final_lines(live)
+    assert len(final) == 1 and ax.lines[-1] is final[0]  # one trip drawn with trip colours, appended last
     np.testing.assert_allclose(final[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour))
     assert ax.get_title().startswith("FakeDescent | iteration 9 | cost ")
     assert f"best {events[-1].best_cost:.6g}" in ax.get_title()
@@ -380,7 +402,7 @@ def test_liveplot_lines_and_title_follow_the_events(dj_problem, dj):
     live = LivePlot(dj.coords, title="watching")
     assert live(events[0]) is False
     ax = live.ax
-    assert len(ax.lines) == 2 and len(ax.collections) == 2
+    assert len(ax.lines) == BASE_LINES and len(ax.collections) == 3  # points, depot, pheromone trails
     np.testing.assert_allclose(
         ax.lines[1].get_xydata(), closed_xy(dj_problem, dj.coords, events[0].best_tour)
     )
@@ -437,11 +459,11 @@ def test_liveplot_attached_mid_run_and_multi_trip_end(two_trips):
     live(events[1])  # no "start" seen: the figure is created on the first event received
     assert live.fig is not None and live.n_redraws == 2
     live(events[-1])
-    final = live.ax.lines[2:]
+    final = final_lines(live)
     assert len(final) == len(events[-1].trips) >= 1
     assert "FakeDescent | iteration 2" in live.ax.get_title()
     live(events[1])  # an iteration after an "end" without a new "start": the final route must not stay
-    assert len(live.ax.lines) == 2 and live._view.final_lines == []
+    assert len(live.ax.lines) == BASE_LINES and live._view.final_lines == []
 
 
 def test_liveplot_nested_start_resets_the_drawing_in_place(dj_problem, dj):
@@ -472,9 +494,9 @@ def test_liveplot_nested_start_resets_the_drawing_in_place(dj_problem, dj):
                 )
             )
             if ev.stage == "iteration":
-                assert len(live.ax.lines) == 2, "the previous restart's final route is gone"
+                assert len(live.ax.lines) == BASE_LINES, "the previous restart's final route is gone"
                 assert f"restart {restart}" in live.ax.get_title()
-        assert len(live.ax.lines) == 3 and live.fig is fig  # this restart's final route, same figure
+        assert len(live.ax.lines) == BASE_LINES + 1 and live.fig is fig  # this restart's final route, same figure
     assert live.n_events == 11 and live.n_redraws == 1 + 2 * (1 + 2 + 1)  # every=2: iterations 1 and 3
     assert len(plt.get_fignums()) == 1
 
@@ -495,7 +517,7 @@ def test_liveplot_headless_renders_once(monkeypatch, dj_problem, dj):
     events, _ = fake_run(live, dj_problem, n_iter=20)
     assert live.n_redraws == 22 and len(draws) == 1
     np.testing.assert_allclose(
-        live.ax.lines[2].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
+        final_lines(live)[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
     )
 
 
@@ -528,7 +550,7 @@ def test_liveplot_jupyter_inline_redraws_through_display(monkeypatch, tmp_path, 
     fake_run(live, dj_problem, n_iter=4)
     assert calls == [True] * 6  # every redraw replaces the cell output
     # ... and the figure is closed at the end, or the kernel would display it a second time
-    assert live.fig.number not in plt.get_fignums() and len(live.ax.lines) == 3
+    assert live.fig.number not in plt.get_fignums() and len(live.ax.lines) == BASE_LINES + 1
     rec = Recorder()
     fake_run(rec, dj_problem, n_iter=2)
     anim = rec.animate(dj.coords, figsize=(2, 2))
@@ -567,7 +589,7 @@ def test_liveplot_plotly_script_shows_once_at_end(monkeypatch, dj_problem, dj):
     events, _ = fake_run(live, dj_problem, n_iter=4)
     assert live.ax is None and isinstance(live.fig, go.Figure)
     assert shown == [live.fig]
-    assert [t.type for t in live.fig.data] == ["scatter"] * 4
+    assert [t.type for t in live.fig.data] == ["scatter"] * 6  # nodes, depot, current, best, edges, ring
     best = live.fig.data[3]
     np.testing.assert_allclose(
         np.column_stack([best.x, best.y]), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
@@ -581,7 +603,7 @@ def test_liveplot_plotly_map(monkeypatch, bcn_problem):
     monkeypatch.setattr("plotly.basedatatypes.BaseFigure.show", lambda self, *a, **k: None)
     live = LivePlot(bcn_problem.coords, backend="plotly", map=True, every=2)
     fake_run(live, bcn_problem, n_iter=5)
-    assert [t.type for t in live.fig.data] == ["scattermap"] * 4
+    assert [t.type for t in live.fig.data] == ["scattermap"] * 6
     assert live.fig.layout.map.style == "open-street-map" and 8 < live.fig.layout.map.zoom < 13
     assert live.n_redraws == 1 + 3 + 1
     assert len(live.fig.data[3].lat) == bcn_problem.n + 1  # one closed trip, lat/lon on a map
@@ -663,35 +685,34 @@ def test_recorder_animate_and_save_gif(tmp_path, dj_problem, dj):
     fig = plt.gcf()  # the figure animate created
     assert fig.get_size_inches().tolist() == [3.0, 3.0]
     ax = fig.axes[0]
-    assert len(ax.collections) == 2  # points and depot, drawn once
+    assert len(ax.collections) == 3  # points, depot and the (empty) pheromone trails, drawn once
+    assert anim._interval == 50 and anim._repeat_delay == 1000  # a second on the final picture per loop
     path = tmp_path / "run.gif"
     anim.save(path, writer="pillow", dpi=40)
     with Image.open(path) as im:
         # 5 frames rendered; Pillow folds the "end" frame into the identical last iteration frame
         assert im.n_frames in (4, 5)
-    # the last frame drawn is the last best tour, one line, titled with its cost
-    assert len(ax.lines) == 1
-    np.testing.assert_allclose(
-        ax.lines[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour)
-    )
-    assert ax.get_title() == f"FakeDescent | iteration 3 | best {events[-1].best_cost:.6g}"
+    # the last frame drawn is the final route (the live lines cleared), titled like LivePlot's end
+    final = final_lines(rec._last_live)
+    assert len(final) == 1 and len(ax.lines[0].get_xdata()) == len(ax.lines[1].get_xdata()) == 0
+    np.testing.assert_allclose(final[0].get_xydata(), closed_xy(dj_problem, dj.coords, events[-1].best_tour))
+    last = events[-1]
+    assert ax.get_title() == f"FakeDescent | iteration 3 | cost {last.cost:.6g} | best {last.best_cost:.6g}"
 
 
 def test_recorder_animate_multi_trip_colours(tmp_path, two_trips):
     rec = Recorder()
     fake_run(rec, two_trips.problem_, n_iter=2)
     anim = rec.animate(SQUARE, trip_colors=True)
-    ax = plt.gcf().axes[0]
-    anim.save(
-        tmp_path / "trips.gif", writer="pillow", dpi=30
-    )  # renders every frame; the last one stays drawn
+    anim.save(tmp_path / "trips.gif", writer="pillow", dpi=30)  # renders every frame; the last one stays drawn
     n_trips = len(plot_route(rec.events[-1], SQUARE).lines)  # a recorded event is drawable on its own
-    assert len(ax.lines) == n_trips >= 1
-    assert len({line.get_color() for line in ax.lines}) == n_trips
+    final = final_lines(rec._last_live)
+    assert len(final) == n_trips >= 1
+    assert len({line.get_color() for line in final}) == n_trips
+    assert "2 trips" in rec._last_live.ax.get_title()
     plain = rec.animate(SQUARE, trip_colors=False)
-    ax2 = plt.gcf().axes[0]
     plain.save(tmp_path / "plain.gif", writer="pillow", dpi=30)
-    assert len({line.get_color() for line in ax2.lines}) == 1
+    assert len({line.get_color() for line in final_lines(rec._last_live)}) == 1
 
 
 def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
@@ -700,11 +721,14 @@ def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
     fig = rec.to_plotly(dj.coords)
     assert isinstance(fig, go.Figure)
     assert len(fig.frames) == rec.n_frames == 5
-    assert [t.type for t in fig.data] == ["scatter"] * 3
+    assert [t.type for t in fig.data] == ["scatter"] * 6  # nodes, depot, current, best, edges, ring
     assert len(fig.layout.sliders) == 1 and len(fig.layout.sliders[0].steps) == 5
     assert [s.label for s in fig.layout.sliders[0].steps] == ["0", "1", "3", "5", "6"]
     assert [b.label for b in fig.layout.updatemenus[0].buttons] == ["Play", "Pause"]
-    assert fig.frames[-1].layout.title.text.startswith("FakeDescent | iteration 6 | best ")
+    last = rec.events[-1]
+    assert fig.frames[-1].layout.title.text == (
+        f"FakeDescent | iteration 6 | cost {last.cost:.6g} | best {last.best_cost:.6g}"
+    )
     nested = Recorder()
     for restart in (0, 1):
         events, _ = fake_run(lambda ev: None, dj_problem, n_iter=2, seed=restart)
@@ -724,21 +748,18 @@ def test_recorder_to_plotly(dj_problem, dj, bcn_problem):
             )
     steps = nested.to_plotly(dj.coords).layout.sliders[0].steps
     assert [s.label for s in steps] == ["0:0", "0:1", "0:2", "0:2", "1:0", "1:1", "1:2", "1:2"]
-    assert (
-        nested.to_plotly(dj.coords)
-        .frames[0]
-        .layout.title.text.startswith("FakeDescent | restart 0 | iteration 0")
-    )
+    title = nested.to_plotly(dj.coords).frames[0].layout.title.text
+    assert title.startswith("FakeDescent | iteration 0 | cost ") and title.endswith(" | restart 0")
+    end = fig.frames[-1].data  # the "end" frame: the current trace is cleared, the best is the closed route
+    assert [t.name for t in end] == ["current", "best", "edges", "ring"] and len(end[0].x) == 0
     np.testing.assert_allclose(
-        np.column_stack([fig.frames[-1].data[0].x, fig.frames[-1].data[0].y]),
-        closed_xy(dj_problem, dj.coords, rec.events[-1].best_tour),
+        np.column_stack([end[1].x, end[1].y]), closed_xy(dj_problem, dj.coords, rec.events[-1].best_tour)
     )
     geo = Recorder()
     fake_run(geo, bcn_problem, n_iter=2)
     on_map = geo.to_plotly(bcn_problem.coords, map=True)
-    assert [t.type for t in on_map.data] == [
-        "scattermap"
-    ] * 3 and on_map.layout.map.style == "open-street-map"
+    assert [t.type for t in on_map.data] == ["scattermap"] * 6
+    assert on_map.layout.map.style == "open-street-map"
     assert len(on_map.frames) == 4 and on_map.frames[0].data[0].type == "scattermap"
 
 
@@ -748,7 +769,7 @@ def test_real_liveplot_counts_events_and_redraws(dj):
     sa = SimulatedAnnealing(random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=live)
     assert live.n_events == sa.n_iter_ + 2  # start, one event per level, end
     assert live.n_redraws == 2 + math.ceil(sa.n_iter_ / 50)
-    final = live.ax.lines[2:]
+    final = final_lines(live)
     assert len(final) == 1
     np.testing.assert_allclose(final[0].get_xydata(), closed_xy(sa.problem_, dj.coords, sa.tour_))
     assert live.ax.get_title().startswith(f"SimulatedAnnealing | iteration {sa.n_iter_} | cost ")
@@ -796,11 +817,11 @@ def test_real_liveplot_reused_for_a_second_fit_starts_afresh(dj):
     )
     assert second.stop_reason_ == "max_iter" and second.n_iter_ == 7, "the old stop request is forgotten"
     assert drawn == [1, 4, 7], "the every phase starts again"
-    assert live.fig is not fig1 and len(live.ax.lines) == 3  # a fresh figure: current, best, one final route
+    assert live.fig is not fig1 and len(live.ax.lines) == BASE_LINES + 1  # a fresh figure, one final route
     np.testing.assert_allclose(
-        live.ax.lines[2].get_xydata(), closed_xy(second.problem_, dj.coords, second.tour_)
+        final_lines(live)[0].get_xydata(), closed_xy(second.problem_, dj.coords, second.tour_)
     )
-    assert len(fig1.axes[0].lines) == 3 and len(plt.get_fignums()) == 2  # the first figure is left as it was
+    assert len(fig1.axes[0].lines) == BASE_LINES + 1 and len(plt.get_fignums()) == 2  # the first is left as it was
     wi = load_tsp("wi29")
     with pytest.raises(ValueError, match="coords has 38 rows but the problem has 29 nodes"):
         IteratedLocalSearch(n_iter=1, patience=None).fit(
@@ -824,9 +845,9 @@ def test_real_liveplot_under_multistart(dj):
     )
     assert live.n_events == 2 + 3 * 5  # its own start/end + 3 x (start, 3 iterations, end)
     assert live.n_redraws == 2 + 3 * 4  # every=2 counts from 1 in each restart: iterations 1 and 3
-    assert lines_seen == [2] * 6
+    assert lines_seen == [BASE_LINES] * 6
     assert len(plt.get_fignums()) == 1, "one figure for the whole ensemble"
-    final = live.ax.lines[2:]
+    final = final_lines(live)
     assert len(final) == 1
     np.testing.assert_allclose(final[0].get_xydata(), closed_xy(ms.problem_, dj.coords, ms.tour_))
     assert live.ax.get_title().startswith("MultiStart | ")
