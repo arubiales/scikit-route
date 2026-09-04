@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from collections.abc import Callable
 from numbers import Integral
 from typing import Any
 
 import numpy as np
 from joblib import Parallel, delayed
 
-from ..base import BaseRouter, RouterTags, clone
+from ..base import BaseRouter, RouteEvent, RouterTags, clone
 from ..problem import RoutingProblem
 from ..utils._param_validation import Interval, Options
 
@@ -26,6 +27,25 @@ _N_JOBS = [None, Interval(Integral, 1, None, closed="left"), Interval(Integral, 
 def _fit_one(estimator: BaseRouter, problem: RoutingProblem) -> BaseRouter:
     """Fit one restart on the shared problem and return it (joblib returns results in input order)."""
     return estimator.fit(problem)
+
+
+def _forwarding(
+    owner: BaseRouter, callback: Callable[[RouteEvent], Any], restart: int
+) -> Callable[[RouteEvent], Any]:
+    """The user's callback with ``extra["restart"] = restart`` added to every inner event (D30).
+
+    A ``True`` answer stops the running restart (the inner solver sees the ``True``) and marks the
+    owner so that no further restart is launched.
+    """
+
+    def forward(event: RouteEvent) -> Any:
+        result = callback(dataclasses.replace(event, extra={**event.extra, "restart": restart}))
+        if isinstance(result, (bool, np.bool_)) and bool(result):
+            owner._stop_requested = True
+            return True
+        return result
+
+    return forward
 
 
 class MultiStart(BaseRouter):
@@ -83,7 +103,9 @@ class MultiStart(BaseRouter):
     n_iter_ : int
         Copied from ``best_estimator_`` when the estimator is iterative.
     stop_reason_ : str
-        Copied from ``best_estimator_`` when the estimator is iterative.
+        Copied from ``best_estimator_`` when the estimator is iterative; ``"callback"`` when the
+        ``callback`` of ``fit`` stopped the ensemble (``estimators_`` and ``costs_`` then hold only
+        the restarts that ran).
 
     See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
@@ -103,6 +125,14 @@ class MultiStart(BaseRouter):
     **Parameter protocol.** ``get_params(deep=True)`` exposes the inner knobs as
     ``estimator__<name>``; ``set_params(estimator__alpha=0.99)`` reaches them; ``clone`` copies
     the estimator; ``repr`` prints it.
+
+    **Callback events (D30).** ``MultiStart`` emits ``"start"`` (no tour, ``extra["n_restarts"]``)
+    and ``"end"`` under its own name. When ``n_jobs`` is ``None`` or ``1`` the restarts run one
+    after another and every event of every inner fit is forwarded to the callback under the inner
+    class's name with ``extra["restart"]`` (the restart index); a ``True`` answer stops the running
+    restart and no further restart is launched. Parallel runs (any other ``n_jobs``) forward
+    nothing and a ``True`` answer to the two outer events changes nothing: the drawing libraries
+    behind the usual callbacks are not thread-safe.
 
     **Supports:** whatever the estimator supports; stochastic; iterative iff the estimator is.
 
@@ -185,9 +215,24 @@ class MultiStart(BaseRouter):
         seed = int(rng.integers(0, 2**63 - 1))
         seeds = np.random.SeedSequence(seed).spawn(n_restarts)
         restarts = [clone(estimator).set_params(random_state=np.random.default_rng(s)) for s in seeds]
-        fitted: list[BaseRouter] = Parallel(n_jobs=self.n_jobs, prefer=self.prefer)(
-            delayed(_fit_one)(est, problem) for est in restarts
-        )
+        self._emit("start", 0, None, np.nan, n_restarts=n_restarts)  # D30
+        callback = self._callback
+        fitted: list[BaseRouter]
+        honoured = False  # a stop request can only be honoured while the restarts run one at a time
+        if callback is not None and self.n_jobs in (None, 1):
+            # D30: sequential restarts forward the callback, each event tagged with its restart index; a
+            # True answer stops the running restart and the launch of the next ones. Parallel runs never
+            # forward: the drawing libraries behind the usual callbacks are not thread-safe.
+            fitted = []
+            for k, est in enumerate(restarts):
+                fitted.append(est.fit(problem, callback=_forwarding(self, callback, k)))
+                if self._stop_requested:
+                    break
+            honoured = self._stop_requested
+        else:
+            fitted = Parallel(n_jobs=self.n_jobs, prefer=self.prefer)(
+                delayed(_fit_one)(est, problem) for est in restarts
+            )
         costs = np.array([est.cost_ for est in fitted], dtype=np.float64)
         best_index = int(np.argmin(costs))  # first occurrence: ties go to the lowest index
         best = fitted[best_index]
@@ -210,4 +255,6 @@ class MultiStart(BaseRouter):
         for attr in ("history_", "n_iter_", "stop_reason_"):
             if hasattr(best, attr):
                 setattr(self, attr, getattr(best, attr))
+        if honoured and hasattr(self, "stop_reason_"):
+            self.stop_reason_ = "callback"  # D30: the ensemble itself was cut short
         return problem.to_index_tour(best.tour_)

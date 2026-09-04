@@ -45,13 +45,19 @@ class OrOpt(BaseRouter):
         Cost after each outer iteration (non-increasing).
     n_iter_ : int
         Outer iterations run.
-    stop_reason_ : {"converged", "max_iter"}
+    stop_reason_ : {"converged", "max_iter", "callback"}
         ``"converged"`` when a sweep that started with every node active changed nothing,
-        ``"max_iter"`` after ``max_passes`` sweeps.
+        ``"max_iter"`` after ``max_passes`` sweeps, ``"callback"`` when the ``callback`` of
+        ``fit`` returned ``True``.
 
     Notes
     -----
     Supports: symmetric and asymmetric matrices, multi-trip objective; deterministic.
+
+    Callback events (D30): ``"start"`` carries the ``init`` tour; each ``"iteration"`` event's
+    ``tour`` is the working tour (also the best), with ``extra["moves_applied"]`` equal to
+    ``["or_opt"]`` when the sweep changed the tour (``[]`` otherwise) and ``extra["gain"]`` the
+    sweep's cost change.
 
     One outer iteration = one call of the core's ``or_opt_descent`` with ``max_passes=1``
     (SPEC §4.3); the ``pos``, candidate and don't-look-bit buffers persist across iterations.

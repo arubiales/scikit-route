@@ -105,12 +105,18 @@ class IteratedLocalSearch(BaseRouter):
         Best cost seen after each outer iteration (non-increasing).
     n_iter_ : int
         Outer iterations run (the initial descent is not counted).
-    stop_reason_ : {"max_iter", "patience", "time_limit"}
-        Why the search stopped.
+    stop_reason_ : {"max_iter", "patience", "time_limit", "callback"}
+        Why the search stopped (``"callback"``: the ``callback`` of ``fit`` returned ``True``).
 
     Notes
     -----
     Supports: symmetric and asymmetric matrices, multi-trip objective; stochastic.
+
+    Callback events (D30): ``"start"`` carries the ``init`` tour before the initial descent;
+    each ``"iteration"`` event's ``tour`` is the candidate that iteration produced (kick +
+    descent) and its ``best_tour`` the incumbent best, with the ``extra`` keys ``kick`` (the cut
+    positions of every kick applied, as tuples), ``accepted`` (whether the candidate replaced
+    the current tour) and ``current_cost``.
 
     The descent is the alternating scheme of :class:`~skroute.local_search.LocalSearch`, run to
     convergence after every kick. On a symmetric plain TSP it uses O(1) move deltas, candidate
@@ -213,6 +219,7 @@ class IteratedLocalSearch(BaseRouter):
         # ---- initial local optimum
         cur = initial_tour(problem, self.init, rng)
         cur_cost = float(problem.evaluate(cur))
+        self._emit("start", 0, cur, cur_cost)  # the init tour, before the initial descent (D30)
         temperature = _default_temperature(cur_cost) if self.temperature is None else float(self.temperature)
         if engine is not None:
             engine.load(cur, cur_cost)
@@ -265,9 +272,10 @@ class IteratedLocalSearch(BaseRouter):
             # never reaches exp), and a worse one gives a non-positive exponent, which cannot
             # overflow — exp underflows to 0.0 and the draw is rejected.
             delta = new_cost - cur_cost
-            if _improves(new_cost, cur_cost) or (
+            accepted = _improves(new_cost, cur_cost) or (
                 metropolis and (delta <= 0.0 or u < math.exp(-delta / temperature))
-            ):
+            )
+            if accepted:
                 cur[:] = new
                 cur_cost = new_cost
             if _improves(new_cost, best_cost):
@@ -285,6 +293,24 @@ class IteratedLocalSearch(BaseRouter):
                     best_cost,
                     cur_cost,
                 )
+            if self._callback is not None:
+                # D30: the tour of the event is the candidate this iteration produced (kick + descent),
+                # so a viewer sees the search move even under acceptance="better", where the incumbent
+                # is always the best tour; ``kick`` lists the cut positions of every kick applied
+                self._emit(
+                    "iteration",
+                    k + 1,
+                    new,
+                    new_cost,
+                    best,
+                    best_cost,
+                    kick=[tuple(int(x) for x in c) for c in cuts],
+                    accepted=bool(accepted),
+                    current_cost=cur_cost,
+                )
+            if self._stop_requested:
+                reason = "callback"
+                break
             if self.time_limit is not None and perf_counter() - t0 > self.time_limit:
                 reason = "time_limit"
                 break

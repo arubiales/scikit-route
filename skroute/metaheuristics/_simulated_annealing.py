@@ -96,8 +96,8 @@ class SimulatedAnnealing(BaseRouter):
         ``history_[-1]`` equals ``cost_`` exactly.
     n_iter_ : int
         Temperature levels run.
-    stop_reason_ : {"converged", "patience", "time_limit"}
-        Why the search stopped.
+    stop_reason_ : {"converged", "patience", "time_limit", "callback"}
+        Why the search stopped (``"callback"``: the ``callback`` of ``fit`` returned ``True``).
 
     See :class:`~skroute.base.BaseRouter` for ``tour_``, ``route_``, ``trips_``, ``cost_`` and
     the other fitted attributes shared by every solver.
@@ -122,6 +122,11 @@ class SimulatedAnnealing(BaseRouter):
 
     **Complexity.** O(levels * n_moves) proposals; with the defaults about
     ``1838 * 10 n`` O(1) evaluations for a symmetric TSP, O(n) each otherwise.
+
+    **Callback events (D30).** ``"start"`` carries the ``init`` tour with ``extra["temperature"]``
+    equal to ``t0_``; every level emits one ``"iteration"`` whose ``tour`` is the walker and
+    ``best_tour`` the best buffer, with ``extra`` keys ``temperature`` (the level's), ``accepted``
+    (proposals accepted in the level) and ``n_moves``.
 
     **Supports:** symmetric and asymmetric matrices, the multi-trip objective (both split
     rules); stochastic, iterative, budget-aware.
@@ -253,6 +258,7 @@ class SimulatedAnnealing(BaseRouter):
         else:
             n_levels = 1
         every = max(1, n_levels // 10) if self.verbose == 1 else 1
+        self._emit("start", 0, tour, initial_cost, temperature=t0)  # D30
 
         history: list[float] = []
         temperature = t0
@@ -297,6 +303,23 @@ class SimulatedAnnealing(BaseRouter):
                     accepted,
                     n_moves,
                 )
+            if self._callback is not None:
+                # D30: the walker is the current tour, the kernel's best buffer the best-so-far (guarded:
+                # a level costs microseconds at small n, so even the no-op call would show in fit_time_)
+                self._emit(
+                    "iteration",
+                    level,
+                    tour,
+                    float(state[0]),
+                    best,
+                    float(state[1]),
+                    temperature=temperature,
+                    accepted=int(accepted),
+                    n_moves=n_moves,
+                )
+            if self._stop_requested:
+                reason = "callback"
+                break
             temperature *= self.alpha
             if self.time_limit is not None and perf_counter() - started > self.time_limit:
                 reason = "time_limit"

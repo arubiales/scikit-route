@@ -268,6 +268,7 @@ def run_descent(
         n_candidates=est.n_candidates,  # type: ignore[attr-defined]
     )
     engine.load(initial_tour(problem, init, None))
+    est._emit("start", 0, engine.tour, engine.cost, moves=list(moves))
     every = max(1, max_passes // 10)
     history: list[float] = []
     reason = "max_iter"
@@ -278,6 +279,20 @@ def run_descent(
             log.info(
                 "%s iteration %d/%d: cost %.6g (gain %.6g)", name, k + 1, max_passes, engine.cost, sum(gains)
             )
+        if est._callback is not None:
+            # D30: the working tour is the best tour (a descent never goes uphill); ``moves_applied`` names
+            # the listed descents that changed the tour in this iteration, ``gain`` their summed cost change
+            est._emit(
+                "iteration",
+                k + 1,
+                engine.tour,
+                engine.cost,
+                moves_applied=[m for m, g in zip(moves, gains, strict=True) if g < 0.0],
+                gain=float(sum(gains)),
+            )
+        if est._stop_requested:
+            reason = "callback"
+            break
         if done:
             reason = "converged"
             break
@@ -329,13 +344,19 @@ class LocalSearch(BaseRouter):
         Cost after each outer iteration (non-increasing).
     n_iter_ : int
         Outer iterations run.
-    stop_reason_ : {"converged", "max_iter"}
+    stop_reason_ : {"converged", "max_iter", "callback"}
         ``"converged"`` when an iteration that started with every node active returned a zero
-        gain for every listed move, ``"max_iter"`` after ``max_passes`` iterations.
+        gain for every listed move, ``"max_iter"`` after ``max_passes`` iterations,
+        ``"callback"`` when the ``callback`` of ``fit`` returned ``True``.
 
     Notes
     -----
     Supports: symmetric and asymmetric matrices, multi-trip objective; deterministic.
+
+    Callback events (D30): ``"start"`` carries the ``init`` tour; each ``"iteration"`` event's
+    ``tour`` is the working tour (also the best: a descent never goes uphill), with the ``extra``
+    keys ``moves_applied`` (the listed moves whose descent changed the tour in that iteration)
+    and ``gain`` (the iteration's total cost change, ``<= 0``).
 
     One outer iteration = one call of each listed descent kernel with ``max_passes=1``
     (SPEC §4.3). Symmetric plain TSP uses Bentley's neighbour-list descents with O(1) move

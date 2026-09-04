@@ -113,8 +113,8 @@ class Genetic(BaseRouter):
         Best-so-far objective after each generation (non-increasing).
     n_iter_ : int
         Generations actually run.
-    stop_reason_ : {"max_iter", "patience", "time_limit"}
-        Why the search stopped.
+    stop_reason_ : {"max_iter", "patience", "time_limit", "callback"}
+        Why the search stopped (``"callback"``: the ``callback`` of ``fit`` returned ``True``).
     n_duplicates_ : int
         Children that duplicated an individual of their generation and were mutated once more.
 
@@ -136,6 +136,12 @@ class Genetic(BaseRouter):
     Complexity: O(pop_size * n) per generation without polish; with polish the 2-opt/Or-opt
     descents dominate (O(pop_size * n * k) per generation, k = 10 candidates, more under a
     budget or on an asymmetric matrix where every move is re-evaluated in O(n)).
+
+    Callback events (D30): ``"start"`` carries the ``init`` individual as ``tour`` and the best of
+    the initial population as ``best_tour``; every generation emits one ``"iteration"`` whose
+    ``tour`` is the generation's best individual and ``best_tour`` the run's best, with the
+    ``extra`` keys ``generation`` (generations completed), ``n_evaluations`` (objective
+    evaluations so far), ``mean_cost`` (mean objective of the population) and ``n_duplicates``.
 
     Supports: symmetric and asymmetric matrices, multi-trip objective; stochastic, iterative,
     budget-aware. A truncation ("top X %") selection is planned for 2.1 (issue #37).
@@ -271,8 +277,19 @@ class Genetic(BaseRouter):
         new_pop, new_fit = np.empty_like(pop), np.empty_like(fit)
         best_idx = int(np.argmin(fit))
         best_cost, best = float(fit[best_idx]), pop[best_idx].copy()
-
         n_children = pop_size - n_elite
+        if self._callback is not None:  # D30: the init individual, and the best of the initial population
+            self._emit(
+                "start",
+                0,
+                np.concatenate(([depot], pop[0])),
+                float(fit[0]),
+                np.concatenate(([depot], best)),
+                best_cost,
+                generation=0,
+                n_evaluations=pop_size,
+            )
+
         every = max(1, int(self.n_generations) // 10) if self.verbose == 1 else 1
         history: list[float] = []
         since, n_dups, reason = 0, 0, "max_iter"
@@ -300,6 +317,23 @@ class Genetic(BaseRouter):
             history.append(best_cost)
             if self.verbose and gen % every == 0:
                 log.info("Genetic generation %d: best %.6f, mean %.6f", gen, best_cost, float(fit.mean()))
+            if self._callback is not None:
+                # D30: the best individual of this generation is the current tour, the run's elite the best
+                self._emit(
+                    "iteration",
+                    gen + 1,
+                    np.concatenate(([depot], pop[k])),
+                    float(fit[k]),
+                    np.concatenate(([depot], best)),
+                    best_cost,
+                    generation=gen + 1,
+                    n_evaluations=pop_size + (gen + 1) * n_children,
+                    mean_cost=float(fit.mean()),
+                    n_duplicates=int(n_dups),
+                )
+            if self._stop_requested:
+                reason = "callback"
+                break
             if self.time_limit is not None and perf_counter() - t0 > self.time_limit:
                 reason = "time_limit"
                 break

@@ -625,6 +625,54 @@ def test_iterative_and_exact_duties_are_enforced():
     )
 
 
+def test_fit_callback_plumbing_lives_only_for_the_duration_of_fit():
+    """D30: the callback is validated first, stored under ``_callback`` while ``_solve`` runs (with the
+    problem for label conversion), and removed afterwards whether the fit succeeded or raised."""
+    seen_inside = {}
+
+    class Peek(Identity):
+        def _solve(self, problem, rng):
+            seen_inside["callback"] = self._callback
+            seen_inside["problem"] = self._callback_state.problem if self._callback_state else None
+            seen_inside["stop"] = self._stop_requested
+            return super()._solve(problem, rng)
+
+    recorder = []
+    est = Peek().fit(C4, callback=recorder.append)
+    assert seen_inside["callback"] == recorder.append and seen_inside["problem"] is est.problem_
+    assert seen_inside["stop"] is False and est._stop_requested is False
+    assert "_callback" not in vars(est) and "_callback_state" not in vars(est) and est._callback is None
+    assert [e.stage for e in recorder] == ["start", "end"] and recorder[-1].best_cost == est.cost_ == 22.0
+    with pytest.raises(TypeError, match="callback must be a callable"):
+        Peek().fit(C4, callback="draw me")
+    assert seen_inside["callback"] == recorder.append  # unchanged: the bad callback never reached _solve
+    problem = RoutingProblem(C4, labels=NAMES)
+    assert Peek().fit(problem, callback=lambda e: None).problem_ is problem  # a problem plus callback is fine
+
+    class Boom(Identity):
+        def _solve(self, problem, rng):
+            raise RuntimeError("no tour today")
+
+    boom = Boom()
+    with pytest.raises(RuntimeError, match="no tour today"):
+        boom.fit(C4, callback=lambda e: None)
+    assert "_callback" not in vars(boom) and "_callback_state" not in vars(boom)
+
+
+def test_end_event_is_emitted_by_the_base_class_with_the_recomputed_cost():
+    """D30 / D2: the "end" event carries the validated tour and cost_, never a cost the solver reported."""
+    events = []
+    est = RandomWalk(n_iter=3, random_state=0).fit(C4, labels=NAMES, depot="d", callback=events.append)
+    end = events[-1]
+    assert end.stage == "end" and end.solver == "RandomWalk" and end.problem is est.problem_
+    assert end.best_tour.tolist() == est.tour_.tolist() == end.tour.tolist()
+    assert end.best_cost == est.cost_ == end.cost and end.route.tolist() == est.route_.tolist()
+    assert (
+        events[0].stage == "start" and events[0].iteration == 0
+    )  # synthesised: RandomWalk emits nothing itself
+    assert est.stop_reason_ == "max_iter"  # a solver that never looks at _stop_requested is left alone
+
+
 def test_tags_are_honoured_at_fit():
     C_a, xy = _euclid(5, seed=5, asymmetric=True)
     with pytest.raises(ValueError) as exc:

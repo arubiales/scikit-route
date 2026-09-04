@@ -72,8 +72,8 @@ class AntColony(BaseRouter):
         Best-so-far objective after each iteration (non-increasing).
     n_iter_ : int
         Iterations actually run.
-    stop_reason_ : {"max_iter", "patience", "time_limit"}
-        Why the search stopped.
+    stop_reason_ : {"max_iter", "patience", "time_limit", "callback"}
+        Why the search stopped (``"callback"``: the ``callback`` of ``fit`` returned ``True``).
     pheromone_ : ndarray of shape (n, n), float64
         The trail matrix at the end of the search (index space, matrix row order).
 
@@ -94,6 +94,11 @@ class AntColony(BaseRouter):
     Zero off-diagonal costs (coincident points) are floored to a thousandth of the smallest
     positive cost in the heuristic; the same floor bounds every ``1 / L`` of the trail, so a
     zero-cost tour (all nodes coincident, a zero-cost cycle) is returned with a finite trail.
+
+    Callback events (D30): ``"start"`` has no tour (the nearest-neighbour tour only seeds the
+    trail); every iteration emits one ``"iteration"`` whose ``tour`` is the iteration-best ant and
+    ``best_tour`` the colony's best, with the ``extra`` keys ``n_ants``, ``iteration_best`` (the
+    ant's cost) and ``deposit`` (``"global"`` or ``"iteration"``: whose tour reinforced the trail).
 
     Supports: symmetric and asymmetric matrices (the trail is directional on the latter),
     multi-trip objective; stochastic, iterative, budget-aware.
@@ -214,6 +219,8 @@ class AntColony(BaseRouter):
         dp, pred = np.empty(n, f64), np.empty(n, i64)
 
         best_cost, best = np.inf, nn
+        # D30: the colony has no solution before its first iteration (the NN tour only seeds the trail)
+        self._emit("start", 0, None, np.nan, n_ants=n_ants)
         every = max(1, int(self.n_iter) // 10) if self.verbose == 1 else 1
         history: list[float] = []
         since, reason = 0, "max_iter"
@@ -250,6 +257,22 @@ class AntColony(BaseRouter):
                 log.info(
                     "AntColony iteration %d: best %.6f, iteration best %.6f", it, best_cost, float(costs[ib])
                 )
+            if self._callback is not None:
+                # D30: the iteration-best ant is the current tour, the colony's best the best-so-far
+                self._emit(
+                    "iteration",
+                    it + 1,
+                    tours[ib],
+                    float(costs[ib]),
+                    best,
+                    best_cost,
+                    n_ants=n_ants,
+                    iteration_best=float(costs[ib]),
+                    deposit="global" if (it + 1) % _GLOBAL_BEST_EVERY == 0 else "iteration",
+                )
+            if self._stop_requested:
+                reason = "callback"
+                break
             if self.time_limit is not None and perf_counter() - t0 > self.time_limit:
                 reason = "time_limit"
                 break
