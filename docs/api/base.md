@@ -33,8 +33,11 @@ with the problem's own split rule, so a multi-trip instance can be drawn trip by
 solver documents the keys of `event.extra` it fills (the temperature of an annealing level, the
 kick of an iterated local search, the LP support of a `MILP` cut round...). Inside a
 `MultiStart` the inner solvers report under their own name with `extra["restart"]`, and only when
-the restarts run sequentially (`n_jobs=None` or `1`). The `skroute.viz` package builds live plots
-and animations on top of this protocol.
+the restarts run sequentially (`n_jobs=None` or `1` — then in the calling thread, whatever an
+enclosing `joblib.parallel_config` says, so the callback never runs in a worker). The callback
+runs inside the timed search (`fit_time_` includes it), and an exception it raises propagates out
+of `fit` and leaves the estimator unfitted, at the `"end"` event as at any other. The
+`skroute.viz` package builds live plots and animations on top of this protocol.
 
 ```pycon
 >>> import numpy as np

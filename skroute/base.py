@@ -41,10 +41,14 @@ The duties: emit ``"start"`` once (iteration 0, with the initial tour when the s
 one), ``"iteration"`` once per outer iteration exactly where ``history_`` is appended (the tour
 the solver is working on, the best-so-far, their costs, and solver-specific facts in ``extra``),
 and after every iteration event break out of the loop with ``stop_reason_ = "callback"`` when
-``self._stop_requested`` is set. **Never emit ``"end"``**: the base class does, after the
-returned tour has been validated and priced, so the end event carries exactly ``tour_`` and
-``cost_``; a solver that emits no ``"start"`` gets a synthetic one (no tour) as well, so a
-construction or exact solver need not call ``_emit`` at all.
+``self._stop_requested`` is set. **Never emit ``"end"``** (``_emit`` raises ``ValueError`` on it, as
+on a second ``"start"``): the base class does, after the returned tour has been validated and
+priced, so the end event carries exactly ``tour_`` and ``cost_``; a solver that emits no
+``"start"`` gets a synthetic one (no tour) as well, so a construction or exact solver need not
+call ``_emit`` at all. ``_callback``, ``_callback_state`` and ``_stop_requested`` live on the
+instance for the duration of ``fit`` only: afterwards the class defaults stand in again, so a
+fitted estimator carries no trace of the callback and a bare ``_solve`` never inherits a stale
+stop request.
 """
 
 from __future__ import annotations
@@ -160,7 +164,9 @@ class RouteEvent:
         iteration (where ``history_`` grows), ``"end"`` once with the final result.
     iteration : int
         Outer iteration index: 0 at ``"start"``, ``1, 2, ...`` for the iterations, and the last
-        iteration index at ``"end"``.
+        iteration index at ``"end"`` — ``n_iter_`` for every iterative solver, the wrappers
+        included (``MultiStart`` and the Ensembles emit no iterations of their own and report the
+        winning restart's ``n_iter_``).
     cost : float
         Objective of ``tour`` as the solver knows it; ``nan`` when there is no tour yet.
     best_cost : float
@@ -288,7 +294,9 @@ class BaseRouter:
     cost_ : float
         ``trip_costs_.sum() + fixed_cost * (n_trips_ - 1)``, recomputed from the tour (D2).
     fit_time_ : float
-        Seconds spent in ``_solve``.
+        Seconds spent in ``_solve`` — including the time taken by the ``callback`` of ``fit``,
+        which runs inside it (a live plot redrawn at every iteration inflates it; time a solver
+        without a callback).
     history_ : ndarray of shape (n_iter_,), float64
         Iterative solvers only: best-so-far cost after each outer iteration.
     n_iter_ : int
@@ -352,9 +360,10 @@ class BaseRouter:
     stop_reason_: str
     is_optimal_: bool
 
-    # Callback plumbing (D30): ``fit`` sets these for its duration only (the class defaults keep a
-    # bare ``_solve`` call working) and resets ``_stop_requested``, which ``_emit`` raises when the
-    # callback returns True and every iterative solver honours at its next outer-iteration boundary.
+    # Callback plumbing (D30): ``fit`` sets these for its duration only and removes all three from the
+    # instance afterwards (the class defaults keep a bare ``_solve`` call working and stop a fit's
+    # stop request from leaking into the next one). ``_emit`` raises ``_stop_requested`` when the
+    # callback returns True; every iterative solver honours it at its next outer-iteration boundary.
     _callback: Callable[[RouteEvent], Any] | None = None
     _callback_state: _CallbackState | None = None
     _stop_requested: bool = False
@@ -489,7 +498,10 @@ class BaseRouter:
             Called with one [`RouteEvent`][skroute.base.RouteEvent] at ``"start"``, after every
             outer iteration and at ``"end"`` (D30). Return ``True`` to stop an iterative solver
             after the current outer iteration (``stop_reason_ = "callback"``); any other return
-            value continues. ``skroute.viz`` offers ready-made callbacks that draw the search live.
+            value continues. The callback runs inside the timed search, so its cost counts in
+            ``fit_time_``; an exception it raises propagates out of ``fit`` and leaves the
+            estimator unfitted whatever the stage, the ``"end"`` event included.
+            ``skroute.viz`` offers ready-made callbacks that draw the search live.
 
         Returns
         -------
@@ -590,15 +602,25 @@ class BaseRouter:
             if callback is not None:
                 # the "end" event is the base class's: it carries the validated tour and the recomputed
                 # cost_, so it can never disagree with the fitted attributes (D2); a solver that emitted
-                # no "start" (construction, exact) gets a synthetic one first
+                # no "start" (construction, exact) gets a synthetic one first. The wrappers (MultiStart,
+                # the Ensembles) emit no iteration events of their own and copy n_iter_ from the winning
+                # restart, so an iterative solver's end event reports n_iter_ — which is the last
+                # iteration index for every solver that emits its own iterations.
                 state = self._callback_state
                 assert state is not None
+                last = int(self.n_iter_) if tags.iterative else state.last_iteration
                 if not state.started:
-                    self._emit("start", 0, None, math.nan)
-                self._emit("end", state.last_iteration, tour, self.cost_)
+                    self._dispatch("start", 0, None, math.nan)
+                self._dispatch("end", last, tour, self.cost_)
+        except BaseException:
+            # a fit that raises never looks fitted — neither half-way (a solver's own attributes set before
+            # its kernel or the callback raised) nor fully (the callback raised at the "end" event)
+            self._reset_fitted()
+            raise
         finally:
             self.__dict__.pop("_callback", None)
             self.__dict__.pop("_callback_state", None)
+            self.__dict__.pop("_stop_requested", None)
         return self
 
     def _emit(
@@ -632,6 +654,13 @@ class BaseRouter:
         **extra
             Solver-specific facts, stored verbatim in ``RouteEvent.extra``.
 
+        Raises
+        ------
+        ValueError
+            On a stage outside ``{"start", "iteration", "end"}``, on ``"end"`` (only ``fit`` emits
+            it) and on a second ``"start"`` in the same fit — each a bug in the calling solver,
+            reported at the offending call rather than through a malformed event trace.
+
         Notes
         -----
         Returns immediately when no callback is set, so a solver may call it unconditionally at
@@ -642,18 +671,44 @@ class BaseRouter:
         ``True`` (a Python or numpy bool — any other value is ignored) ``_stop_requested`` is set,
         and the solver honours it at the end of its outer iteration.
         """
-        callback = self._callback
-        if callback is None:
+        if self._callback is None:
             return
         state = self._callback_state
         assert state is not None  # set together with _callback by fit
         if stage not in _STAGES:
             raise ValueError(f"stage must be one of {_STAGES}, got {stage!r}")
+        if stage == "end":
+            raise ValueError(
+                "solvers never emit 'end': fit does, after validating and pricing the returned tour"
+            )
+        if stage == "start":
+            if state.started:
+                raise ValueError("'start' is emitted once per fit; this solver emitted it twice")
+        elif not state.started:
+            self._dispatch("start", 0, None, math.nan)
+        self._dispatch(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+    def _dispatch(
+        self,
+        stage: str,
+        iteration: int,
+        tour_idx: Any,
+        cost: float | None,
+        best_tour_idx: Any = None,
+        best_cost: float | None = None,
+        **extra: Any,
+    ) -> None:
+        """Build the ``RouteEvent`` of an already validated stage and hand it to the callback.
+
+        The body of ``_emit`` without its stage guards; ``fit`` calls it directly for the synthetic
+        ``"start"`` and the ``"end"`` event that only the base class may emit.
+        """
+        callback = self._callback
+        state = self._callback_state
+        assert callback is not None and state is not None  # set together by fit
         if stage == "start":
             state.started = True
-        elif not state.started:
-            self._emit("start", 0, None, math.nan)
-        if stage == "iteration":
+        elif stage == "iteration":
             state.last_iteration = int(iteration)
         problem = state.problem
         tour = None if tour_idx is None else problem.to_label_tour(tour_idx)

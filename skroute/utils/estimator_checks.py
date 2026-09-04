@@ -931,10 +931,12 @@ def _check_label_tour(tour: Any, problem: RoutingProblem, number: int, what: str
 
 def check_callback_protocol(estimator: BaseRouter) -> None:
     """14. ``fit(callback=...)`` (D30): a non-callable raises ``TypeError``; the callback receives
-    ``RouteEvent`` objects forming ``start, iteration*, end`` per emitting solver, with valid label tours,
-    strictly increasing iterations, a non-increasing ``best_cost`` that ends at ``cost_`` with ``tour_``, and
-    one iteration event per entry of ``history_``; recording does not change the result; nothing survives
-    the fit; returning ``True`` stops an iterative solver after one outer iteration with
+    ``RouteEvent`` objects forming ``start, iteration*, end`` per emitting solver, with valid label tours
+    (also under string labels and a non-first depot) each priced exactly by its ``cost``/``best_cost``,
+    iterations indexed ``1, 2, ...`` strictly increasing, a non-increasing ``best_cost`` that ends at
+    ``cost_`` with ``tour_`` (``route``/``trips`` decoding to ``route_``/``trips_``), and one iteration event
+    per entry of ``history_``; recording does not change the result; nothing survives the fit (neither the
+    callback nor a stop request); returning ``True`` stops an iterative solver after one outer iteration with
     ``stop_reason_ == "callback"``."""
     tags = estimator._get_tags()
     name = type(estimator).__name__
@@ -950,20 +952,83 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
             raise AssertionError(f"check 14: fit(callback={bad!r}) must raise TypeError (not callable)")
     plain = _fit(_fresh(estimator), C, coords=xy)
     _assert(
-        "_callback" not in vars(plain) and plain._callback is None,
+        "_callback" not in vars(plain) and plain._callback is None and "_stop_requested" not in vars(plain),
         14,
-        "a fit without callback must leave no _callback attribute behind",
+        "a fit without callback must leave no _callback or _stop_requested attribute behind",
     )
     events: list[RouteEvent] = []
     est = _fit(_fresh(estimator), C, coords=xy, callback=events.append)
     _assert(
-        "_callback" not in vars(est) and est._callback is None, 14, "the callback must not survive the fit"
+        "_callback" not in vars(est) and est._callback is None and "_stop_requested" not in vars(est),
+        14,
+        "the callback must not survive the fit",
     )
     _assert(
         np.array_equal(est.tour_, plain.tour_) and est.cost_ == plain.cost_,
         14,
         "a recording callback must not change the result of the fit",
     )
+    parallel = _has_param(estimator, "n_jobs") and estimator.get_params(deep=False)["n_jobs"] not in (None, 1)
+    _check_event_trace(est, events, name, tags, parallel)
+    # the same fit under string labels with a non-first depot: with the default labels (0..n-1, depot 0)
+    # label space equals index space, so only here does the label conversion of every event tour show
+    labelled: list[RouteEvent] = []
+    try:
+        est_lab = _fit(
+            _fresh(estimator), C, coords=xy, labels=list("abcdef"), depot="c", callback=labelled.append
+        )
+    except Exception as exc:  # check 5 fits the same labels without a callback: the events are the suspect
+        raise AssertionError(
+            f"check 14: the recording fit under string labels (depot 'c') raised {exc!r}; "
+            "does the solver hand INDEX tours to _emit?"
+        ) from exc
+    _check_event_trace(est_lab, labelled, name, tags, parallel)
+    end_lab = [e for e in labelled if e.solver == name and "restart" not in e.extra][-1]
+    _assert(
+        end_lab.tour is not None and end_lab.tour.dtype == object and end_lab.tour[0] == "c",
+        14,
+        "under string labels the event tours must be object arrays starting at the depot label",
+    )
+    if tags.iterative and not parallel:
+        seen: list[RouteEvent] = []
+
+        def stop_at_first_iteration(event: RouteEvent) -> bool:
+            seen.append(event)
+            return event.stage == "iteration"
+
+        est = _fit(_fresh(estimator), C, coords=xy, callback=stop_at_first_iteration)
+        _check_fitted_structure(est, 6, 14)
+        _assert(
+            est.stop_reason_ == "callback",
+            14,
+            f"returning True from the callback must stop with 'callback', got {est.stop_reason_!r}",
+        )
+        _assert(
+            est.n_iter_ == 1,
+            14,
+            f"a stop requested at the first iteration must leave n_iter_ == 1, got {est.n_iter_}",
+        )
+        _assert(
+            "_stop_requested" not in vars(est) and est._stop_requested is False,
+            14,
+            "a stop request must not survive the fit (a later bare _solve would honour it)",
+        )
+        own_iters = [
+            e for e in seen if e.stage == "iteration" and e.solver == name and "restart" not in e.extra
+        ]
+        _assert(len(own_iters) <= 1, 14, "no iteration event may follow a stop request")
+        _assert(seen[-1].stage == "end" and seen[-1].solver == name, 14, "the end event must follow a stop")
+    else:  # not iterative (or a parallel wrapper that forwards nothing): a True answer must be harmless
+        est = _fit(_fresh(estimator), C, coords=xy, callback=lambda event: True)
+        _check_fitted_structure(est, 6, 14)
+        _assert("_stop_requested" not in vars(est), 14, "a stop request must not survive the fit")
+
+
+def _check_event_trace(
+    est: BaseRouter, events: list[RouteEvent], name: str, tags: RouterTags, parallel: bool
+) -> None:
+    """The event trace of one recorded fit of ``est`` (check 14): every event well formed and priced, one
+    ``start, iteration*, end`` stream per emitting solver, and the end event equal to the fitted result."""
     _assert(events, 14, "fit must emit events when a callback is given")
     for e in events:
         _assert(
@@ -984,6 +1049,11 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
         )
         _assert(e.stage != "start" or e.iteration == 0, 14, "a start event must have iteration 0")
         _assert(
+            e.stage != "iteration" or e.iteration >= 1,
+            14,
+            "iteration events are indexed 1, 2, ...: index 0 is the start event",
+        )
+        _assert(
             isinstance(e.cost, float) and isinstance(e.best_cost, float),
             14,
             "cost and best_cost must be floats",
@@ -996,6 +1066,13 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
             else:
                 _check_label_tour(tour, e.problem, 14, f"RouteEvent.{what}")
                 _assert(math.isfinite(cost), 14, f"the cost of a {what} must be finite, got {cost}")
+                priced = float(e.problem.evaluate(e.problem.to_index_tour(tour)))
+                _assert(
+                    math.isclose(cost, priced, rel_tol=1e-9, abs_tol=1e-9),
+                    14,
+                    f"{e.solver} {e.stage} event {e.iteration}: {what} costs {priced} under the problem's "
+                    f"objective but the event reports {cost} (D30: the tour's cost as the solver knows it)",
+                )
         if math.isfinite(e.cost) and math.isfinite(e.best_cost):
             _assert(
                 e.cost >= e.best_cost - 1e-9 * max(1.0, abs(e.best_cost)),
@@ -1052,7 +1129,14 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
         14,
         f"the end event's best_cost {end.best_cost} must equal cost_ {est.cost_}",
     )
-    parallel = _has_param(estimator, "n_jobs") and estimator.get_params(deep=False)["n_jobs"] not in (None, 1)
+    route = end.route
+    _assert(
+        route is not None
+        and route.tolist() == est.route_.tolist()
+        and [t.tolist() for t in end.trips] == [t.tolist() for t in est.trips_],
+        14,
+        "the end event's route and trips must decode to route_ and trips_",
+    )
     forwarded = [e for e in events if "restart" in e.extra]
     _assert(
         all(isinstance(e.extra["restart"], int) and e.extra["restart"] >= 0 for e in forwarded),
@@ -1061,6 +1145,11 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
     )
     iters = [e for e in own if e.stage == "iteration"]
     if tags.iterative:
+        _assert(
+            end.iteration == est.n_iter_,
+            14,
+            f"an iterative solver's end event must report n_iter_={est.n_iter_}, got {end.iteration}",
+        )
         if iters:
             _assert(
                 len(iters) == est.n_iter_,
@@ -1080,33 +1169,6 @@ def check_callback_protocol(estimator: BaseRouter) -> None:
                 "an iterative solver must emit one iteration event per outer iteration "
                 "(a wrapper: forward the events of its restarts with extra['restart'])",
             )
-    if tags.iterative and not parallel:
-        seen: list[RouteEvent] = []
-
-        def stop_at_first_iteration(event: RouteEvent) -> bool:
-            seen.append(event)
-            return event.stage == "iteration"
-
-        est = _fit(_fresh(estimator), C, coords=xy, callback=stop_at_first_iteration)
-        _check_fitted_structure(est, 6, 14)
-        _assert(
-            est.stop_reason_ == "callback",
-            14,
-            f"returning True from the callback must stop with 'callback', got {est.stop_reason_!r}",
-        )
-        _assert(
-            est.n_iter_ == 1,
-            14,
-            f"a stop requested at the first iteration must leave n_iter_ == 1, got {est.n_iter_}",
-        )
-        own_iters = [
-            e for e in seen if e.stage == "iteration" and e.solver == name and "restart" not in e.extra
-        ]
-        _assert(len(own_iters) <= 1, 14, "no iteration event may follow a stop request")
-        _assert(seen[-1].stage == "end" and seen[-1].solver == name, 14, "the end event must follow a stop")
-    else:  # not iterative (or a parallel wrapper that forwards nothing): a True answer must be harmless
-        est = _fit(_fresh(estimator), C, coords=xy, callback=lambda event: True)
-        _check_fitted_structure(est, 6, 14)
 
 
 _CHECKS: list[tuple[str, Callable[[BaseRouter], None]]] = [

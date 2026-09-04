@@ -96,7 +96,8 @@ class AntColony(BaseRouter):
     zero-cost tour (all nodes coincident, a zero-cost cycle) is returned with a finite trail.
 
     Callback events (D30): ``"start"`` has no tour (the nearest-neighbour tour only seeds the
-    trail); every iteration emits one ``"iteration"`` whose ``tour`` is the iteration-best ant and
+    trail) and carries ``extra["n_ants"]``; every iteration emits one ``"iteration"`` whose
+    ``tour`` is the iteration-best ant and
     ``best_tour`` the colony's best, with the ``extra`` keys ``n_ants``, ``iteration_best`` (the
     ant's cost) and ``deposit`` (``"global"`` or ``"iteration"``: whose tour reinforced the trail).
 

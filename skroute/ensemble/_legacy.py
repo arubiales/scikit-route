@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from ..base import BaseRouter, RouterTags
+from ..base import BaseRouter, RouteEvent, RouterTags
 from ..metaheuristics import Genetic, SimulatedAnnealing
 from ..problem import RoutingProblem
 from ..utils._param_validation import Interval
@@ -45,6 +45,19 @@ class _EnsembleBase(BaseRouter):
     def _solve(self, problem: RoutingProblem, rng: np.random.Generator | None) -> np.ndarray:
         assert rng is not None  # stochastic tag: the base class always hands a Generator
         self._emit("start", 0, None, np.nan, n_restarts=self._n_restarts())  # D30
+        callback = self._callback
+        if callback is not None and self._stop_requested:
+            # D30: a True answer to the wrapper's own "start" must stop it after one restart (its outer
+            # iteration). The inner MultiStart has its own flag, so it learns the request through a True
+            # at its own "start" event — the user's callback still sees that event and its answer is kept.
+            user = callback
+
+            def callback(event: RouteEvent) -> Any:
+                result = user(event)
+                if event.solver == "MultiStart" and event.stage == "start" and "restart" not in event.extra:
+                    return True
+                return result
+
         ms = MultiStart(
             self._inner(),
             n_restarts=self._n_restarts(),
@@ -52,10 +65,9 @@ class _EnsembleBase(BaseRouter):
             prefer="threads",
             random_state=rng,  # the whole run consumes exactly the outer random_state
             verbose=self.verbose,  # type: ignore[attr-defined]
-        ).fit(problem, callback=self._callback)  # D30: the inner MultiStart forwards it when n_jobs is 1
+        ).fit(problem, callback=callback)  # D30: the inner MultiStart forwards it when n_jobs is None or 1
         for attr in _COPIED:
             setattr(self, attr, getattr(ms, attr))
-        self._stop_requested = ms._stop_requested
         return problem.to_index_tour(ms.tour_)
 
 

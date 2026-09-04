@@ -173,7 +173,9 @@ class RandomDescentRouter(BaseRouter):
 
     Each outer iteration draws positions ``1 <= i < j <= n-1``, reverses ``tour[i..j]`` and keeps the result
     when the objective improves; ``history_`` is the best-so-far cost. Cheap, honest about every duty of the
-    iterative contract, and observably seed-dependent (seeds 0 and 1 diverge on n = 12 already, check 11).
+    iterative contract — D30 included: ``"start"`` with the init tour, one ``"iteration"`` per outer
+    iteration (the candidate, the best-so-far, ``extra["positions"]``) and a stop request honoured at the
+    iteration boundary — and observably seed-dependent (seeds 0 and 1 diverge on n = 12 already, check 11).
     """
 
     _parameter_constraints = {
@@ -208,6 +210,7 @@ class RandomDescentRouter(BaseRouter):
         t0 = time.perf_counter()
         best = initial_tour(problem, self.init, rng)
         best_cost = problem.evaluate(best)
+        self._emit("start", 0, best, best_cost)  # D30
         positions = np.arange(1, problem.n)  # n >= 3, so there are at least two movable positions
         history, since, reason = [], 0, "max_iter"
         for k in range(self.n_iter):
@@ -222,6 +225,10 @@ class RandomDescentRouter(BaseRouter):
             history.append(best_cost)
             if self.verbose:
                 log.info("RandomDescentRouter iteration %d: best %.6f", k, best_cost)
+            self._emit("iteration", k + 1, cand, c, best, best_cost, positions=(int(i), int(j)))  # D30
+            if self._stop_requested:
+                reason = "callback"
+                break
             if self.time_limit is not None and time.perf_counter() - t0 > self.time_limit:
                 reason = "time_limit"
                 break

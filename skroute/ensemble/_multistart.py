@@ -70,7 +70,10 @@ class MultiStart(BaseRouter):
     n_jobs : int or None, default None
         Workers for :class:`joblib.Parallel`: ``None`` runs the restarts one after another
         (unless an enclosing ``joblib.parallel_config`` says otherwise), ``-1`` uses every
-        CPU, a positive int that many workers. Never changes the result.
+        CPU, a positive int that many workers. Never changes the result. With a ``callback``
+        and ``n_jobs`` ``None`` or ``1`` the restarts run sequentially in the calling thread
+        whatever an enclosing ``parallel_config`` says, so the callback is never invoked from a
+        worker thread.
     prefer : {"threads", "processes"} or None, default "threads"
         joblib backend hint. Threads are the default because the solver kernels release the
         GIL and a large cost matrix (900 MB at n = 10 639) must not be pickled once per
@@ -127,12 +130,17 @@ class MultiStart(BaseRouter):
     the estimator; ``repr`` prints it.
 
     **Callback events (D30).** ``MultiStart`` emits ``"start"`` (no tour, ``extra["n_restarts"]``)
-    and ``"end"`` under its own name. When ``n_jobs`` is ``None`` or ``1`` the restarts run one
-    after another and every event of every inner fit is forwarded to the callback under the inner
-    class's name with ``extra["restart"]`` (the restart index); a ``True`` answer stops the running
-    restart and no further restart is launched. Parallel runs (any other ``n_jobs``) forward
-    nothing and a ``True`` answer to the two outer events changes nothing: the drawing libraries
-    behind the usual callbacks are not thread-safe.
+    and ``"end"`` (``iteration`` = the winning restart's ``n_iter_``) under its own name. When
+    ``n_jobs`` is ``None`` or ``1`` the restarts run one after another **in the calling thread,
+    whatever an enclosing** ``joblib.parallel_config`` **says**, and every event of every inner fit
+    is forwarded to the callback under the inner class's name with ``extra["restart"]`` (the
+    restart index); a ``True`` answer stops the running restart and no further restart is
+    launched (a ``True`` at the outer ``"start"`` lets exactly one restart run). Parallel runs
+    (any other ``n_jobs``) forward nothing and a ``True`` answer to the two outer events changes
+    nothing: the drawing libraries behind the usual callbacks are not thread-safe. Wrapping a
+    wrapper (a ``MultiStart`` of a ``MultiStart`` or of an Ensemble) is legal but pointless — it
+    equals one ``MultiStart`` with more restarts — and the forwarded events then carry the
+    outermost restart index only.
 
     **Supports:** whatever the estimator supports; stochastic; iterative iff the estimator is.
 
