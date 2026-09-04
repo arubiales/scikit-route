@@ -131,14 +131,14 @@ def resolve(obj: Any, coords: Any) -> tuple[np.ndarray, list[np.ndarray], int, n
             obj.cost_,
         )
     if is_event(obj):
-        problem = getattr(obj, "problem", None)
-        if problem is None:
+        ev_problem: Any = getattr(obj, "problem", None)
+        if ev_problem is None:
             raise ValueError("the event carries no RoutingProblem; nothing to decode")
-        xy = _problem_coords(problem, coords)
+        xy = _problem_coords(ev_problem, coords)
         tour = obj.best_tour if obj.best_tour is not None else obj.tour
-        trips = closed_trips(problem, tour) if tour is not None else []
+        trips = closed_trips(ev_problem, tour) if tour is not None else []
         cost = float(obj.best_cost) if obj.best_tour is not None else float(obj.cost)
-        return xy, trips, problem.depot, problem.labels, str(obj.solver), cost
+        return xy, trips, ev_problem.depot, ev_problem.labels, str(obj.solver), cost
     if coords is None:
         raise ValueError("a route array needs coords=: pass the (n, 2) positions its entries index")
     trips = trips_from_array(obj)
@@ -196,12 +196,13 @@ def draw_trips(
 
 
 def frame_axes(ax: Axes, xy: np.ndarray) -> None:
-    """Equal aspect, a 5 % margin around the points and no ticks (the picture is the route, not a chart)."""
+    """Equal aspect in a square data window (5 % margin), no ticks: the picture is the route, not a chart."""
     lo, hi = xy.min(axis=0), xy.max(axis=0)
-    pad = 0.05 * np.maximum(hi - lo, 1e-9)
-    ax.set_xlim(lo[0] - pad[0], hi[0] + pad[0])
-    ax.set_ylim(lo[1] - pad[1], hi[1] + pad[1])
-    ax.set_aspect("equal", adjustable="datalim")
+    half = 0.55 * max(float((hi - lo).max()), 1e-9)
+    cx, cy = (lo + hi) / 2.0
+    ax.set_xlim(cx - half, cx + half)
+    ax.set_ylim(cy - half, cy + half)
+    ax.set_aspect("equal", adjustable="box")
     ax.set_xticks([])
     ax.set_yticks([])
 

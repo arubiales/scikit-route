@@ -45,6 +45,8 @@ Optional extras:
 |----------|-----------------------------------------------------------|
 | `pandas` | `DataFrame` inputs and outputs (`as_frame=True` loaders)  |
 | `google` | the Google Distance Matrix client                         |
+| `viz`    | matplotlib: `plot_route`, `LivePlot`, `Recorder` (GIFs)   |
+| `viz-map`| + plotly: OpenStreetMap tiles and the plotly live backend |
 | `test`   | pytest, hypothesis, pandas                                |
 | `docs`   | MkDocs Material and mkdocstrings                          |
 | `dev`    | everything above plus ruff, mypy, cython-lint, pre-commit |
@@ -139,6 +141,27 @@ Use `MILP` (or `BruteForce` below 12 nodes) when you need a certificate of optim
 and `SimulatedAnnealing`, `TabuSearch` or `Genetic` when the multi-trip budget matters
 and you want to trade time for quality. `MultiStart` runs any stochastic solver from
 several seeds in parallel and keeps the best result.
+
+## Watch the search
+
+Every solver accepts `fit(..., callback=)`; `skroute.viz` (extra `viz`, matplotlib) turns
+that into a live picture of the search — the current tour, the best tour so far and the
+solver's own facts, redrawn while `fit` runs — or a recording of it (`Recorder`, saved as
+a GIF or as a Plotly figure with a slider; `viz-map` adds OpenStreetMap tiles):
+
+<p align="center">
+  <img src="docs/images/live_demo.gif" alt="SimulatedAnnealing untangling a random tour of the 38 cities of Djibouti" width="420">
+</p>
+
+```python
+>>> from skroute import SimulatedAnnealing
+>>> from skroute.datasets import load_barcelona
+>>> from skroute.viz import LivePlot
+>>> bcn = load_barcelona()  # 19 places, coords are (lat, lon)
+>>> live = LivePlot(bcn.coords[:, ::-1], every=10)  # x = longitude; map=True draws on OpenStreetMap tiles
+>>> sa = SimulatedAnnealing(random_state=0).fit(bcn.cost, labels=bcn.labels, callback=live)  # doctest: +SKIP
+
+```
 
 ## Documentation
 
