@@ -39,7 +39,10 @@ from PIL import Image
 
 import skroute
 from skroute import (
+    SOM,
+    AntColony,
     BruteForce,
+    Insertion,
     IteratedLocalSearch,
     MultiStart,
     NearestNeighbour,
@@ -945,6 +948,64 @@ def test_real_plot_route_of_a_multi_trip_event(two_trips):
     assert ax.get_title() == "BruteForce | cost 41 | 2 trips"
     assert [t.tolist() for t in rec.events[-1].trips] == [t.tolist() for t in events[-1].trips]
     assert rec.events[-1].route.tolist() == events[-1].route.tolist() == est.route_.tolist()
+
+
+# --------------------------------------------------------------------------- the real D31 traces
+def test_real_insertion_steps_are_recorded_and_drawn(dj):
+    rec = Recorder()
+    est = Insertion().fit(dj.distance_matrix(), labels=dj.labels, callback=rec)
+    n = len(dj.labels)
+    steps = [e for e in rec.events if e.stage == "iteration"]
+    assert len(steps) == n - 1 and all(e.tour is None and math.isnan(e.cost) and e.drawable for e in steps)
+    assert rec.n_frames == n  # n - 1 construction steps and the final tour
+    assert [len(e.extra["edges"]) for e in steps] == list(range(2, n + 1))  # closed partial cycles
+    closed = [*est.tour_.tolist(), est.tour_[0]]
+    assert {frozenset(p) for p in steps[-1].extra["edges"]} == {frozenset(p) for p in pairwise(closed)}
+    ax = plot_route(steps[3], dj.coords)
+    assert ax.get_title().endswith("5 edges")
+    assert any(line.get_color() == EDGE_COLOR and len(line.get_xdata()) > 0 for line in ax.lines)
+    assert len(rec.frame_delays(speed=1e9)) == rec.n_frames
+    live = rec.replay(dj.coords, speed=1e9)
+    assert live.n_events == len(rec)
+    np.testing.assert_allclose(
+        final_lines(live)[0].get_xydata(), closed_xy(est.problem_, dj.coords, est.tour_)
+    )
+
+
+def test_real_som_ring_stays_around_the_cities(dj):
+    rec = Recorder()
+    est = SOM(random_state=0).fit(dj.distance_matrix(), coords=dj.coords, labels=dj.labels, callback=rec)
+    rings = [e.extra["ring"] for e in rec.events if e.stage == "iteration"]
+    assert len(rings) == est.n_iter_ >= 2 and all(r.shape == (rings[0].shape[0], 2) for r in rings)
+    lo, hi = dj.coords.min(axis=0), dj.coords.max(axis=0)
+    margin = 0.1 * (hi - lo)
+    assert all(np.all(r >= lo - margin) and np.all(r <= hi + margin) for r in rings)
+    ax = plot_route(rec.events[1], dj.coords)
+    ring_lines = [line for line in ax.lines if line.get_color() == RING_COLOR]
+    assert len(ring_lines) == 1 and len(ring_lines[0].get_xdata()) == rings[0].shape[0] + 1  # closed
+    live = rec.replay(dj.coords, speed=1e9)
+    assert live.n_events == len(rec)
+    np.testing.assert_allclose(
+        final_lines(live)[0].get_xydata(), closed_xy(est.problem_, dj.coords, est.tour_)
+    )
+
+
+def test_real_ant_colony_trails_are_recorded_and_drawn(dj):
+    rec = Recorder()
+    AntColony(n_iter=3, random_state=0).fit(dj.distance_matrix(), labels=dj.labels, callback=rec)
+    n = len(dj.labels)
+    steps = [e for e in rec.events if e.stage == "iteration"]
+    assert len(steps) == 3
+    for e in steps:
+        assert len(e.extra["edges"]) == len(e.extra["edge_weights"]) == min(3 * n, n * (n - 1) // 2)
+        assert all(0.0 < w <= 1.0 for w in e.extra["edge_weights"])
+        assert all(a in dj.labels and b in dj.labels for a, b in e.extra["edges"])
+    ax = plot_route(steps[-1], dj.coords)
+    assert any(
+        len(c.get_segments()) == len(steps[-1].extra["edges"])
+        for c in ax.collections
+        if hasattr(c, "get_segments")
+    )
 
 
 # --------------------------------------------------------------------------- plot_route_map
