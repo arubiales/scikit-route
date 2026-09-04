@@ -70,7 +70,8 @@ carry it, in a shape every viewer understands (D31); keys a viewer does not know
   depot` legs of `ClarkeWright` before the first merge and after each accepted one (`merges + 1`,
   plus `extra["n_trips"]`), the edge set of `NRBS` after each connection (`n`, plus
   `extra["n_edges"]`); `MILP` reports the support of each cut round; `AntColony` its strongest
-  `min(3n, n(n-1)/2)` pheromone trails.
+  `min(3n, n(n-1)/2)` pheromone trails (`min(3n, n(n-1))` arcs on an asymmetric matrix, where every
+  arc competes).
 - `extra["edge_weights"]` — floats in `[0, 1]` parallel to `extra["edges"]`: `AntColony`'s trail
   strength over the current `tau_max`, `MILP`'s variable values of the support.
 - `extra["ring"]` — an `(m, 2)` float array: `SOM`'s neuron positions after each epoch, in the
@@ -78,6 +79,8 @@ carry it, in a shape every viewer understands (D31); keys a viewer does not know
 
 The traces cost nothing without a callback: the kernels record nothing and the Python side replays
 nothing. Every event owns its list or array — a recorder that keeps the events keeps the history.
+A construction solver has no search to stop: a callback returning `True` only silences its remaining
+step events (all of them when it answers at `"start"`), and the result never depends on the callback.
 
 ```pycon
 >>> import math
