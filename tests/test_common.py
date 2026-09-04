@@ -10,7 +10,6 @@ import logging
 import os
 import re
 import sys
-import time
 
 import numpy as np
 import pytest
@@ -20,7 +19,7 @@ from conftest import DUMMY_SOLVERS, RandomDescentRouter, fit_kwargs, is_dummy, m
 
 from skroute.base import BaseRouter, RouterTags, clone
 from skroute.exceptions import InfeasibleProblemError
-from skroute.utils import Bunch, estimator_checks, initial_tour
+from skroute.utils import Bunch, estimator_checks
 from skroute.utils.estimator_checks import CheckSkipped, check_router
 
 CHECKS = check_router.checks
@@ -30,47 +29,12 @@ CHECK_FNS = [fn for _, fn in CHECKS]
 log = logging.getLogger("skroute")
 
 
-class _WatchedRandomDescent(RandomDescentRouter):
-    """conftest's iterative dummy speaking the D30 protocol: ``"start"`` with the init tour, one
-    ``"iteration"`` event per outer iteration (the candidate, the best-so-far) and a stop request honoured
-    at the iteration boundary. The battery (check 14) requires this of every iterative solver, so the
-    pre-D30 dummy stands in for the roster only through this subclass."""
+class _SilentRandomDescent(RandomDescentRouter):
+    """conftest's iterative dummy as it was before D30: no events, and a stop request never read. The
+    negative case of check 14 ("an iterative solver must emit one iteration event per outer iteration")."""
 
-    def _solve(self, problem, rng):
-        t0 = time.perf_counter()
-        best = initial_tour(problem, self.init, rng)
-        best_cost = problem.evaluate(best)
-        self._emit("start", 0, best, best_cost)
-        positions = np.arange(1, problem.n)
-        history, since, reason = [], 0, "max_iter"
-        for k in range(self.n_iter):
-            i, j = np.sort(rng.choice(positions, size=2, replace=False))
-            cand = best.copy()
-            cand[i : j + 1] = cand[i : j + 1][::-1]
-            c = problem.evaluate(cand)
-            if c < best_cost - 1e-9 * max(1.0, abs(best_cost)):
-                best, best_cost, since = cand, c, 0
-            else:
-                since += 1
-            history.append(best_cost)
-            if self.verbose:
-                log.info("_WatchedRandomDescent iteration %d: best %.6f", k, best_cost)
-            self._emit("iteration", k + 1, cand, c, best, best_cost, positions=(int(i), int(j)))
-            if self._stop_requested:
-                reason = "callback"
-                break
-            if self.time_limit is not None and time.perf_counter() - t0 > self.time_limit:
-                reason = "time_limit"
-                break
-            if self.patience is not None and since >= self.patience:
-                reason = "patience"
-                break
-        self.history_, self.n_iter_, self.stop_reason_ = np.asarray(history), len(history), reason
-        return best
-
-
-#: The dummies the whole battery runs on: conftest's, with the iterative one speaking the D30 protocol.
-BATTERY_DUMMIES = [_WatchedRandomDescent if D is RandomDescentRouter else D for D in DUMMY_SOLVERS]
+    def _emit(self, *args, **kwargs):
+        return None
 
 
 def _run(check, estimator):
@@ -169,7 +133,7 @@ def test_missing_tolerance_message():
 
 
 # --------------------------------------------------------------------------- the battery on the dummies
-@pytest.mark.parametrize("Dummy", BATTERY_DUMMIES, ids=lambda s: s.__name__)
+@pytest.mark.parametrize("Dummy", DUMMY_SOLVERS, ids=lambda s: s.__name__)
 @pytest.mark.parametrize("check", CHECK_FNS, ids=CHECK_IDS)
 def test_battery_passes_on_dummies(Dummy, check):
     _run(check, make(Dummy))
@@ -199,7 +163,7 @@ def test_multi_trip_checks_on_dummies_with_synthetic_data(Dummy, monkeypatch):
 
 def test_check_router_driver_runs_and_reports_skips(monkeypatch, recwarn):
     monkeypatch.setattr(estimator_checks, "_load_alicante", _synthetic_alicante)
-    check_router(_WatchedRandomDescent())
+    check_router(RandomDescentRouter())
     assert not [w for w in recwarn if "skipped" in str(w.message)]
 
     def unavailable():
@@ -207,7 +171,7 @@ def test_check_router_driver_runs_and_reports_skips(monkeypatch, recwarn):
 
     monkeypatch.setattr(estimator_checks, "_load_alicante", unavailable)
     with pytest.warns(UserWarning, match="check_router: 4_cost_recomputed skipped: no datasets here"):
-        check_router(_WatchedRandomDescent())
+        check_router(RandomDescentRouter())
 
 
 def test_check_router_rejects_wrong_input():
@@ -417,7 +381,7 @@ def test_battery_rejects_violations(Bad, check, match):
 
 
 # --------------------------------------------------------------------------- what check 14 must reject (D30)
-class _IgnoresStopRequest(_WatchedRandomDescent):
+class _IgnoresStopRequest(RandomDescentRouter):
     """Emits every event but loses the stop request."""
 
     def _emit(self, *args, **kwargs):
@@ -425,7 +389,7 @@ class _IgnoresStopRequest(_WatchedRandomDescent):
         self._stop_requested = False
 
 
-class _EmitsDepotLast(_WatchedRandomDescent):
+class _EmitsDepotLast(RandomDescentRouter):
     """The iteration events carry the tour reversed: a label tour that does not start at the depot."""
 
     def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
@@ -434,9 +398,9 @@ class _EmitsDepotLast(_WatchedRandomDescent):
         super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
 
 
-class _BestCostRises(_WatchedRandomDescent):
-    """Reports a best_cost that grows with the iteration (never above the current cost, so only the
-    monotonicity check can catch it)."""
+class _BestCostRises(RandomDescentRouter):
+    """Reports a best_cost that grows with the iteration, never above the current cost: it is not the price
+    of the best tour it hands over, which pricing catches before monotonicity does."""
 
     def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
         if stage == "iteration":
@@ -444,7 +408,48 @@ class _BestCostRises(_WatchedRandomDescent):
         super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
 
 
-class _ResultDependsOnTheCallback(_WatchedRandomDescent):
+class _BestTourIsTheCandidate(RandomDescentRouter):
+    """Reports the candidate as the best tour (with its true cost, so every event prices exactly): the
+    best-so-far then goes up and down and only the monotonicity check can catch it."""
+
+    def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
+        if stage == "iteration":
+            best_tour_idx, best_cost = tour_idx, cost
+        super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+
+class _CostLies(RandomDescentRouter):
+    """Reports the best-so-far cost as the cost of the candidate tour: finite, monotone, ``cost >= best_cost``
+    — only pricing the tour catches it."""
+
+    def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
+        if stage == "iteration":
+            cost = best_cost
+        super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+
+class _IterationZero(RandomDescentRouter):
+    """Indexes its iteration events from 0 (the start's index) instead of 1."""
+
+    def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
+        if stage == "iteration":
+            iteration -= 1
+        super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+
+class _LabelBlind(RandomDescentRouter):
+    """Hands LABEL tours to ``_emit`` (a double conversion): invisible under the default labels, where label
+    space equals index space, it explodes under string labels."""
+
+    def _emit(self, stage, iteration, tour_idx, cost, best_tour_idx=None, best_cost=None, **extra):
+        if self._callback is not None and tour_idx is not None:
+            problem = self._callback_state.problem
+            tour_idx = problem.to_label_tour(tour_idx)
+            best_tour_idx = None if best_tour_idx is None else problem.to_label_tour(best_tour_idx)
+        super()._emit(stage, iteration, tour_idx, cost, best_tour_idx, best_cost, **extra)
+
+
+class _ResultDependsOnTheCallback(RandomDescentRouter):
     """Returns the body of its tour reversed when watched: same cost on a symmetric matrix, other tour_."""
 
     def _solve(self, problem, rng):
@@ -458,12 +463,16 @@ class _ResultDependsOnTheCallback(_WatchedRandomDescent):
     ("Bad", "match"),
     [
         (
-            RandomDescentRouter,
+            _SilentRandomDescent,
             "check 14: an iterative solver must emit one iteration event per outer iteration",
         ),
         (_IgnoresStopRequest, "check 14: returning True from the callback must stop with 'callback'"),
         (_EmitsDepotLast, "check 14: RouteEvent.tour must start at the depot label"),
-        (_BestCostRises, "check 14: .*best_cost must be non-increasing"),
+        (_BestCostRises, "check 14: .*best_tour costs .* under the problem's objective but the event"),
+        (_BestTourIsTheCandidate, "check 14: .*best_cost must be non-increasing"),
+        (_CostLies, "check 14: .*tour costs .* under the problem's objective but the event reports"),
+        (_IterationZero, "check 14: iteration events are indexed 1, 2, ...: index 0 is the start event"),
+        (_LabelBlind, "check 14: the recording fit under string labels .* raised"),
         (_ResultDependsOnTheCallback, "check 14: a recording callback must not change the result"),
     ],
     ids=[
@@ -471,13 +480,17 @@ class _ResultDependsOnTheCallback(_WatchedRandomDescent):
         "ignores-stop",
         "depot-last",
         "best-cost-rises",
+        "best-tour-is-the-candidate",
+        "cost-lies",
+        "iteration-zero",
+        "label-blind",
         "result-depends-on-callback",
     ],
 )
 def test_check_14_rejects_callback_violations(Bad, match):
     with pytest.raises(AssertionError, match=match):
         estimator_checks.check_callback_protocol(Bad())
-    estimator_checks.check_callback_protocol(_WatchedRandomDescent())  # the honest dummy passes
+    estimator_checks.check_callback_protocol(RandomDescentRouter())  # the honest dummy passes
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="ctypes.CDLL(None) is POSIX-only")
