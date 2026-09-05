@@ -12,15 +12,19 @@ from __future__ import annotations
 import datetime
 import math
 import re
+import warnings
 from dataclasses import dataclass, field
 from itertools import pairwise
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 
 from .base import BaseRouter
 from .problem import RoutingProblem
 from .utils.validation import check_is_fitted
+
+if TYPE_CHECKING:  # pandas is optional at runtime: only ``timetable(as_frame=True)`` imports it
+    import pandas as pd
 
 __all__ = ["Stop", "route_cost", "split_trips", "timetable", "timetable_summary"]
 
@@ -50,7 +54,10 @@ def route_cost(
         Cost matrix (rows are origins).
     route : sequence of labels
         Open tour, closed route or multi-trip route (the depot may repeat). Its first
-        label is the depot.
+        label is the depot. Every depot occurrence is removed and the giant tour is
+        re-decoded with ``split``, exactly as ``fit`` did — so a hand-made plan is priced as
+        the decoder would cut it, not as driven; [`timetable`][skroute.metrics.timetable]
+        keeps the days as driven instead. The two agree on every route produced by ``fit``.
     depot : label, optional
         Must equal ``route[0]`` when given; ``None`` means ``route[0]`` — so a
         ``route_``/``tour_`` produced with any ``depot=`` re-evaluates without repeating it.
@@ -187,7 +194,7 @@ def _clock(minutes: float) -> str:
 def _start_minutes(start: Any) -> float:
     """Minutes after midnight of ``start``: an ``"HH:MM"`` string or a ``datetime.time``."""
     if isinstance(start, datetime.time):
-        return start.hour * 60.0 + start.minute + start.second / 60.0
+        return start.hour * 60.0 + start.minute + start.second / 60.0 + start.microsecond / 60e6
     if isinstance(start, str):
         match = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*", start)
         if match is not None:
@@ -224,7 +231,9 @@ class Stop:
     wait : float, default 0.0
         Idle minutes before the service starts. Always ``0.0`` today — reserved for time windows.
     start : float, default 480.0
-        Minutes after midnight at which the day starts (``08:00``); used by the clock strings only.
+        Minutes after midnight at which the day starts (``08:00``); used by the clock strings only,
+        and left out of the repr and of equality: two stops with the same minutes are equal
+        (and hash alike) whatever clock they are rendered on.
 
     Examples
     --------
@@ -234,6 +243,8 @@ class Stop:
     ('09:35', '10:05')
     >>> Stop(1, 0, "d", 0.0, 0.0, 0.0, 0.0, start=9 * 60 + 30).departure_time
     '09:30'
+    >>> Stop(1, 0, "d", 0.0, 0.0, 0.0, 0.0, start=9 * 60 + 30) == Stop(1, 0, "d", 0.0, 0.0, 0.0, 0.0)
+    True
     """
 
     day: int
@@ -244,7 +255,7 @@ class Stop:
     travel: float
     service: float
     wait: float = 0.0
-    start: float = field(default=8 * 60.0, repr=False)
+    start: float = field(default=8 * 60.0, repr=False, compare=False)
 
     @property
     def arrival_time(self) -> str:
@@ -301,6 +312,39 @@ def _resolve(obj: Any, route: Any) -> tuple[RoutingProblem, list[list[int]]]:
     return problem, [tour[a:b].tolist() for a, b in pairwise(starts.tolist())]
 
 
+@overload
+def timetable(
+    obj: Any,
+    route: Any = ...,
+    *,
+    start: Any = ...,
+    units: str = ...,
+    as_frame: Literal[False] = ...,
+) -> list[list[Stop]]: ...
+
+
+@overload
+def timetable(
+    obj: Any,
+    route: Any = ...,
+    *,
+    start: Any = ...,
+    units: str = ...,
+    as_frame: Literal[True],
+) -> pd.DataFrame: ...
+
+
+@overload
+def timetable(
+    obj: Any,
+    route: Any = ...,
+    *,
+    start: Any = ...,
+    units: str = ...,
+    as_frame: bool,
+) -> list[list[Stop]] | pd.DataFrame: ...
+
+
 def timetable(
     obj: Any,
     route: Any = None,
@@ -308,7 +352,7 @@ def timetable(
     start: Any = "08:00",
     units: str = "min",
     as_frame: bool = False,
-) -> Any:
+) -> list[list[Stop]] | pd.DataFrame:
     """Arrival and departure times of every stop, day by day (D32).
 
     Parameters
@@ -318,11 +362,15 @@ def timetable(
         [`RoutingProblem`][skroute.RoutingProblem] with a time matrix and a budget.
     route : sequence of labels, optional
         Required with a ``RoutingProblem``; overrides ``route_`` with an estimator. A multi-trip
-        route (the depot repeated between trips, as ``route_``) is read as driven, one day per
-        segment; an open tour or a closed route is a giant tour and is cut into days with the
-        problem's split rule (``problem.split``).
+        route (the depot repeated between trips, as ``route_``) is read **as driven**, one day per
+        segment, whatever ``max_time_work`` says — a day that runs over the budget is reported
+        (with a warning), never re-cut; an open tour or a closed route is a giant tour and is cut
+        into days with the problem's split rule (``problem.split``). Note the difference with
+        [`route_cost`][skroute.metrics.route_cost], which always removes the depot occurrences
+        and re-decodes the giant tour: the two agree on every route produced by ``fit``.
     start : str or datetime.time, default "08:00"
-        Departure time from the depot, every day, as ``"HH:MM"`` or a ``datetime.time``.
+        Start of the day at the depot, every day, as ``"HH:MM"`` or a ``datetime.time``; the
+        vehicle leaves at ``start`` plus the depot's service time, if any.
     units : {"min", "h", "s"}, default "min"
         Units of ``problem.time`` and ``problem.service_time``; the timetable is always in minutes.
     as_frame : bool, default False
@@ -349,6 +397,11 @@ def timetable(
         When ``obj`` is neither an estimator nor a problem.
     NotFittedError
         For an unfitted estimator.
+
+    Warns
+    -----
+    UserWarning
+        When a day of a route read as driven ends after ``max_time_work``.
 
     See Also
     --------
@@ -404,6 +457,10 @@ def timetable(
     service = problem.service_time
     labels = problem.labels.tolist()
     d = problem.depot
+    budget = problem.max_time_work * factor  # the day, in minutes
+    # a decoded day never exceeds the budget; the sums below associate differently from the kernel's, so
+    # allow the ulps (check 8 itself accepts trip_times_ <= budget + 1e-9)
+    tolerance = 1e-9 * max(1.0, budget)
     days: list[list[Stop]] = []
     for day, body in enumerate(trips, start=1):
         depot_service = float(service[d]) * factor
@@ -423,13 +480,20 @@ def timetable(
         travel = float(T[prev, d]) * factor
         arrival = clock + travel
         stops.append(Stop(day, len(body) + 1, labels[d], arrival, arrival, travel, 0.0, start=start_min))
+        if arrival > budget + tolerance:  # only a route read as driven can get here
+            warnings.warn(
+                f"day {day} ends at {arrival:g} min, over max_time_work ({budget:g} min): the route was read "
+                "as driven, with its depot occurrences as the day boundaries",
+                UserWarning,
+                stacklevel=2,
+            )
         days.append(stops)
     if as_frame:
         return _to_frame(days)
     return days
 
 
-def _to_frame(days: list[list[Stop]]) -> Any:
+def _to_frame(days: list[list[Stop]]) -> pd.DataFrame:
     try:
         import pandas as pd
     except ImportError:  # pragma: no cover - exercised only without pandas
@@ -473,7 +537,7 @@ def timetable_summary(days: list[list[Stop]]) -> list[dict[str, Any]]:
     Parameters
     ----------
     days : list of list of Stop
-        As returned by ``timetable(...)`` (not the DataFrame form).
+        As returned by ``timetable(...)`` (not the DataFrame form: group that one by ``day``).
 
     Returns
     -------
@@ -482,6 +546,12 @@ def timetable_summary(days: list[list[Stop]]) -> list[dict[str, Any]]:
         excluded), ``driving`` (minutes on the road), ``service`` (minutes at the stops, the
         depot's included), ``total`` (minutes from the start to the return) and ``back_at`` (the
         return as ``HH:MM``).
+
+    Raises
+    ------
+    TypeError
+        When ``days`` is not a list of days of ``Stop``s — the DataFrame of ``as_frame=True``
+        included.
 
     Examples
     --------
@@ -495,8 +565,15 @@ def timetable_summary(days: list[list[Stop]]) -> list[dict[str, Any]]:
     {'day': 1, 'n_stops': 2, 'driving': 120.0, 'service': 60.0, 'total': 180.0, 'back_at': '11:00'}
     {'day': 2, 'n_stops': 1, 'driving': 120.0, 'service': 30.0, 'total': 150.0, 'back_at': '10:30'}
     """
+    if not isinstance(days, (list, tuple)):
+        raise TypeError(
+            "timetable_summary takes the list of days returned by timetable(...), not a "
+            f"{type(days).__name__}; with as_frame=True group the frame by 'day' instead"
+        )
     out: list[dict[str, Any]] = []
     for stops in days:
+        if not isinstance(stops, (list, tuple)) or not all(isinstance(s, Stop) for s in stops):
+            raise TypeError("timetable_summary: every day must be a list of Stop, as timetable(...) returns")
         if not stops:
             continue
         out.append(
