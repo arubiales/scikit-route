@@ -307,8 +307,8 @@ driven, an open tour or a closed route is cut into days with the problem's split
 With pandas installed, `as_frame=True` returns one flat table ready for `to_csv`:
 
 ```python
->>> frame = timetable(visits, units="h", as_frame=True)
->>> frame.shape, frame.columns.tolist()[:5]
+>>> table = timetable(visits, units="h", as_frame=True)
+>>> table.shape, table.columns.tolist()[:5]
 ((24, 10), ['day', 'order', 'label', 'arrival_time', 'departure_time'])
 >>> timetable(visits.problem_, visits.tour_, units="h")[0][-1].arrival_time    # the giant tour, re-decoded
 '15:26'
