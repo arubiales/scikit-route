@@ -304,6 +304,10 @@ Read the third day as: leave at 08:00, drive 46 minutes to `4`, work there until
 `trip_times_[2]` above. A timetable also takes a [`RoutingProblem`][skroute.RoutingProblem]
 and any label-space route: a multi-trip route (the depot repeated, as `route_`) is read as
 driven, an open tour or a closed route is cut into days with the problem's split rule.
+*As driven* means **your** days: a hand-made plan whose day runs over `max_time_work` is
+shown as it is, with a `UserWarning` naming the day — whereas `route_cost` always removes
+the depot occurrences and re-decodes the giant tour, so it prices the plan as the decoder
+would cut it, not as driven. The two agree on every route `fit` produces.
 With pandas installed, `as_frame=True` returns one flat table ready for `to_csv`:
 
 ```python

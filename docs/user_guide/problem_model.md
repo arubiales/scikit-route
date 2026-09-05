@@ -108,6 +108,9 @@ $$
 $$
 
 where $t(\text{trip}_r)$ is the duration of the closed trip, **return leg included**.
+A visit that takes time enters $t(\text{trip}_r)$ through `service_time=` — the same
+duration at every customer, or one per node — and changes what fits in a day; see
+[service times](multi_trip.md#service-times).
 
 ### A worked example
 
