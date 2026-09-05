@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - unreleased
 ### Added
 - Service times: `fit(..., service_time=)` adds the time spent at each stop to the per-trip budget;
-  `skroute.metrics.timetable` turns a solution into a per-day timetable (D32).
+  `skroute.metrics.timetable` (with `Stop`, `timetable_summary` and `units=`) turns a solution into a
+  per-day timetable (D32).
 - `skroute.preprocessing.maps`: real road travel times (`travel_time_matrix`, OSRM or Google),
   `geocode` (Nominatim or Google) and `fetch_pois` (OpenStreetMap through Overpass) (D33).
+  `GoogleDistanceMatrix(departure_time=)` asks for traffic-aware durations; a `network` pytest marker
+  (deselected by default, run nightly) exercises the live services.
 - `skroute.viz.google_maps`: the plan on Google Maps as Directions URLs, a KML for Google My Maps and
   a standalone Maps JavaScript page; `plot_route_map(names=, trip_names=)` (D34).
 - Worked case `examples/technician_madrid.py`: a maintenance technician covering every Burger King of the
