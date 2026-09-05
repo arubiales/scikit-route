@@ -1072,6 +1072,11 @@ def test_plot_route_map_names_and_trip_names(two_trips):
         plot_route_map(two_trips, SQUARE + 40.0, trip_names=["Monday"])
     with pytest.raises(ValueError, match="names has 3 entries but there are 4 nodes"):
         plot_route_map(two_trips, SQUARE + 40.0, names=["a", "b", "c"])
+    # a single str is not a sequence of names (it would be split into letters)
+    with pytest.raises(TypeError, match=r"names must be a sequence of str .* not a single str"):
+        plot_route_map(two_trips, SQUARE + 40.0, names="wxyz")
+    with pytest.raises(TypeError, match="trip_names must be a sequence of str, one per trip"):
+        plot_route_map(two_trips, SQUARE + 40.0, trip_names="AB")
 
 
 # --------------------------------------------------------------------------- D31: structures being built
