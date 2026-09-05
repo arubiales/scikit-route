@@ -181,9 +181,10 @@ Directions links, a KML for Google My Maps or a Maps JavaScript page. The worked
 [*A real case: the technician's plan*](https://arubiales.github.io/scikit-route/user_guide/real_world/)
 — `examples/technician_madrid.py` — schedules one alarm-systems technician over the 182
 Burger King restaurants of the Madrid region from an office in Leganés, thirty minutes per
-visit and eight-hour days on real OSRM driving times: **15 days and 25.8 hours of
-driving** against the 16 days of the construction heuristics (12 is the service-only lower
-bound), reproducible offline from the CSVs committed under `examples/data/`.
+visit and eight-hour days on real OSRM driving times: in one two-minute run on the machine
+that wrote the docs, **15 days and 25.8 hours of driving** against the 16 days of the
+construction heuristics (12 is the service-only lower bound; a run with less luck lands on 16),
+rerunnable offline from the CSVs committed under `examples/data/`.
 
 ## Documentation
 

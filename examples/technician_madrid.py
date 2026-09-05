@@ -45,9 +45,11 @@ import importlib.util
 import logging
 import math
 import os
+import re
 import sys
 import time
 from collections.abc import Sequence
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +68,7 @@ from skroute import (
     TabuSearch,
 )
 from skroute.base import BaseRouter
+from skroute.exceptions import InfeasibleProblemError
 from skroute.metrics import Stop, timetable, timetable_summary
 from skroute.utils import Bunch
 
@@ -82,6 +85,13 @@ AMENITY = "fast_food"
 OFFICE_LABEL = "office"
 OFFICE_ADDRESS = "Calle Ramón y Cajal 18, Leganés, Madrid, España"
 OFFICE_NAME = "Oficina (Calle Ramón y Cajal 18, Leganés)"
+# the addr:* columns of the office row: `geocode` returns a display name, not its parts
+OFFICE_ADDR = {
+    "city": "Leganés",
+    "street": "Calle de Ramón y Cajal",
+    "housenumber": "18",
+    "postcode": "28914",
+}
 DUPLICATE_METRES = 60.0
 ATTRIBUTION = "Data © OpenStreetMap contributors (ODbL); routing by OSRM (router.project-osrm.org)"
 COLUMNS = ["label", "name", "lat", "lon", "city", "street", "housenumber", "postcode", "opening_hours"]
@@ -150,7 +160,7 @@ def refresh_data(data_dir: Path, *, provider: str, api_key: str | None, limit: i
 
     ``limit`` keeps only the first restaurants — a quick check of the pipeline on a few points.
     """
-    from skroute.preprocessing import fetch_pois, geocode, haversine_matrix, travel_time_matrix
+    from skroute.preprocessing import fetch_pois, geocode, travel_time_matrix
 
     log.info("Fetching the Burger King restaurants of %s from OpenStreetMap (Overpass)...", AREA)
     pois = fetch_pois(AREA, amenity=AMENITY, wikidata=BRAND_WIKIDATA)
@@ -171,6 +181,7 @@ def refresh_data(data_dir: Path, *, provider: str, api_key: str | None, limit: i
     log.info("Office at (%.6f, %.6f): %s", office.lat, office.lon, office.display_name)
     rows = [
         dict.fromkeys(COLUMNS, "")
+        | OFFICE_ADDR
         | {"label": OFFICE_LABEL, "name": OFFICE_NAME, "lat": f"{office.lat:.6f}", "lon": f"{office.lon:.6f}"}
     ]
     for i in keep:
@@ -192,15 +203,9 @@ def refresh_data(data_dir: Path, *, provider: str, api_key: str | None, limit: i
         res = travel_time_matrix(coords, provider="google", api_key=api_key, departure_time="now")
     else:
         res = travel_time_matrix(coords, provider="osrm")
-    time_, distance = np.asarray(res.time, dtype=float), np.asarray(res.distance, dtype=float) / 1000.0
-    if np.isnan(time_).any():
-        # an unroutable pair: the great-circle distance at 30 km/h keeps the matrices finite
-        far = haversine_matrix(coords) / 30.0 * 60.0
-        log.warning(
-            "%d unroutable pairs filled with the great-circle time at 30 km/h", int(np.isnan(time_).sum())
-        )
-        time_ = np.where(np.isnan(time_), far, time_)
-        distance = np.where(np.isnan(distance), haversine_matrix(coords), distance)
+    time_, distance = _fill_unroutable(
+        np.asarray(res.time, dtype=float), np.asarray(res.distance, dtype=float) / 1000.0, coords
+    )
     data_dir.mkdir(parents=True, exist_ok=True)
     labels = [r["label"] for r in rows]
     with (data_dir / f"{STEM}.csv").open("w", encoding="utf-8", newline="") as fh:
@@ -219,6 +224,30 @@ def _drop_near_duplicates(coords: np.ndarray, metres: float) -> list[int]:
 
     D = haversine_matrix(coords) * 1000.0
     return [i for i in range(len(coords)) if not (D[i, :i] < metres).any()]
+
+
+def _fill_unroutable(
+    time_: np.ndarray, distance: np.ndarray, coords: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fill the ``nan`` of each matrix on its own mask with the great-circle distance (30 km/h for minutes).
+
+    An unroutable pair leaves ``nan`` in both matrices; a server that answers without a ``distances``
+    table leaves the kilometres alone ``nan``. Either way both files must stay finite.
+    """
+    from skroute.preprocessing import haversine_matrix
+
+    missing_time, missing_distance = np.isnan(time_), np.isnan(distance)
+    if missing_time.any() or missing_distance.any():
+        km = haversine_matrix(coords)
+        log.warning(
+            "%d unroutable times and %d missing distances filled with the great-circle distance "
+            "(at 30 km/h for the times)",
+            int(missing_time.sum()),
+            int(missing_distance.sum()),
+        )
+        time_ = np.where(missing_time, km / 30.0 * 60.0, time_)
+        distance = np.where(missing_distance, km, distance)
+    return time_, distance
 
 
 def _write_matrix(path: Path, labels: list[str], M: np.ndarray, fmt: str) -> None:
@@ -261,13 +290,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--provider", choices=["osrm", "google"], default="osrm", help="routing service for --refresh"
     )
     parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help="with --refresh: keep only the first N restaurants (a quick check of the pipeline)",
+    )
+    parser.add_argument(
         "--google-key",
         default=None,
         help="Google Maps API key (default: GOOGLE_MAPS_API_KEY); also writes the Google Maps page",
     )
     parser.add_argument("--service", type=float, default=30.0, metavar="MIN", help="minutes per visit")
     parser.add_argument("--hours", type=float, default=8.0, help="working hours per day")
-    parser.add_argument("--start", default="08:00", help="departure time from the office, HH:MM")
+    parser.add_argument("--start", type=_hhmm, default="08:00", help="departure time from the office, HH:MM")
     parser.add_argument(
         "--solver",
         choices=["multistart", "ils", "sa", "tabu", "genetic"],
@@ -303,8 +339,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _hhmm(value: str) -> str:
+    """argparse type of ``--start``: the rule of ``skroute.metrics.timetable`` (``HH:MM``, 24-hour clock)."""
+    match = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*", value)
+    if match is None or int(match.group(1)) > 23 or int(match.group(2)) > 59:
+        raise argparse.ArgumentTypeError(f"must be HH:MM on the 24-hour clock, got {value!r}")
+    return value.strip()
+
+
 def _n_workers(n_restarts: int) -> int:
-    return max(1, min(n_restarts, os.cpu_count() or 1))
+    """Processes ``MultiStart(n_jobs=-1)`` starts: joblib's count, which honours CPU quotas and affinity."""
+    from joblib import cpu_count
+
+    return max(1, min(n_restarts, cpu_count()))
 
 
 def build_search(args: argparse.Namespace, seconds: float) -> BaseRouter:
@@ -314,12 +361,14 @@ def build_search(args: argparse.Namespace, seconds: float) -> BaseRouter:
     """
     quick = args.quick
     seed = args.seed
+    verbose = 1 if args.verbose else 0  # the solvers' own progress records, through the skroute logger
     ils_kw: dict[str, Any] = dict(
         n_iter=QUICK_ITER if quick else 10**6,
         patience=None,
         local_search=SEARCH_MOVES,
         n_candidates=SEARCH_CANDIDATES,
         random_state=seed,
+        verbose=verbose,
     )
     if args.solver == "multistart":
         n_restarts = 2 if quick else 8
@@ -329,15 +378,28 @@ def build_search(args: argparse.Namespace, seconds: float) -> BaseRouter:
         # processes, not threads: the multi-trip kernels hold the GIL while pricing a move, so threads
         # would run the restarts one at a time
         n_jobs = None if (quick or args.live or args.record) else -1
-        return MultiStart(inner, n_restarts=n_restarts, n_jobs=n_jobs, prefer="processes", random_state=seed)
+        return MultiStart(
+            inner,
+            n_restarts=n_restarts,
+            n_jobs=n_jobs,
+            prefer="processes",
+            random_state=seed,
+            verbose=verbose,
+        )
     limit = None if quick else seconds
     if args.solver == "ils":
         return IteratedLocalSearch(time_limit=limit, **ils_kw)
     if args.solver == "sa":
-        return SimulatedAnnealing(alpha=0.9 if quick else 0.999, time_limit=limit, random_state=seed)
+        return SimulatedAnnealing(
+            alpha=0.9 if quick else 0.999, time_limit=limit, random_state=seed, verbose=verbose
+        )
     if args.solver == "tabu":
         return TabuSearch(
-            n_iter=QUICK_ITER if quick else 10**6, patience=None, time_limit=limit, random_state=seed
+            n_iter=QUICK_ITER if quick else 10**6,
+            patience=None,
+            time_limit=limit,
+            random_state=seed,
+            verbose=verbose,
         )
     return Genetic(
         pop_size=30 if quick else 100,
@@ -345,6 +407,7 @@ def build_search(args: argparse.Namespace, seconds: float) -> BaseRouter:
         patience=None,
         time_limit=limit,
         random_state=seed,
+        verbose=verbose,
     )
 
 
@@ -386,6 +449,7 @@ def solve(args: argparse.Namespace, data: Bunch, callback: Any = None) -> tuple[
         patience=None,
         time_limit=None if args.quick else polish_seconds,
         random_state=args.seed,
+        verbose=1 if args.verbose else 0,
     )
     log.info("Polish phase: IteratedLocalSearch (2-opt and Or-opt) from the winner under split='optimal'")
     t1 = time.perf_counter()
@@ -398,8 +462,10 @@ def solve(args: argparse.Namespace, data: Bunch, callback: Any = None) -> tuple[
         polish_wall,
         _iterations(polish),
     )
+    # what the search phase really did: only the iterated searches run with the relocation-only move set
+    moves = "Or-opt relocations, " if args.solver in {"multistart", "ils"} else ""
     facts = {
-        "search": type(search).__name__,
+        "search": f"{type(search).__name__} ({moves}optimal split)",
         "search_days": int(search.n_trips_),
         "search_driving": float(search.trip_costs_.sum()),
         "search_seconds": search_wall,
@@ -460,21 +526,35 @@ def write_timetable(path: Path, days: list[list[Stop]], data: Bunch) -> None:
                 )
 
 
-def write_days(path: Path, summary: list[dict[str, Any]]) -> None:
+def write_days(path: Path, summary: list[dict[str, Any]], km: Sequence[float]) -> None:
+    """The totals per day; ``km`` is the road distance of each day (from the kilometres file)."""
     with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["day", "n_stops", "driving_min", "service_min", "total_min", "back_at"])
-        for row in summary:
+        writer.writerow(
+            ["day", "n_stops", "driving_min", "driving_km", "service_min", "total_min", "back_at"]
+        )
+        for row, day_km in zip(summary, km, strict=True):
             writer.writerow(
                 [
                     row["day"],
                     row["n_stops"],
                     f"{row['driving']:.2f}",
+                    f"{day_km:.1f}",
                     f"{row['service']:.2f}",
                     f"{row['total']:.2f}",
                     row["back_at"],
                 ]
             )
+
+
+def trip_km(est: BaseRouter, data: Bunch) -> list[float]:
+    """Kilometres driven on each day: the legs of every trip summed over the distance matrix."""
+    index = {label: i for i, label in enumerate(data.labels)}
+    out = []
+    for trip in est.trips_:
+        idx = [index[label] for label in trip.tolist()]
+        out.append(float(sum(data.distance[a, b] for a, b in pairwise(idx))))
+    return out
 
 
 def write_google_urls(path: Path, urls: list[list[str]]) -> None:
@@ -489,18 +569,22 @@ def _map_aspect(ax: Any, lat: float) -> None:
     ax.set_aspect(1.0 / math.cos(math.radians(lat)))
 
 
+def _figure(figsize: tuple[float, float]) -> tuple[Any, Any, Any]:
+    """``(fig, ax, tab20)`` from matplotlib's object-oriented API: no pyplot, so drawing the PNGs never
+    touches the backend -- under ``--live`` the LivePlot window keeps its own and ``plt.show()`` holds it.
+    """
+    from matplotlib import colormaps
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=figsize)
+    return fig, fig.subplots(), colormaps["tab20"]
+
+
 def plot_days(est: BaseRouter, data: Bunch, summary: list[dict[str, Any]], path: Path) -> None:
     """Every day in its own colour over the points (longitude as x, latitude as y)."""
-    import matplotlib
-
-    if not matplotlib.get_backend().lower().startswith("agg"):
-        matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
+    fig, ax, cmap = _figure((9, 8.5))
     lat, lon = data.coords[:, 0], data.coords[:, 1]
     index = {label: i for i, label in enumerate(data.labels)}
-    cmap = plt.get_cmap("tab20")
-    fig, ax = plt.subplots(figsize=(9, 8.5))
     ax.scatter(lon[1:], lat[1:], s=14, color="0.35", zorder=3)
     for k, trip in enumerate(est.trips_):
         idx = [index[label] for label in trip.tolist()]
@@ -531,24 +615,17 @@ def plot_days(est: BaseRouter, data: Bunch, summary: list[dict[str, Any]], path:
     )
     fig.tight_layout()
     fig.savefig(path, dpi=110)
-    plt.close(fig)
 
 
 def plot_day(est: BaseRouter, data: Bunch, days: list[list[Stop]], k: int, path: Path) -> None:
     """One day zoomed in, its stops numbered in visiting order; the other restaurants faint."""
-    import matplotlib
-
-    if not matplotlib.get_backend().lower().startswith("agg"):
-        matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
+    fig, ax, cmap = _figure((8, 7))
     lat, lon = data.coords[:, 0], data.coords[:, 1]
     index = {label: i for i, label in enumerate(data.labels)}
     trip = est.trips_[k].tolist()
     idx = [index[label] for label in trip]
-    fig, ax = plt.subplots(figsize=(8, 7))
     ax.scatter(lon[1:], lat[1:], s=10, color="0.75", zorder=1)
-    color = plt.get_cmap("tab20")(k % 20)
+    color = cmap(k % 20)
     ax.plot(lon[idx], lat[idx], "-", color=color, lw=2, zorder=2)
     stops = days[k][1:-1]
     for s in stops:
@@ -574,7 +651,6 @@ def plot_day(est: BaseRouter, data: Bunch, days: list[list[Stop]], k: int, path:
     )
     fig.tight_layout()
     fig.savefig(path, dpi=110)
-    plt.close(fig)
 
 
 def write_outputs(est: BaseRouter, data: Bunch, args: argparse.Namespace, out: Path) -> list[dict[str, Any]]:
@@ -588,7 +664,7 @@ def write_outputs(est: BaseRouter, data: Bunch, args: argparse.Namespace, out: P
     trip_names = [f"Día {k}" for k in range(1, est.n_trips_ + 1)]
 
     write_timetable(out / f"{PREFIX}_timetable.csv", days, data)
-    write_days(out / f"{PREFIX}_days.csv", summary)
+    write_days(out / f"{PREFIX}_days.csv", summary, trip_km(est, data))
     to_kml(est, path=out / f"{PREFIX}.kml", names=names, depot_name=OFFICE_NAME, trip_names=trip_names)
     write_google_urls(out / f"{PREFIX}_google_urls.txt", google_maps_urls(est))
     try:
@@ -636,10 +712,11 @@ def report(est: BaseRouter, summary: list[dict[str, Any]], facts: dict[str, Any]
     longest = max(summary, key=lambda r: r["total"])
     log.info("")
     log.info(
-        "Totals: %d days, %.1f h of driving, %.1f h of service, %.1f stops per day; "
+        "Totals: %d days, %.1f h of driving (%.0f km), %.1f h of service, %.1f stops per day; "
         "the longest day is day %d (%.0f min, back at %s)",
         est.n_trips_,
         driving / 60,
+        sum(trip_km(est, data)),
         service / 60,
         n_visits / est.n_trips_,
         longest["day"],
@@ -661,7 +738,7 @@ def report(est: BaseRouter, summary: list[dict[str, Any]], facts: dict[str, Any]
         fit_kw["max_time_work"],
     )
     log.info(
-        "Search: %s (Or-opt relocations, optimal split) gave %d days / %.0f min in %.0f s; the polish with "
+        "Search: %s gave %d days / %.0f min in %.0f s; the polish with "
         "2-opt and Or-opt gives %d days / %.0f min in %.0f s",
         facts["search"],
         facts["search_days"],
@@ -702,17 +779,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--hours and --time-limit must be positive, --service non-negative")
     if args.provider == "google" and not (args.google_key or os.environ.get("GOOGLE_MAPS_API_KEY")):
         parser.error("--provider google needs --google-key or GOOGLE_MAPS_API_KEY")
+    if args.limit is not None and (args.limit < 1 or not args.refresh):
+        parser.error("--limit N needs --refresh and N >= 1")
+    # the report below is the console output; the solvers add their own records only under --verbose
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    if not args.verbose:
-        # the solvers' own records stay off; the report below is the console output
-        logging.getLogger("skroute").setLevel(logging.INFO)
 
     data_dir = args.data
-    if args.refresh:
-        key = args.google_key or os.environ.get("GOOGLE_MAPS_API_KEY")
-        data = refresh_data(data_dir, provider=args.provider, api_key=key)
-    else:
-        data = load_data(data_dir)
+    try:
+        if args.refresh:
+            key = args.google_key or os.environ.get("GOOGLE_MAPS_API_KEY")
+            data = refresh_data(data_dir, provider=args.provider, api_key=key, limit=args.limit)
+        else:
+            data = load_data(data_dir)
+    except FileNotFoundError as exc:
+        parser.error(f"{exc.filename} not found: pass --data DIR or run --refresh")
     n = len(data.labels)
     log.info(
         "%d restaurants and the office; driving times in minutes (%s), %.0f min per visit, %.0f-hour days",
@@ -722,7 +802,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.hours,
     )
     callback, recorder = make_callback(args, data)
-    est, facts = solve(args, data, callback=callback)
+    try:
+        est, facts = solve(args, data, callback=callback)
+    except InfeasibleProblemError as exc:
+        # a round trip plus the service does not fit in the day: say so in one line, not 182 labels
+        message = str(exc)
+        if len(message) > 300:
+            message = message[:300] + "..."
+        parser.error(
+            f"the day is too short for some restaurants: {message} -- raise --hours or lower --service"
+        )
     if recorder is not None:
         recorder.save(args.record, data.coords[:, ::-1], speed=10)
         log.info("Recording written to %s", args.record)

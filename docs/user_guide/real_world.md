@@ -51,7 +51,8 @@ runs it under `--refresh`:
 
 The capture of 2026-09-05 gave 183 elements, one of them a near-duplicate within 60 m
 (the same restaurant as a building and as a point) that the script drops. Those files are
-what the rest of this page loads — the code below runs against the repository as it is:
+what the rest of this page loads — the code below runs against the repository as it is, from
+its root (the paths are relative to it):
 
 ```python
 >>> import csv
@@ -64,11 +65,15 @@ what the rest of this page loads — the code below runs against the repository 
 >>> T = np.loadtxt(data / "madrid_burger_king_times_min.csv", delimiter=",", skiprows=1, usecols=range(1, 184))
 >>> len(labels), labels[0], T.shape, round(float(T[0, 1:].mean()), 1), round(float(np.abs(T - T.T).max()), 1)
 (183, 'office', (183, 183), 22.5, 10.0)
+>>> sum(1 for r in rows[1:] if any(r[c] for c in ("city", "street", "housenumber", "postcode")))
+56
+>>> sum(1 for r in rows[1:] if r["opening_hours"])
+24
 
 ```
 
-Half of the `addr:*` tags are empty in OpenStreetMap, so the timetable names most stops
-"Burger King" plus their OSM id; the coordinates are what matters to the solver. With a
+Seven restaurants in ten have no `addr:*` tag in OpenStreetMap (56 of the 182 carry an
+address), so the timetable names most stops "Burger King" plus their OSM id; the coordinates are what matters to the solver. With a
 Google Maps key the same script fetches the matrix from the Distance Matrix API instead
 (`--provider google --google-key ...`), with `departure_time="now"` for traffic-aware
 durations — OSRM has no traffic model.
@@ -197,8 +202,9 @@ the Sierra to the north-west — where two to three hours go to the road.
 
 [`timetable`][skroute.metrics.timetable] turns the fit into clock times from 08:00 and
 [`timetable_summary`][skroute.metrics.timetable_summary] into the table below, which the
-script writes as `technician_madrid_days.csv` (and every stop, with its arrival and
-departure, as `technician_madrid_timetable.csv`):
+script writes as `technician_madrid_days.csv` — plus the kilometres of each day, summed over
+the distance matrix — (and every stop, with its arrival and departure, as
+`technician_madrid_timetable.csv`):
 
 ```python
 >>> from skroute.metrics import timetable, timetable_summary
@@ -359,7 +365,7 @@ The plan is as good as its model, and the model makes assumptions worth stating:
   day, and a very long one spills into the next day. Per-restaurant durations are one
   array away (`service_time=` accepts one value per node).
 - **Every restaurant is open when the technician arrives.** The `opening_hours` tag is in
-  the data for a fifth of the restaurants and is not used; the model has no time windows
+  the data for one restaurant in eight (24 of the 182) and is not used; the model has no time windows
   yet (`Stop.wait` is reserved for them).
 - **The list is OpenStreetMap's.** It may miss a restaurant nobody has mapped, keep one
   that has closed, or hold the same one twice (the script drops near-duplicates within
