@@ -683,6 +683,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user_guide/real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user_guide/warm_starts_and_ensembles/" class="md-nav__link">
         
   
@@ -1663,7 +1719,12 @@
 class), <a href="#skroute.utils.initial_tour"><code>initial_tour</code></a> (the warm-start helper behind every
 <code>init=</code> parameter) and <a href="#skroute.utils.estimator_checks.check_router"><code>check_router</code></a>, the
 structural test battery a new solver must pass before it is merged
-(<code>tests/test_common.py</code> runs it over <code>skroute.all_solvers()</code>).</p>
+(<code>tests/test_common.py</code> runs it over <code>skroute.all_solvers()</code>). Its multi-trip check (8) also
+fits one instance with a per-node <code>service_time</code> (the depot's included) and requires the result
+to equal a fit on the time matrix with the services folded in by hand — the definition of D32 —
+so a solver must read <code>problem.time_or_cost</code>, never <code>problem.time</code>, when it prices durations
+during its search; check 6 exercises the <code>service_time</code> error messages, so a <code>fit</code> override
+must forward it.</p>
 
 
 <div class="doc doc-object doc-module">

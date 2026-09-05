@@ -688,6 +688,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../warm_starts_and_ensembles/" class="md-nav__link">
         
   
@@ -874,6 +930,17 @@
     <span class="md-ellipsis">
       
         Maps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#take-the-plan-to-google-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Take the plan to Google Maps
       
     </span>
   </a>
@@ -1713,6 +1780,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#take-the-plan-to-google-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Take the plan to Google Maps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-each-solver-reports-in-extra" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2046,7 +2124,105 @@ the same for <code>LivePlot</code>, <code>Recorder.replay</code> (both then draw
 </code></pre></div>
 <p>Multi-trip solutions get one <code>Scattermap</code> line per trip. The tiles are fetched by the
 browser that renders the figure, so a saved HTML file needs a network connection to
-show the map; the routes themselves are embedded.</p>
+show the map; the routes themselves are embedded. <code>names=</code> puts a name per node in the
+hover text — a sequence in matrix row order or a mapping from label to name — and
+<code>trip_names=</code> names the days and shows them in a legend:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">days</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="o">...</span>     <span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">6.0</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">...</span> <span class="p">)</span>  <span class="c1"># the bundled times are hours: two 6-hour days</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">places</span> <span class="o">=</span> <span class="p">{</span><span class="n">label</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Place </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">}</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span> <span class="o">=</span> <span class="n">plot_route_map</span><span class="p">(</span><span class="n">days</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">places</span><span class="p">,</span> <span class="n">trip_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"Monday"</span><span class="p">,</span> <span class="s2">"Tuesday"</span><span class="p">])</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">:]],</span> <span class="n">fig</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">showlegend</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">((</span><span class="s1">'Place 10000007'</span><span class="p">,),</span> <span class="p">[</span><span class="s1">'Monday'</span><span class="p">,</span> <span class="s1">'Tuesday'</span><span class="p">],</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="take-the-plan-to-google-maps">Take the plan to Google Maps<a class="headerlink" href="#take-the-plan-to-google-maps" title="Permanent link">&para;</a></h2>
+<p>A plan is followed on a phone, not in a notebook. <code>skroute.viz.google_maps</code> — no viz
+extra needed, neither matplotlib nor plotly — exports a fitted solver, a <code>RouteEvent</code>
+or a plain route (an open tour, a closed one or a multi-trip route with the depot
+repeated between the days, with <code>coords=</code> as <code>(latitude, longitude)</code> rows and <code>labels=</code>
+naming them) in three forms that Google Maps understands. Every trip becomes one day,
+<code>depot → stops → depot</code>, numbered in driving order and coloured from the same ten-colour
+palette as <code>plot_route_map</code>.</p>
+<p><strong>Links.</strong> <a class="autorefs autorefs-internal" title="google_maps_urls" href="../../api/viz/#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a> returns one list of
+Directions links per day (<code>https://www.google.com/maps/dir/?api=1&amp;origin=...&amp;destination=...&amp;waypoints=...&amp;travelmode=driving</code>,
+coordinates with six decimals). The Maps URL scheme takes at most <strong>nine waypoints</strong>
+between the origin and the destination, so a longer day is split into consecutive legs
+that share their boundary stop: the first leaves the depot, the last returns to it, and
+each opens in a browser or in the Google Maps app with turn-by-turn navigation. <code>mode=</code>
+picks <code>"driving"</code>, <code>"walking"</code>, <code>"bicycling"</code> or <code>"transit"</code> (Google ignores waypoints in
+transit mode) and <code>max_waypoints=</code> lowers the limit: Google documents nine waypoints on
+the desktop site and in the Google Maps app but only <strong>three in a phone's browser</strong>, so
+pass <code>max_waypoints=3</code> for links that will be opened there without the app.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">google_maps_html</span><span class="p">,</span> <span class="n">google_maps_urls</span><span class="p">,</span> <span class="n">to_kml</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">urls</span> <span class="o">=</span> <span class="n">google_maps_urls</span><span class="p">(</span><span class="n">days</span><span class="p">)</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">stops</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">trip</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">trip</span> <span class="ow">in</span> <span class="n">days</span><span class="o">.</span><span class="n">trips_</span><span class="p">]</span>  <span class="c1"># stops per day; how the solver split them</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">urls</span><span class="p">)</span> <span class="o">==</span> <span class="n">days</span><span class="o">.</span><span class="n">n_trips_</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">day</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">m</span> <span class="o">+</span> <span class="mi">8</span><span class="p">)</span> <span class="o">//</span> <span class="mi">9</span> <span class="k">for</span> <span class="n">day</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">urls</span><span class="p">,</span> <span class="n">stops</span><span class="p">))</span>  <span class="c1"># ceil(m / 9) legs</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="kc">True</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">urls</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"https://www.google.com/maps/dir/?api=1&amp;origin=41.398568%2C2.167441&amp;destination="</span><span class="p">)</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="kc">True</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">all</span><span class="p">(</span><span class="n">link</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"&amp;travelmode=driving"</span><span class="p">)</span> <span class="k">for</span> <span class="n">day</span> <span class="ow">in</span> <span class="n">urls</span> <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">day</span><span class="p">)</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="kc">True</span>
+</code></pre></div>
+<p><strong>KML.</strong> <a class="autorefs autorefs-internal" title="to_kml" href="../../api/viz/#skroute.viz.to_kml"><code>to_kml</code></a> writes a KML 2.2 file: the depot as one
+placemark, one folder per day — named <code>trip_names[k]</code> or <code>"Day k"</code> — holding a placemark
+per stop (<code>"k.j &lt;name&gt;"</code>, described as <code>"Day k, stop j of m"</code>) and a <code>LineString</code> of the
+closed trip, with a line style of its own colour per day (<code>colors=</code>). <code>names=</code> labels
+the stops, <code>depot_name=</code> the depot. To put it on your phone, open
+<a href="https://www.google.com/maps/d/">Google My Maps</a>, <strong>Create a new map</strong>, then in the
+untitled layer choose <strong>Import</strong> and pick the <code>.kml</code> — every folder arrives as a group of
+numbered pins with its line, and the map is available in the Google Maps app under
+<em>Saved → Maps</em>. Google Earth opens the file directly (<strong>File → Open</strong> on the desktop,
+<strong>Projects → Open → Import KML file</strong> on the web). The KML lines join the stops as the
+crow flies; the page below draws the roads.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span><span class="o">,</span><span class="w"> </span><span class="nn">xml.etree.ElementTree</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ET</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">kml</span> <span class="o">=</span> <span class="n">to_kml</span><span class="p">(</span><span class="n">days</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">out</span> <span class="o">/</span> <span class="s2">"barcelona.kml"</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">places</span><span class="p">,</span> <span class="n">trip_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"Monday"</span><span class="p">,</span> <span class="s2">"Tuesday"</span><span class="p">])</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">root</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">kml</span><span class="p">)</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"k"</span><span class="p">:</span> <span class="s2">"http://www.opengis.net/kml/2.2"</span><span class="p">}</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">folders</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">iterfind</span><span class="p">(</span><span class="s2">".//k:Folder"</span><span class="p">,</span> <span class="n">ns</span><span class="p">))</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">findtext</span><span class="p">(</span><span class="s2">"k:name"</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">folders</span><span class="p">]</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="p">[</span><span class="s1">'Monday'</span><span class="p">,</span> <span class="s1">'Tuesday'</span><span class="p">]</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">"k:Placemark"</span><span class="p">,</span> <span class="n">ns</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">folders</span><span class="p">]</span> <span class="o">==</span> <span class="n">stops</span>  <span class="c1"># a pin per stop, plus the line</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="kc">True</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">first</span> <span class="o">=</span> <span class="n">folders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">"k:Placemark"</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>  <span class="c1"># "1.1 Place &lt;label of the first stop&gt;", "Day 1, stop 1 of m"</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">first</span><span class="o">.</span><span class="n">findtext</span><span class="p">(</span><span class="s2">"k:name"</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">)</span> <span class="o">==</span> <span class="sa">f</span><span class="s2">"1.1 </span><span class="si">{</span><span class="n">places</span><span class="p">[</span><span class="n">days</span><span class="o">.</span><span class="n">trips_</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">first</span><span class="o">.</span><span class="n">findtext</span><span class="p">(</span><span class="s2">"k:description"</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">)</span> <span class="o">==</span> <span class="sa">f</span><span class="s2">"Day 1, stop 1 of </span><span class="si">{</span><span class="n">stops</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>A page with the real roads.</strong> <a class="autorefs autorefs-internal" title="google_maps_html" href="../../api/viz/#skroute.viz.google_maps_html"><code>google_maps_html</code></a>
+writes a standalone HTML page that loads the Maps JavaScript API with your key
+(<code>api_key=</code> or the <code>GOOGLE_MAPS_API_KEY</code> environment variable) and asks a
+<code>DirectionsService</code> for the roads of every day — one request per leg of at most 25
+waypoints, split like the links — drawn by a <code>DirectionsRenderer</code> in the day's colour
+with numbered markers at the stops and a star at the depot; a legend lists the days with
+a checkbox each (hide a day, its roads and markers go), the stops and the driving
+minutes, and a leg whose request fails is drawn as a dashed straight line and reported
+under the legend (the requests go out two at a time, and one refused for quota is asked
+once more). The plan is embedded as one JSON object
+(<code>&lt;script type="application/json" id="skroute-plan"&gt;</code>) computed in Python: the stops of
+each day with their coordinates and names, the legs, the colours, and totals — <code>n_stops</code>
+and, when the fit had a time matrix, <code>driving_minutes</code> (the matrix is taken to be in
+minutes, as <code>skroute.preprocessing.travel_time_matrix</code> returns it). The Maps
+JavaScript API and the Directions requests are billed to the key's project, and the key
+is written into the page — share the file accordingly.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">json</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">minutes</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="o">...</span>     <span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mi">360</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="o">...</span> <span class="p">)</span>  <span class="c1"># the same two days with the times in minutes, as the page expects</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">page</span> <span class="o">=</span> <span class="n">google_maps_html</span><span class="p">(</span><span class="n">minutes</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">out</span> <span class="o">/</span> <span class="s2">"barcelona.html"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"AIza-demo"</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">"Barcelona, two days"</span><span class="p">)</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">text</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">plan</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">'id="skroute-plan"&gt;(.*?)&lt;/script&gt;'</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">S</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"totals"</span><span class="p">][</span><span class="s2">"n_trips"</span><span class="p">]</span> <span class="o">==</span> <span class="n">minutes</span><span class="o">.</span><span class="n">n_trips_</span><span class="p">,</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"totals"</span><span class="p">][</span><span class="s2">"n_stops"</span><span class="p">],</span> <span class="nb">abs</span><span class="p">(</span><span class="n">plan</span><span class="p">[</span><span class="s2">"totals"</span><span class="p">][</span><span class="s2">"driving_minutes"</span><span class="p">]</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">minutes</span><span class="o">.</span><span class="n">trip_times_</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span> <span class="o">&lt;</span> <span class="mf">0.1</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[(</span><span class="n">t</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"n_stops"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"legs"</span><span class="p">])</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"trips"</span><span class="p">]]</span> <span class="o">==</span> <span class="p">[</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="o">...</span>     <span class="p">(</span><span class="sa">f</span><span class="s2">"Day </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">trip</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">trip</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]])</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">trip</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">minutes</span><span class="o">.</span><span class="n">trips_</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="o">...</span> <span class="p">]</span>  <span class="c1"># one request per day: none has more than 25 stops</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="kc">True</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">text</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"AIza-demo"</span><span class="p">)</span>  <span class="c1"># the key appears once, in the script URL</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="mi">1</span>
+</code></pre></div>
+<p>The key-free interactive alternative stays <code>plot_route_map</code> above: Plotly on
+OpenStreetMap tiles, with the same <code>names=</code> and <code>trip_names=</code>.</p>
 <h2 id="what-each-solver-reports-in-extra">What each solver reports in <code>extra</code><a class="headerlink" href="#what-each-solver-reports-in-extra" title="Permanent link">&para;</a></h2>
 <p>Every event carries the same core fields — <code>solver</code>, <code>stage</code>, <code>iteration</code>, <code>cost</code>
 (the objective of the current tour, <code>nan</code> when the solver has none), <code>best_cost</code>,
@@ -2124,28 +2300,28 @@ facts. The keys of the <code>"iteration"</code> events (each solver's docstring 
 that order of preference, else the first scalar of <code>extra</code> (<code>restart</code> is always shown) — in
 the title and never lists such as <code>kick</code> and <code>moves_applied</code>; the three structures are drawn
 instead and counted in the title. The rows are facts of the solvers, not of this page:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">iteration_keys</span><span class="p">(</span><span class="n">solver</span><span class="p">):</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="o">...</span>     <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">...</span>     <span class="n">solver</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">seen</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">...</span>     <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">seen</span><span class="p">)</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">n_iter</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="p">[</span><span class="s1">'accepted'</span><span class="p">,</span> <span class="s1">'current_cost'</span><span class="p">,</span> <span class="s1">'kick'</span><span class="p">]</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="p">[</span><span class="s1">'accepted'</span><span class="p">,</span> <span class="s1">'n_moves'</span><span class="p">,</span> <span class="s1">'temperature'</span><span class="p">]</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">TwoOpt</span><span class="p">())</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="p">[</span><span class="s1">'gain'</span><span class="p">,</span> <span class="s1">'moves_applied'</span><span class="p">]</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MILP</span><span class="p">,</span> <span class="n">NRBS</span><span class="p">,</span> <span class="n">ClarkeWright</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">ClarkeWright</span><span class="p">()),</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">NRBS</span><span class="p">())</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="p">([</span><span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'n_trips'</span><span class="p">],</span> <span class="p">[</span><span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'n_edges'</span><span class="p">])</span>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">MILP</span><span class="p">())</span>
-<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="p">[</span><span class="s1">'edge_weights'</span><span class="p">,</span> <span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'lower_bound'</span><span class="p">,</span> <span class="s1">'n_components'</span><span class="p">,</span> <span class="s1">'n_cuts'</span><span class="p">,</span> <span class="s1">'objective'</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">iteration_keys</span><span class="p">(</span><span class="n">solver</span><span class="p">):</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="o">...</span>     <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="o">...</span>     <span class="n">solver</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">seen</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="o">...</span>     <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">seen</span><span class="p">)</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">n_iter</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="p">[</span><span class="s1">'accepted'</span><span class="p">,</span> <span class="s1">'current_cost'</span><span class="p">,</span> <span class="s1">'kick'</span><span class="p">]</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="p">[</span><span class="s1">'accepted'</span><span class="p">,</span> <span class="s1">'n_moves'</span><span class="p">,</span> <span class="s1">'temperature'</span><span class="p">]</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">TwoOpt</span><span class="p">())</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="p">[</span><span class="s1">'gain'</span><span class="p">,</span> <span class="s1">'moves_applied'</span><span class="p">]</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MILP</span><span class="p">,</span> <span class="n">NRBS</span><span class="p">,</span> <span class="n">ClarkeWright</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">ClarkeWright</span><span class="p">()),</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">NRBS</span><span class="p">())</span>
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="p">([</span><span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'n_trips'</span><span class="p">],</span> <span class="p">[</span><span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'n_edges'</span><span class="p">])</span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">iteration_keys</span><span class="p">(</span><span class="n">MILP</span><span class="p">())</span>
+<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="p">[</span><span class="s1">'edge_weights'</span><span class="p">,</span> <span class="s1">'edges'</span><span class="p">,</span> <span class="s1">'lower_bound'</span><span class="p">,</span> <span class="s1">'n_components'</span><span class="p">,</span> <span class="s1">'n_cuts'</span><span class="p">,</span> <span class="s1">'objective'</span><span class="p">]</span>
 </code></pre></div>
 <p>Writing your own callback is the same one-argument function:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">log_improvements</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">...</span>     <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span> <span class="ow">and</span> <span class="n">event</span><span class="o">.</span><span class="n">iteration</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">...</span>         <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">best_cost</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">event</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">...</span>     <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># True would stop the run</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">log_improvements</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">log_improvements</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="o">...</span>     <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span> <span class="ow">and</span> <span class="n">event</span><span class="o">.</span><span class="n">iteration</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="o">...</span>         <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">best_cost</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">event</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="o">...</span>     <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># True would stop the run</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dj</span><span class="o">.</span><span class="n">distance_matrix</span><span class="p">(),</span> <span class="n">labels</span><span class="o">=</span><span class="n">dj</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">log_improvements</span><span class="p">)</span>  <span class="c1"># doctest: +SKIP</span>
 </code></pre></div>
 
 

@@ -683,6 +683,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user_guide/real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user_guide/warm_starts_and_ensembles/" class="md-nav__link">
         
   
@@ -1260,6 +1316,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skroute.viz.google_maps_urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        google_maps_urls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.viz.to_kml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_kml
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.viz.google_maps_html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        google_maps_html
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#skroute.viz.LivePlot" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1774,6 +1863,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skroute.viz.google_maps_urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        google_maps_urls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.viz.to_kml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_kml
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skroute.viz.google_maps_html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        google_maps_html
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#skroute.viz.LivePlot" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2018,7 +2140,13 @@ at every iteration, together with the structure a solver is building when it rep
 (the edges of a construction heuristic, the pheromone trails of the ant colony, the SOM
 ring — D31); <a class="autorefs autorefs-internal" title="Recorder" href="#skroute.viz.Recorder"><code>Recorder</code></a> keeps every event with a wall-clock stamp
 and replays the run at time-lapse speed as a matplotlib animation, a live replay, a GIF
-or MP4, or a Plotly figure with Play/Pause, a speed menu and a slider. The
+or MP4, or a Plotly figure with Play/Pause, a speed menu and a slider. The plan also
+leaves the library: <a class="autorefs autorefs-internal" title="google_maps_urls" href="#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a>,
+<a class="autorefs autorefs-internal" title="to_kml" href="#skroute.viz.to_kml"><code>to_kml</code></a> and <a class="autorefs autorefs-internal" title="google_maps_html" href="#skroute.viz.google_maps_html"><code>google_maps_html</code></a>
+(module <code>skroute.viz.google_maps</code>, which needs none of the viz extras) turn a fitted solver, a
+<code>RouteEvent</code> or a plain route with its <code>(latitude, longitude)</code> coordinates into Google
+Maps Directions links per day, a KML for Google My Maps and Google Earth, and a
+standalone page that draws the real roads with the Maps JavaScript API — D34. The
 <a href="../../user_guide/visualisation/">user guide page</a> walks through the workflows.</p>
 <p>The package is optional and imported by nothing else in scikit-route. matplotlib is
 loaded on first use — <code>pip install "scikit-route[viz]"</code> — and plotly only by the map
@@ -2418,7 +2546,7 @@ restarts, and the title names the ensemble.</p>
 
 
 <a href="#skroute.viz.plot_route_map" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_route_map</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">zoom</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Any">Any</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plot_route_map</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">zoom</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">trip_names</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="typing.Any">Any</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2486,6 +2614,40 @@ restarts, and the title names the ensemble.</p>
                   <code>None</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>names</code>
+            </td>
+            <td>
+                  <code>sequence of n str or mapping {label: str}</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The hover text of each node — a name per row of <code>coords</code> (matrix row order) or a mapping
+from label to name (a label without an entry shows the label); default: the labels.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>trip_names</code>
+            </td>
+            <td>
+                  <code>sequence of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One name per trip, shown in a legend (<code>"Monday"</code>, <code>"Tuesday"</code>...); without it the
+lines are named <code>"trip 1"</code>, <code>"trip 2"</code>... and the legend stays hidden.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -2523,6 +2685,777 @@ trip; call <code>fig.show()</code> or <code>fig.write_html("route.html")</code>.
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span> <span class="o">=</span> <span class="n">plot_route_map</span><span class="p">(</span><span class="n">ils</span><span class="p">)</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">type</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">],</span> <span class="n">fig</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">map</span><span class="o">.</span><span class="n">style</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">(['scattermap', 'scattermap', 'scattermap'], 'open-street-map')</span>
+</code></pre></div>
+    <p>Names on hover and a legend of days for a two-day plan:</p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">days</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">6.0</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">places</span> <span class="o">=</span> <span class="p">{</span><span class="n">label</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Place </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">}</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span> <span class="o">=</span> <span class="n">plot_route_map</span><span class="p">(</span><span class="n">days</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">places</span><span class="p">,</span> <span class="n">trip_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"Monday"</span><span class="p">,</span> <span class="s2">"Tuesday"</span><span class="p">])</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">:]],</span> <span class="n">fig</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">showlegend</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">(('Place 10000007',), ['Monday', 'Tuesday'], True)</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.viz.google_maps_urls" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">google_maps_urls</span>
+
+
+<a href="#skroute.viz.google_maps_urls" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">google_maps_urls</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'driving'</span><span class="p">,</span> <span class="n">max_waypoints</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Google Maps Directions URLs of a plan: one list of links per day, each link one leg.</p>
+<p>The Maps URL scheme (<code>https://www.google.com/maps/dir/?api=1&amp;origin=...&amp;destination=...
+&amp;waypoints=...&amp;travelmode=...</code>) takes at most nine waypoints between the origin and the
+destination, so a day with more stops is split into consecutive legs that share their
+boundary stop: the first leg leaves the depot, the last one returns to it, and every leg
+opens in a browser or in the Google Maps app with turn-by-turn directions. Coordinates are
+written as <code>latitude,longitude</code> with six decimals (about ten centimetres).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code>fitted estimator, RouteEvent or route</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A fitted solver (its <code>trips_</code> and the coordinates of the fit), a progress event (its
+best tour, decoded with its problem) or a plain label-space route: an open tour, a closed
+one or a multi-trip route with the depot repeated between the days (<code>route_</code>); every
+occurrence of the depot — the first entry — starts a new day.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>(n, 2) array-like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(latitude, longitude)</code> in decimal degrees, matrix row order. Default: the coordinates
+the problem carries (<code>fit(..., coords=)</code>). Required for a plain route.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>labels</code>
+            </td>
+            <td>
+                  <code>sequence of n hashables</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a plain route: the label of each row of <code>coords</code>. <code>None</code> means the route holds
+row positions.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mode</code>
+            </td>
+            <td>
+                  <code>(&#39;driving&#39;, &#39;walking&#39;, &#39;bicycling&#39;, &#39;transit&#39;)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <code>travelmode</code> of the links (Google ignores waypoints in transit mode).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;driving&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_waypoints</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Intermediate stops per link. Nine is Google's documented limit for the URL scheme on the
+desktop site and in the Google Maps app; a link opened in a phone's <em>browser</em> keeps only
+three, so pass <code>max_waypoints=3</code> for links that will be opened there.</p>
+              </div>
+            </td>
+            <td>
+                  <code>9</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>urls</code></td>            <td>
+                  <code>list of list of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>urls[k]</code> are the links of day <code>k</code> in driving order; one link when the day has at
+most <code>max_waypoints</code> stops.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Without coordinates, for coordinates outside the latitude/longitude ranges or with the
+wrong number of rows, for <code>labels=</code> with a fitted estimator or an event, a route naming
+something that is not one of <code>labels=</code> (or indexing beyond <code>coords</code>), a route that
+visits no stop or one more than once, an event without a tour yet, an unknown <code>mode</code> or a
+non-positive <code>max_waypoints</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotFittedError">NotFittedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an estimator that has not been fitted.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">IteratedLocalSearch</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_barcelona</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">google_maps_urls</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">bcn</span> <span class="o">=</span> <span class="n">load_barcelona</span><span class="p">()</span>  <span class="c1"># 19 places, coords are (latitude, longitude)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ils</span> <span class="o">=</span> <span class="n">IteratedLocalSearch</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">urls</span> <span class="o">=</span> <span class="n">google_maps_urls</span><span class="p">(</span><span class="n">ils</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">urls</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">urls</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># one day of 18 stops: two links of at most nine waypoints</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">(1, 2)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">urls</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"https://www.google.com/maps/dir/?api=1&amp;origin=41.398568%2C2.167441"</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">True</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">urls</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"&amp;travelmode=driving"</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">True</span>
+</code></pre></div>
+    <p>A plain route over its own coordinates (row positions; the depot repeats between the days):</p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">office</span> <span class="o">=</span> <span class="p">[</span><span class="mf">40.331</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.766</span><span class="p">]</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">places</span> <span class="o">=</span> <span class="p">[</span><span class="n">office</span><span class="p">,</span> <span class="p">[</span><span class="mf">40.42</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.70</span><span class="p">],</span> <span class="p">[</span><span class="mf">40.45</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.69</span><span class="p">],</span> <span class="p">[</span><span class="mf">40.30</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.73</span><span class="p">]]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">day</span><span class="p">)</span> <span class="k">for</span> <span class="n">day</span> <span class="ow">in</span> <span class="n">google_maps_urls</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">places</span><span class="p">)]</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">[1, 1]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">google_maps_urls</span><span class="p">([</span><span class="s2">"office"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">],</span> <span class="n">places</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"office"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"walking"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">['https://www.google.com/maps/dir/?api=1&amp;origin=40.331000%2C-3.766000&amp;destination=40.331000%2C-3.766000&amp;waypoints=40.450000%2C-3.690000%7C40.420000%2C-3.700000&amp;travelmode=walking']</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.viz.to_kml" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">to_kml</span>
+
+
+<a href="#skroute.viz.to_kml" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_kml</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="os.PathLike">PathLike</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">depot_name</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'Depot'</span><span class="p">,</span> <span class="n">trip_names</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">colors</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="pathlib.Path">Path</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Write a plan as a KML 2.2 file: one folder per day with numbered stops and the day's line.</p>
+<p>The document holds the depot as one placemark, one <code>Style</code> per day (a 4-pixel line and
+pins in the day's colour) and one <code>Folder</code> per day named <code>trip_names[k]</code> (default
+<code>"Day k"</code>) with a <code>Placemark</code> per stop — named <code>"k.j &lt;name&gt;"</code>, described as
+<code>"Day k, stop j of m"</code> — and a <code>LineString</code> of the closed trip <code>depot → stops → depot</code>.
+The line joins the stops as the crow flies; the page of
+<a class="autorefs autorefs-internal" title="google_maps_html" href="#skroute.viz.google_maps_html"><code>google_maps_html</code></a> draws the roads.</p>
+<p><strong>Google My Maps</strong>: open https://www.google.com/maps/d/, <code>Create a new map</code>, then in the
+untitled layer <code>Import</code> and choose the file — every folder becomes a group of numbered pins
+with its line, and the map opens on any phone signed into the account. <strong>Google Earth</strong>:
+<code>File → Open</code> (desktop) or <code>Projects → Open → Import KML file</code> (web).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code>fitted estimator, RouteEvent or route</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As in <a class="autorefs autorefs-internal" title="google_maps_urls" href="#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>(n, 2) array-like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(latitude, longitude)</code> in matrix row order; default: the coordinates of the fit.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or <span title="path">path</span> - <span title="like">like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where to write the file (<code>.kml</code>). Required — it is positional after <code>coords</code> so
+<code>to_kml(est, None, "plan.kml")</code> and <code>to_kml(est, path="plan.kml")</code> both work.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>labels</code>
+            </td>
+            <td>
+                  <code>sequence of n hashables</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a plain route: the label of each row of <code>coords</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>names</code>
+            </td>
+            <td>
+                  <code>sequence of n str or mapping {label: str}</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A display name per node (matrix row order, or by label); default: the labels.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>depot_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the depot's placemark.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;Depot&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>trip_names</code>
+            </td>
+            <td>
+                  <code>sequence of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One folder name per day; default <code>"Day 1"</code>, <code>"Day 2"</code>...</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>colors</code>
+            </td>
+            <td>
+                  <code>sequence of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hex colours (<code>"#rrggbb"</code>) per day, cycled when shorter; default: <code>PALETTE</code> — ten
+distinct colours, so from the eleventh day on they repeat (pass more for longer plans).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>path</code></td>            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The file written.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Without <code>path</code> (also when a path was given in the <code>coords</code> slot), or when <code>names</code> or
+<code>trip_names</code> is a single str rather than a sequence.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For the inputs <a class="autorefs autorefs-internal" title="google_maps_urls" href="#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a> rejects (no or invalid
+coordinates, a route visiting a node twice or none...), <code>names</code> or <code>trip_names</code> of the
+wrong length, and <code>colors</code> empty or not hex.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotFittedError">NotFittedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an estimator that has not been fitted.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span><span class="o">,</span><span class="w"> </span><span class="nn">xml.etree.ElementTree</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ET</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TwoOpt</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_barcelona</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_kml</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">bcn</span> <span class="o">=</span> <span class="n">load_barcelona</span><span class="p">()</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">two</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">... </span>    <span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">6.0</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">... </span><span class="p">)</span>  <span class="c1"># 6-hour days: two of them (TwoOpt is deterministic, so the figures below are exact)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">kml</span> <span class="o">=</span> <span class="n">to_kml</span><span class="p">(</span><span class="n">two</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">out</span> <span class="o">/</span> <span class="s2">"plan.kml"</span><span class="p">,</span> <span class="n">trip_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"Monday"</span><span class="p">,</span> <span class="s2">"Tuesday"</span><span class="p">])</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">root</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">kml</span><span class="p">)</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"k"</span><span class="p">:</span> <span class="s2">"http://www.opengis.net/kml/2.2"</span><span class="p">}</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">findtext</span><span class="p">(</span><span class="s2">"k:name"</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">iterfind</span><span class="p">(</span><span class="s2">".//k:Folder"</span><span class="p">,</span> <span class="n">ns</span><span class="p">)]</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="go">['Monday', 'Tuesday']</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">"k:Placemark"</span><span class="p">,</span> <span class="n">ns</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">iterfind</span><span class="p">(</span><span class="s2">".//k:Folder"</span><span class="p">,</span> <span class="n">ns</span><span class="p">)]</span>  <span class="c1"># stops per day</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="go">[7, 11]</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="gp">... </span>    <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">".//k:Folder/k:Placemark/k:name"</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="gp">... </span>    <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">".//k:Folder/k:Placemark/k:description"</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="gp">... </span><span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="go">('1.1 23', 'Day 1, stop 1 of 7')</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="skroute.viz.google_maps_html" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">google_maps_html</span>
+
+
+<a href="#skroute.viz.google_maps_html" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">google_maps_html</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="n"><span title="os.PathLike">PathLike</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">api_key</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">trip_names</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="pathlib.Path">Path</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Write a standalone page that draws the plan on Google Maps with real road directions.</p>
+<p>The page loads the Maps JavaScript API with <code>api_key</code> and, for every day, asks a
+<code>DirectionsService</code> for the roads — one request per leg of at most 25 waypoints, split like
+<a class="autorefs autorefs-internal" title="google_maps_urls" href="#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a> — drawn by a <code>DirectionsRenderer</code> in
+the day's colour with numbered markers at the stops and a star at the depot. A legend lists
+the days with a checkbox each (hiding a day hides its roads and markers), the stops and the
+driving minutes; a leg whose request fails (quota, an unroutable point) is drawn as a dashed
+straight line and reported under the legend. The plan itself is embedded as one JSON object
+(<code>&lt;script type="application/json" id="skroute-plan"&gt;</code>), computed here: <code>trips</code> with
+<code>lat</code>/<code>lon</code>/<code>names</code> lists, <code>legs</code>, <code>color</code>, <code>n_stops</code> and — when the solution
+carries a time matrix, assumed in minutes as <code>travel_time_matrix</code> (D33) returns it
+— <code>driving_minutes</code>; <code>totals</code> with <code>n_trips</code>, <code>n_stops</code> and the same
+minutes. Directions requests are billed to the key's project.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code>fitted estimator, RouteEvent or route</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As in <a class="autorefs autorefs-internal" title="google_maps_urls" href="#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coords</code>
+            </td>
+            <td>
+                  <code>(n, 2) array-like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(latitude, longitude)</code> in matrix row order; default: the coordinates of the fit.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or <span title="path">path</span> - <span title="like">like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where to write the page (<code>.html</code>). Required — positional after <code>coords</code>, so
+<code>google_maps_html(est, None, "plan.html")</code> and <code>google_maps_html(est, path=...)</code> both
+work.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>labels</code>
+            </td>
+            <td>
+                  <code>sequence of n hashables</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a plain route: the label of each row of <code>coords</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>api_key</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A Maps JavaScript API key (Directions API enabled); default: the <code>GOOGLE_MAPS_API_KEY</code>
+environment variable. The key is written into the page — share the file accordingly.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>names</code>
+            </td>
+            <td>
+                  <code>sequence of n str or mapping {label: str}</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A display name per node (marker tooltips, the legend); default: the labels. A depot left
+unnamed (<code>None</code>, or a mapping without its label) reads <code>"Depot (&lt;label&gt;)"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>trip_names</code>
+            </td>
+            <td>
+                  <code>sequence of str</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One name per day; default <code>"Day 1"</code>, <code>"Day 2"</code>...</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>title</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Page title; default <code>"&lt;Solver&gt; plan"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>path</code></td>            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The file written.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Without <code>path</code> (also when a path was given in the <code>coords</code> slot), or when <code>names</code> or
+<code>trip_names</code> is a single str rather than a sequence.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Without a key: <code>"no Google Maps API key: pass api_key= or set GOOGLE_MAPS_API_KEY"</code>; for
+the inputs <a class="autorefs autorefs-internal" title="google_maps_urls" href="#skroute.viz.google_maps_urls"><code>google_maps_urls</code></a> rejects (no or invalid
+coordinates, a route visiting a node twice or none...); <code>names</code> or <code>trip_names</code> of the
+wrong length.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotFittedError">NotFittedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an estimator that has not been fitted.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>The days take the ten colours of <code>PALETTE</code> in turn, so from the eleventh day on they repeat.
+The Directions requests go out a couple at a time and a leg refused with <code>OVER_QUERY_LIMIT</code> is
+asked once more before it falls back to the dashed line. The markers are <code>google.maps.Marker</code>,
+which Google deprecated in February 2024 in favour of <code>AdvancedMarkerElement</code> but keeps
+serving (the browser console notes it); a later release may switch.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TwoOpt</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_barcelona</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.viz</span><span class="w"> </span><span class="kn">import</span> <span class="n">google_maps_html</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">bcn</span> <span class="o">=</span> <span class="n">load_barcelona</span><span class="p">()</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">two</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">... </span>    <span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mi">360</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">... </span><span class="p">)</span>  <span class="c1"># the bundled times are hours: minutes for the page (TwoOpt is deterministic: exact figures)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">page</span> <span class="o">=</span> <span class="n">google_maps_html</span><span class="p">(</span><span class="n">two</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">out</span> <span class="o">/</span> <span class="s2">"plan.html"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"AIza-demo"</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">"Barcelona, two days"</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">text</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">text</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"AIza-demo"</span><span class="p">),</span> <span class="s1">'src="https://maps.googleapis.com/maps/api/js?key=AIza-demo'</span> <span class="ow">in</span> <span class="n">text</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="go">(1, True)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">plan</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">'id="skroute-plan"&gt;(.*?)&lt;/script&gt;'</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">S</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">plan</span><span class="p">[</span><span class="s2">"totals"</span><span class="p">],</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="s2">"n_stops"</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"trips"</span><span class="p">]],</span> <span class="n">plan</span><span class="p">[</span><span class="s2">"trips"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">"legs"</span><span class="p">]</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="go">({'n_trips': 2, 'n_stops': 18, 'driving_minutes': 676.7}, [7, 11], [[0, 8]])</span>
 </code></pre></div>
 
 

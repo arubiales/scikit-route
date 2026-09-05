@@ -906,6 +906,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../warm_starts_and_ensembles/" class="md-nav__link">
         
   
@@ -1939,7 +1995,10 @@ objective becomes</p>
 \text{cost}(\tau) = \sum_{r=1}^{m} c(\text{trip}_r) \;+\; \text{people} \cdot \text{extra\_cost} \cdot (m - 1),
 \qquad \text{subject to} \quad t(\text{trip}_r) \leq \text{max\_time\_work} \;\; \forall r,
 \]</div>
-<p>where <span class="arithmatex">\(t(\text{trip}_r)\)</span> is the duration of the closed trip, <strong>return leg included</strong>.</p>
+<p>where <span class="arithmatex">\(t(\text{trip}_r)\)</span> is the duration of the closed trip, <strong>return leg included</strong>.
+A visit that takes time enters <span class="arithmatex">\(t(\text{trip}_r)\)</span> through <code>service_time=</code> — the same
+duration at every customer, or one per node — and changes what fits in a day; see
+<a href="../multi_trip/#service-times">service times</a>.</p>
 <h3 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h3>
 <p>Four nodes; the depot is node <code>1</code>. Costs are in euros, durations in hours, the
 working day lasts four hours and every extra trip costs 3.0:</p>

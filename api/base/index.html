@@ -683,6 +683,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user_guide/real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user_guide/real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user_guide/warm_starts_and_ensembles/" class="md-nav__link">
         
   
@@ -861,6 +917,17 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#service-times" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service times
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#watching-a-solver-work" class="md-nav__link">
@@ -1246,6 +1313,45 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#skroute.metrics.Stop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stop
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.Stop.arrival_time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        arrival_time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.Stop.departure_time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        departure_time
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#skroute.metrics.route_cost" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1261,6 +1367,28 @@
     <span class="md-ellipsis">
       
         split_trips
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.timetable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        timetable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.timetable_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        timetable_summary
       
     </span>
   </a>
@@ -1902,6 +2030,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#service-times" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service times
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#watching-a-solver-work" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2285,6 +2424,45 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#skroute.metrics.Stop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stop
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.Stop.arrival_time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        arrival_time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.Stop.departure_time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        departure_time
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#skroute.metrics.route_cost" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2300,6 +2478,28 @@
     <span class="md-ellipsis">
       
         split_trips
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.timetable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        timetable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skroute.metrics.timetable_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        timetable_summary
       
     </span>
   </a>
@@ -2348,11 +2548,35 @@ three parts:</p>
   of <code>fit</code>, so you can watch (or stop) a search while it runs.</li>
 <li>the helpers <a href="#skroute.clone"><code>clone</code></a>, <a href="#skroute.is_router"><code>is_router</code></a>,
   <a href="#skroute.all_solvers"><code>all_solvers</code></a> and <a href="#skroute.set_log_level"><code>set_log_level</code></a>, the
-  exceptions and the public recomputation helpers of <code>skroute.metrics</code>.</li>
+  exceptions and the public helpers of <code>skroute.metrics</code>: <a href="#skroute.metrics.route_cost"><code>route_cost</code></a>
+  and <a href="#skroute.metrics.split_trips"><code>split_trips</code></a> recompute a label-space route,
+  <a href="#skroute.metrics.timetable"><code>timetable</code></a> turns a solution into arrival and departure times
+  (one list of <a href="#skroute.metrics.Stop"><code>Stop</code></a>s per day) and
+  <a href="#skroute.metrics.timetable_summary"><code>timetable_summary</code></a> totals every day.</li>
 </ul>
 <p>Plain TSP is <code>est.fit(C)</code>; the multi-trip objective is
 <code>est.fit(C, time_matrix=T, max_time_work=8, extra_cost=12.83, people=2)</code> — <code>time_matrix</code> is
 keyword-only, so the two square matrices can never be swapped by accident.</p>
+<h2 id="service-times">Service times<a class="headerlink" href="#service-times" title="Permanent link">&para;</a></h2>
+<p>A visit takes time: <code>fit(..., service_time=0.5)</code> (a scalar for every non-depot node) or
+<code>service_time=array</code> (one value per node, in matrix row order, the depot's paid once per day at
+departure) adds it to the budget, in the units of <code>time_matrix</code> (D32). The kernels search on the
+<em>effective</em> matrix <code>T_eff[i, j] = T[i, j] + service[j]</code> for <code>j != depot</code>, <code>T_eff[i, depot] = T[i, depot]</code>
+and <code>T_eff[depot, j] += service[depot]</code>; <code>problem_.time</code> stays the raw driving time,
+<code>problem_.service_time</code> is the <code>(n,)</code> array (zeros when not given), <code>problem_.time_or_cost</code> is
+<code>T_eff</code>, and <code>trip_times_</code> includes the visits. A fit with <code>service_time</code> equals, by definition, a
+fit on <code>T_eff</code> without it; <code>route_cost(..., service_time=)</code> re-prices a route the same way.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">BruteForce</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">timetable</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hours</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">bf</span> <span class="o">=</span> <span class="n">BruteForce</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">bf</span><span class="o">.</span><span class="n">route_</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">bf</span><span class="o">.</span><span class="n">trip_times_</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">bf</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">([0, 1, 2, 0, 3, 0], [5.0, 4.5], 41.0)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[(</span><span class="n">s</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">arrival_time</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">departure_time</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">timetable</span><span class="p">(</span><span class="n">bf</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">"h"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">[(0, '08:00', '08:00'), (1, '09:00', '09:30'), (2, '10:30', '11:00'), (0, '13:00', '13:00')]</span>
+</code></pre></div>
 <h2 id="watching-a-solver-work">Watching a solver work<a class="headerlink" href="#watching-a-solver-work" title="Permanent link">&para;</a></h2>
 <p>Every <code>fit</code> accepts <code>callback=</code>: any callable taking one <code>RouteEvent</code>. The solver calls it once
 at <code>"start"</code>, once after every outer iteration — exactly where <code>history_</code> grows, with the tour it
@@ -2368,20 +2592,20 @@ enclosing <code>joblib.parallel_config</code> says, so the callback never runs i
 runs inside the timed search (<code>fit_time_</code> includes it), and an exception it raises propagates out
 of <code>fit</code> and leaves the estimator unfitted, at the <code>"end"</code> event as at any other. The
 <code>skroute.viz</code> package builds live plots and animations on top of this protocol.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedAnnealing</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">seen</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">seen</span><span class="o">.</span><span class="n">append</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">seen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stage</span><span class="p">,</span> <span class="n">seen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="n">seen</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">stage</span><span class="p">,</span> <span class="n">seen</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">iteration</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_iter_</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">('start', 0, 'end', True)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">seen</span><span class="p">)</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">+</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">seen</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">best_cost</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">cost_</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">True</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">seen</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">['accepted', 'n_moves', 'temperature']</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">short</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">iteration</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">short</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">,</span> <span class="n">short</span><span class="o">.</span><span class="n">stop_reason_</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="go">(5, 'callback')</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedAnnealing</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">seen</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">sa</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">seen</span><span class="o">.</span><span class="n">append</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">seen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stage</span><span class="p">,</span> <span class="n">seen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="n">seen</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">stage</span><span class="p">,</span> <span class="n">seen</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">iteration</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_iter_</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="go">('start', 0, 'end', True)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">seen</span><span class="p">)</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">n_iter_</span> <span class="o">+</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">seen</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">best_cost</span> <span class="o">==</span> <span class="n">sa</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="go">True</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">seen</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="go">['accepted', 'n_moves', 'temperature']</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">short</span> <span class="o">=</span> <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">iteration</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">short</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">,</span> <span class="n">short</span><span class="o">.</span><span class="n">stop_reason_</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="go">(5, 'callback')</span>
 </code></pre></div>
 <h3 id="partial-structures-edges-edge_weights-ring">Partial structures: <code>edges</code>, <code>edge_weights</code>, <code>ring</code><a class="headerlink" href="#partial-structures-edges-edge_weights-ring" title="Permanent link">&para;</a></h3>
 <p>A solver that has no tour yet still has <em>something</em> to show — and three optional <code>extra</code> keys
@@ -2406,16 +2630,16 @@ carry it, in a shape every viewer understands (D31); keys a viewer does not know
 nothing. Every event owns its list or array — a recorder that keeps the events keeps the history.
 A construction solver has no search to stop: a callback returning <code>True</code> only silences its remaining
 step events (all of them when it answers at <code>"start"</code>), and the result never depends on the callback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">NearestNeighbour</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">trace</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">nn</span> <span class="o">=</span> <span class="n">NearestNeighbour</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"d"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">],</span> <span class="n">callback</span><span class="o">=</span><span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">trace</span><span class="p">]</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="go">['start', 'iteration', 'iteration', 'iteration', 'end']</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">extra</span><span class="p">[</span><span class="s2">"edges"</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">trace</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span><span class="p">]</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="go">[[('d', 'a')], [('d', 'a'), ('a', 'b')], [('d', 'a'), ('a', 'b'), ('b', 'c')]]</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">trace</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tour</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">cost</span><span class="p">),</span> <span class="n">trace</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">best_tour</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="go">(True, ['d', 'a', 'b', 'c'])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">NearestNeighbour</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">trace</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">nn</span> <span class="o">=</span> <span class="n">NearestNeighbour</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"d"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">],</span> <span class="n">callback</span><span class="o">=</span><span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">trace</span><span class="p">]</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">['start', 'iteration', 'iteration', 'iteration', 'end']</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">extra</span><span class="p">[</span><span class="s2">"edges"</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">trace</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="s2">"iteration"</span><span class="p">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">[[('d', 'a')], [('d', 'a'), ('a', 'b')], [('d', 'a'), ('a', 'b'), ('b', 'c')]]</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">trace</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tour</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">cost</span><span class="p">),</span> <span class="n">trace</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">best_tour</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="go">(True, ['d', 'a', 'b', 'c'])</span>
 </code></pre></div>
 
 
@@ -2428,7 +2652,7 @@ step events (all of them when it answers at <code>"start"</code>), and the resul
 
 
 <a href="#skroute.RoutingProblem" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RoutingProblem</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">time_matrix</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">depot</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_time_work</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extra_cost</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">people</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'greedy'</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RoutingProblem</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">time_matrix</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">depot</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_time_work</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extra_cost</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">people</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">service_time</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'greedy'</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2579,6 +2803,26 @@ step events (all of them when it answers at <code>"start"</code>), and the resul
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>service_time</code>
+            </td>
+            <td>
+                  <code>float or (n,) array-like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time spent at each node, in the units of <code>time_matrix</code> (finite, &gt;= 0). A scalar applies to
+every non-depot node; an array gives one value per node in matrix row order (the depot's
+entry is paid once per trip, at departure). A pandas Series is read in row order too, but
+its index must be the labels of <code>X</code>. Requires <code>max_time_work</code> (D32). Default: no
+service time.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>split</code>
             </td>
             <td>
@@ -2625,7 +2869,19 @@ step events (all of them when it answers at <code>"start"</code>), and the resul
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The coerced time matrix; <code>None</code> for plain TSP.</p>
+                <p>The coerced <strong>raw</strong> travel-time matrix; <code>None</code> for plain TSP. The kernels read
+<code>time_or_cost</code> instead, which adds the service times.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="skroute.RoutingProblem.service_time">service_time</span></code></td>
+            <td>
+                  <code>ndarray of shape (n,), float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Service time of every node in matrix row order; all zeros when not given.</p>
               </div>
             </td>
           </tr>
@@ -2740,6 +2996,21 @@ joins the open trip iff the trip can still return to the depot within
 <code>max_time_work</code>; the optimal decoder (Prins, 2004) is the minimum-cost
 partition of the giant tour into consecutive feasible trips. Both are O(n)
 and O(n L) respectively, with L the longest feasible open path.</p>
+<p>A service time is folded into the matrix the decoders read (D32): with <code>s</code> the
+<code>(n,)</code> service array and <code>d</code> the depot, the <em>effective</em> time matrix is
+<code>T_eff[i, j] = T[i, j] + s[j]</code> for <code>j != d</code> (the service is paid on arrival),
+<code>T_eff[i, d] = T[i, d]</code> (nothing is paid on returning) and <code>T_eff[d, j] += s[d]</code>
+for <code>j != d</code> (a service at the depot is paid once per trip, at departure); the
+diagonal, which no kernel reads, stays raw. <code>time_or_cost</code> returns <code>T_eff</code>, so
+<code>evaluate</code>, <code>trip_starts</code> and <code>trip_times</code> all account for the services, and
+fitting with <code>service_time</code> equals fitting on <code>T_eff</code> without it. <code>time</code>
+keeps the raw travel times for reporting (<code>skroute.metrics.timetable</code>).</p>
+<p>The problem never writes to its arrays, but it does not copy a float64, C-contiguous
+<code>X</code> or <code>time_matrix</code> either — <code>cost</code> and <code>time</code> are then <em>views</em> of the caller's
+arrays (no second n x n matrix at n = 10 639) — so an array must not be modified after
+it has been passed. <code>service_time</code> is always copied, and with a non-zero service
+<code>T_eff</code> is a private matrix: a later write to the caller's <code>time_matrix</code> would move
+<code>timetable</code> (which reads <code>time</code>) but not <code>trip_times_</code> (which reads <code>T_eff</code>).</p>
 </details>
 
 <details class="references" open>
@@ -2763,6 +3034,18 @@ and O(n L) respectively, with L the longest feasible open path.</p>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">q</span> <span class="o">=</span> <span class="n">RoutingProblem</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">q</span><span class="o">.</span><span class="n">evaluate</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span> <span class="n">q</span><span class="o">.</span><span class="n">trip_starts</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="go">(41.0, [1, 3, 4])</span>
+</code></pre></div>
+    <p>Half an hour at every customer under a five-hour day: the services are paid on
+arrival (row 0 of the effective matrix), never on the way back (column 0), and
+<code>trip_times</code> includes them.</p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">RoutingProblem</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">service_time</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">[0.0, 0.5, 0.5, 0.5]</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">time_or_cost</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">r</span><span class="o">.</span><span class="n">time_or_cost</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">([0.0, 1.5, 2.5, 2.5], [0.0, 1.0, 2.0, 2.0])</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">starts</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">trip_starts</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">starts</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">r</span><span class="o">.</span><span class="n">trip_times</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">starts</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">r</span><span class="o">.</span><span class="n">evaluate</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">([1, 3, 4], [5.0, 4.5], 41.0)</span>
 </code></pre></div>
 
 
@@ -2849,9 +3132,10 @@ and O(n L) respectively, with L the longest feasible open path.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The matrix kernels receive as <code>T</code>: the time matrix, or the cost matrix when there is no budget.</p>
-<p>Without a budget (<code>max_time_work == inf</code>) the kernels never read <code>T</code>; passing the cost matrix
-keeps every call signature uniform.</p>
+        <p>The matrix kernels receive as <code>T</code>: the effective time matrix, or the cost matrix if no budget.</p>
+<p>The effective matrix is <code>time</code> plus the service times (D32, see the class notes): it <em>is</em>
+<code>time</code> when no service was given. Without a budget (<code>max_time_work == inf</code>) the kernels
+never read <code>T</code>; passing the cost matrix keeps every call signature uniform.</p>
 
     </div>
 
@@ -3047,7 +3331,7 @@ trip <code>k</code> is <code>tour[starts[k]:starts[k + 1]]</code>. Plain TSP giv
 
     <div class="doc doc-contents ">
 
-        <p>Duration of each closed trip, float64 <code>(n_trips,)</code>. Requires a time matrix.</p>
+        <p>Duration of each closed trip, float64 <code>(n_trips,)</code>, services included. Requires a time matrix.</p>
 
 
     </div>
@@ -3224,7 +3508,7 @@ exact solvers set <code>self.is_optimal_</code>. Everything else is set here.</p
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Only when a time matrix was given; each <code>&lt;= max_time_work + 1e-9</code>.</p>
+                <p>Only when a time matrix was given; each <code>&lt;= max_time_work + 1e-9</code>, service times included.</p>
               </div>
             </td>
           </tr>
@@ -3479,7 +3763,7 @@ match its cost is impossible by construction.</p>
 
 
 <a href="#skroute.base.BaseRouter.fit" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fit</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">time_matrix</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">depot</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_time_work</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extra_cost</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">people</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'greedy'</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="collections.abc.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="RouteEvent
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fit</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">time_matrix</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">depot</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_time_work</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extra_cost</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">people</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">service_time</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'greedy'</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n"><span title="collections.abc.Callable">Callable</span></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="RouteEvent
 
 
   
@@ -3630,6 +3914,25 @@ passed alone (<code>callback</code> is not a problem argument and may accompany 
             </td>
             <td>
                   <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>service_time</code>
+            </td>
+            <td>
+                  <code>float or (n,) array-like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time spent at each stop, in the units of <code>time_matrix</code> (D32): a scalar for every
+non-depot node, or one value per node in matrix row order (a pandas Series must carry
+the labels of <code>X</code>). Requires <code>max_time_work</code>; the trips then fit the budget with the
+services included (<code>trip_times_</code> counts them).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -4644,11 +4947,12 @@ accessed before <a class="autorefs autorefs-internal" title="fit" href="#skroute
 
     <div class="doc doc-contents first">
 
-        <p>Public recomputation helpers: <a class="autorefs autorefs-internal" title="route_cost" href="#skroute.metrics.route_cost"><code>route_cost</code></a> and
-<a class="autorefs autorefs-internal" title="split_trips" href="#skroute.metrics.split_trips"><code>split_trips</code></a> (SPEC §3.5).</p>
-<p>Both work in <strong>label space</strong>, on the <code>route_</code>/<code>tour_</code> arrays a fitted solver
-exposes, so a user (or a test) can price any route under the objective without
-touching index space.</p>
+        <p>Public recomputation helpers: <a class="autorefs autorefs-internal" title="route_cost" href="#skroute.metrics.route_cost"><code>route_cost</code></a>,
+<a class="autorefs autorefs-internal" title="split_trips" href="#skroute.metrics.split_trips"><code>split_trips</code></a> and the per-day
+<a class="autorefs autorefs-internal" title="timetable" href="#skroute.metrics.timetable"><code>timetable</code></a> (SPEC §3.5, D32).</p>
+<p>Everything here works in <strong>label space</strong>, on the <code>route_</code>/<code>tour_</code> arrays a fitted
+solver exposes, so a user (or a test) can price any route under the objective — or
+turn it into arrival and departure times — without touching index space.</p>
 
 
 
@@ -4669,6 +4973,281 @@ touching index space.</p>
 
 
 
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="skroute.metrics.Stop" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Stop</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#skroute.metrics.Stop" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Stop</span><span class="p">(</span><span class="n">day</span><span class="p">:</span> <span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n"><span title="int">int</span></span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">arrival</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">departure</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">travel</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n"><span title="float">float</span></span><span class="p">,</span> <span class="n">wait</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="mf">60.0</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One line of a <a class="autorefs autorefs-internal" title="timetable" href="#skroute.metrics.timetable"><code>timetable</code></a>: a visit, or the depot at either end of a day.</p>
+<p>Times are <strong>minutes since the start of the day</strong> (floats, so the arithmetic is exact and
+the caller decides the rounding); the <code>*_time</code> properties render them as <code>HH:MM</code>
+clock strings from the day's <code>start</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>day</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Day (trip) number, 1-based.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>order</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Position in the day: <code>0</code> is the departure from the depot, the last order the return.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>label</code>
+            </td>
+            <td>
+                  <code><span title="hashable">hashable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Label of the node (the depot's label at both ends).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>arrival</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minutes after <code>start</code> at which the vehicle arrives (<code>0.0</code> at the departure stop).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>departure</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>arrival + service + wait</code>; at the final depot stop it equals <code>arrival</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>travel</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Driving minutes from the previous stop (<code>0.0</code> at the departure stop).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>service</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minutes spent at the stop (<code>problem.service_time</code> of the node; <code>0.0</code> on returning).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>wait</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Idle minutes before the service starts. Always <code>0.0</code> today — reserved for time windows.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>start</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minutes after midnight at which the day starts (<code>08:00</code>); used by the clock strings only,
+and left out of the repr and of equality: two stops with the same minutes are equal
+(and hash alike) whatever clock they are rendered on.</p>
+              </div>
+            </td>
+            <td>
+                  <code>480.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stop</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">stop</span> <span class="o">=</span> <span class="n">Stop</span><span class="p">(</span><span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"b"</span><span class="p">,</span> <span class="n">arrival</span><span class="o">=</span><span class="mf">95.0</span><span class="p">,</span> <span class="n">departure</span><span class="o">=</span><span class="mf">125.0</span><span class="p">,</span> <span class="n">travel</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">service</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">stop</span><span class="o">.</span><span class="n">arrival_time</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">departure_time</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">('09:35', '10:05')</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">Stop</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">9</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">+</span> <span class="mi">30</span><span class="p">)</span><span class="o">.</span><span class="n">departure_time</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">'09:30'</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">Stop</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">9</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">+</span> <span class="mi">30</span><span class="p">)</span> <span class="o">==</span> <span class="n">Stop</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"d"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">True</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="skroute.metrics.Stop.arrival_time" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">arrival_time</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#skroute.metrics.Stop.arrival_time" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">arrival_time</span><span class="p">:</span> <span class="n"><span title="str">str</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p><code>HH:MM</code> of <code>arrival</code> (rounded to the minute; wraps past midnight).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="skroute.metrics.Stop.departure_time" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">departure_time</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#skroute.metrics.Stop.departure_time" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">departure_time</span><span class="p">:</span> <span class="n"><span title="str">str</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p><code>HH:MM</code> of <code>departure</code> (rounded to the minute; wraps past midnight).</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4678,7 +5257,7 @@ touching index space.</p>
 
 
 <a href="#skroute.metrics.route_cost" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">route_cost</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">depot</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time_matrix</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_time_work</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extra_cost</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">people</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'greedy'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="float">float</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">route_cost</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">depot</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time_matrix</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_time_work</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extra_cost</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">people</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">service_time</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">split</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'greedy'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="float">float</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4723,7 +5302,10 @@ touching index space.</p>
             <td>
               <div class="doc-md-description">
                 <p>Open tour, closed route or multi-trip route (the depot may repeat). Its first
-label is the depot.</p>
+label is the depot. Every depot occurrence is removed and the giant tour is
+re-decoded with <code>split</code>, exactly as <code>fit</code> did — so a hand-made plan is priced as
+the decoder would cut it, not as driven; <a class="autorefs autorefs-internal" title="timetable" href="#skroute.metrics.timetable"><code>timetable</code></a>
+keeps the days as driven instead. The two agree on every route produced by <code>fit</code>.</p>
               </div>
             </td>
             <td>
@@ -4829,6 +5411,23 @@ label is the depot.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>service_time</code>
+            </td>
+            <td>
+                  <code>float or (n,) array-like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time spent at each stop, in the units of <code>time_matrix</code> (D32); requires <code>max_time_work</code>.
+The route is re-decoded with the services included, exactly as <code>fit</code> did.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>split</code>
             </td>
             <td>
@@ -4904,6 +5503,12 @@ label is the depot.</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hours</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">route_cost</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">41.0</span>
+</code></pre></div>
+    <p>Half an hour at every stop makes the same tour need two trips under a five-hour day:</p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">route_cost</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">22.0</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">route_cost</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">hours</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">41.0</span>
 </code></pre></div>
 
 
@@ -5005,6 +5610,409 @@ depots) are dropped.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">[[0, 1, 2, 0], [0, 3, 0]]</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">split_trips</span><span class="p">([</span><span class="s2">"d"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">])]</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">[['d', 'a', 'b', 'd']]</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="skroute.metrics.timetable" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">timetable</span>
+
+
+<a href="#skroute.metrics.timetable" class="headerlink" title="Permanent link">&para;</a></h3>
+          <div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">timetable</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="n">as_frame</span><span class="p">:</span> <span class="n"><span title="typing.Literal">Literal</span></span><span class="p">[</span><span class="kc">False</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="Stop
+
+
+  
+      dataclass
+   (skroute.metrics.Stop)" href="#skroute.metrics.Stop">Stop</a></span><span class="p">]]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">timetable</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="n">as_frame</span><span class="p">:</span> <span class="n"><span title="typing.Literal">Literal</span></span><span class="p">[</span><span class="kc">True</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><span title="pandas.DataFrame">DataFrame</span></span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">timetable</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span> <span class="n">as_frame</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="Stop
+
+
+  
+      dataclass
+   (skroute.metrics.Stop)" href="#skroute.metrics.Stop">Stop</a></span><span class="p">]]</span> <span class="o">|</span> <span class="n"><span title="pandas.DataFrame">DataFrame</span></span>
+</code></pre></div>          </div>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">timetable</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">,</span> <span class="n">route</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n"><span title="typing.Any">Any</span></span> <span class="o">=</span> <span class="s1">'08:00'</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">'min'</span><span class="p">,</span> <span class="n">as_frame</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="Stop
+
+
+  
+      dataclass
+   (skroute.metrics.Stop)" href="#skroute.metrics.Stop">Stop</a></span><span class="p">]]</span> <span class="o">|</span> <span class="n"><span title="pandas.DataFrame">DataFrame</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Arrival and departure times of every stop, day by day (D32).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>obj</code>
+            </td>
+            <td>
+                  <code>fitted estimator or RoutingProblem</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A fitted solver (its <code>problem_</code> and <code>route_</code> are used) or a
+<a class="autorefs autorefs-internal" title="RoutingProblem" href="#skroute.RoutingProblem"><code>RoutingProblem</code></a> with a time matrix and a budget.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>route</code>
+            </td>
+            <td>
+                  <code>sequence of labels</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Required with a <code>RoutingProblem</code>; overrides <code>route_</code> with an estimator. A multi-trip
+route (the depot repeated between trips, as <code>route_</code>) is read <strong>as driven</strong>, one day per
+segment, whatever <code>max_time_work</code> says — a day that runs over the budget is reported
+(with a warning), never re-cut; an open tour or a closed route is a giant tour and is cut
+into days with the problem's split rule (<code>problem.split</code>). Note the difference with
+<a class="autorefs autorefs-internal" title="route_cost" href="#skroute.metrics.route_cost"><code>route_cost</code></a>, which always removes the depot occurrences
+and re-decodes the giant tour: the two agree on every route produced by <code>fit</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>start</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or <span title="datetime.time">time</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Start of the day at the depot, every day, as <code>"HH:MM"</code> or a <code>datetime.time</code>; the
+vehicle leaves at <code>start</code> plus the depot's service time, if any.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;08:00&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>units</code>
+            </td>
+            <td>
+                  <code>(&#39;min&#39;, &#39;h&#39;, &#39;s&#39;)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Units of <code>problem.time</code> and <code>problem.service_time</code>; the timetable is always in minutes.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;min&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>as_frame</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Return one flat <code>pandas.DataFrame</code> instead (pandas required: <code>pip install
+"scikit-route[pandas]"</code>), with the columns <code>day</code>, <code>order</code>, <code>label</code>,
+<code>arrival_time</code>, <code>departure_time</code>, <code>travel</code>, <code>service</code>, <code>wait</code>, <code>arrival</code>,
+<code>departure</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>days</code></td>            <td>
+                  <code>list of list of Stop, or DataFrame</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One inner list per day (trip), each opening with the departure from the depot
+(<code>order 0</code>, <code>departure == service at the depot</code>, <code>0.0</code> without one) and closing with
+the return (<code>arrival</code> = minutes after <code>start</code> at which the day ends). Times are computed
+from <code>problem.time</code> (driving) and <code>problem.service_time</code> (stops), so the return of every
+day lands within <code>max_time_work</code> for a route produced by <code>fit</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"timetable needs time_matrix and max_time_work"</code> for a plain TSP; a route that is not a
+valid tour; a <code>start</code> that is not a clock time.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>obj</code> is neither an estimator nor a problem.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="NotFittedError">NotFittedError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an unfitted estimator.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Warns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="UserWarning">UserWarning</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When a day of a route read as driven ends after <code>max_time_work</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="see-also" open>
+  <summary>See Also</summary>
+  <p>timetable_summary : the totals of every day.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <p>Minutes of driving between four nodes, a 30-minute service at every customer and a
+day of 200 minutes: the fitted tour needs two days.</p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">BruteForce</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">timetable</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">minutes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">],</span> <span class="p">[</span><span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">est</span> <span class="o">=</span> <span class="n">BruteForce</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">... </span>    <span class="n">minutes</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">... </span>    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"office"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">],</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">... </span>    <span class="n">time_matrix</span><span class="o">=</span><span class="n">minutes</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">... </span>    <span class="n">max_time_work</span><span class="o">=</span><span class="mf">200.0</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">... </span>    <span class="n">service_time</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">... </span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">est</span><span class="o">.</span><span class="n">route_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="go">['office', 'a', 'b', 'office', 'c', 'office']</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">days</span> <span class="o">=</span> <span class="n">timetable</span><span class="p">(</span><span class="n">est</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="s2">"09:00"</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">days</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">stop</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">arrival_time</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">departure_time</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">travel</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">service</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="go">0 office 09:00 09:00 0.0 0.0</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="go">1 a 09:30 10:00 30.0 30.0</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="go">2 b 10:30 11:00 30.0 30.0</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="go">3 office 12:00 12:00 60.0 0.0</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[(</span><span class="n">d</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">arrival</span><span class="p">,</span> <span class="n">d</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">arrival_time</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">days</span><span class="p">]</span>  <span class="c1"># each day ends within 200 minutes</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="go">[(180.0, '12:00'), (150.0, '11:30')]</span>
+</code></pre></div>
+    <p>The same from a problem and a route (any tour, decoded with the problem's split rule), and
+as a table when pandas is installed:</p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">problem</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">problem_</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[[</span><span class="n">s</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">day</span><span class="p">]</span> <span class="k">for</span> <span class="n">day</span> <span class="ow">in</span> <span class="n">timetable</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="p">[</span><span class="s2">"office"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">])]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">[['office', 'c', 'office'], ['office', 'b', 'a', 'office']]</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">timetable</span><span class="p">(</span><span class="n">est</span><span class="p">,</span> <span class="n">as_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)[[</span><span class="s2">"day"</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="s2">"arrival_time"</span><span class="p">,</span> <span class="s2">"departure_time"</span><span class="p">]]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">   day   label arrival_time departure_time</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">0    1  office        08:00          08:00</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">1    1       a        08:30          09:00</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">...</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="skroute.metrics.timetable_summary" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">timetable_summary</span>
+
+
+<a href="#skroute.metrics.timetable_summary" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">timetable_summary</span><span class="p">(</span><span class="n">days</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="Stop
+
+
+  
+      dataclass
+   (skroute.metrics.Stop)" href="#skroute.metrics.Stop">Stop</a></span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="typing.Any">Any</span></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Totals of every day of a <a class="autorefs autorefs-internal" title="timetable" href="#skroute.metrics.timetable"><code>timetable</code></a>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>days</code>
+            </td>
+            <td>
+                  <code>list of list of Stop</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As returned by <code>timetable(...)</code> (not the DataFrame form: group that one by <code>day</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>summary</code></td>            <td>
+                  <code>list of dict</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One dict per day with <code>day</code> (1-based), <code>n_stops</code> (customers visited, the depot
+excluded), <code>driving</code> (minutes on the road), <code>service</code> (minutes at the stops, the
+depot's included), <code>total</code> (minutes from the start to the return) and <code>back_at</code> (the
+return as <code>HH:MM</code>).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>days</code> is not a list of days of <code>Stop</code>s — the DataFrame of <code>as_frame=True</code>
+included.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">BruteForce</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">timetable</span><span class="p">,</span> <span class="n">timetable_summary</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">minutes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">],</span> <span class="p">[</span><span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">],</span> <span class="p">[</span><span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">est</span> <span class="o">=</span> <span class="n">BruteForce</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">minutes</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">minutes</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">200.0</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">day</span> <span class="ow">in</span> <span class="n">timetable_summary</span><span class="p">(</span><span class="n">timetable</span><span class="p">(</span><span class="n">est</span><span class="p">)):</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">day</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">{'day': 1, 'n_stops': 2, 'driving': 120.0, 'service': 60.0, 'total': 180.0, 'back_at': '11:00'}</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">{'day': 2, 'n_stops': 1, 'driving': 120.0, 'service': 30.0, 'total': 150.0, 'back_at': '10:30'}</span>
 </code></pre></div>
 
 

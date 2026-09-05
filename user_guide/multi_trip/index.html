@@ -16,7 +16,7 @@
         <link rel="prev" href="../choosing_a_solver/">
       
       
-        <link rel="next" href="../warm_starts_and_ensembles/">
+        <link rel="next" href="../real_inputs/">
       
       
         
@@ -775,6 +775,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#service-times" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service times
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timetables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timetables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-a-customer-cannot-be-served" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -822,6 +844,62 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1646,6 +1724,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#service-times" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service times
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timetables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timetables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-a-customer-cannot-be-served" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1898,23 +1998,122 @@ eight-hour budget already accounts for the time spent at each address. The long 
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">[</span><span class="n">bcn</span><span class="o">.</span><span class="n">time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">)</span>       <span class="c1"># the shortest leg in seconds: 333 s of driving + 420 s stop</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="mi">753</span>
 </code></pre></div>
-<p>When you build your own time matrix, add the service time the same way — to every
-off-diagonal leg — or the budget will be met on paper and missed on the road.</p>
+<p>When you build your own time matrix, keep it as driving time and pass the visits
+through <code>service_time=</code> (next section) instead of folding them into every leg by hand: the
+budget is then met on the road as well as on paper, and the timetable knows what is
+driving and what is time at the door.</p>
+<h2 id="service-times">Service times<a class="headerlink" href="#service-times" title="Permanent link">&para;</a></h2>
+<p>A visit takes time. <code>fit(..., service_time=)</code> accepts a scalar — the same duration at
+every customer, nothing at the depot — or one value per node in matrix row order, in the
+units of the time matrix, and it requires <code>max_time_work</code>. The solver then searches on the
+<em>effective</em> time matrix <span class="arithmatex">\(T^{\text{eff}}_{ij} = T_{ij} + s_j\)</span>: the service of a node is paid
+on arrival, nothing is paid on returning to the depot, and a service at the depot itself
+is paid once per day, at departure. <code>trip_times_</code> counts the visits, <code>problem_.time</code>
+keeps the raw driving times, and <code>problem_.time_or_cost</code> is the effective matrix.</p>
+<p>Half an hour at each of the 18 addresses turns the two-day plan of
+<a class="autorefs autorefs-internal" title="TwoOpt" href="../../api/local_search/#skroute.local_search.TwoOpt"><code>TwoOpt</code></a> (deterministic, budget-aware) into three days:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">TwoOpt</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">two</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">two</span><span class="o">.</span><span class="n">n_trips_</span><span class="p">,</span> <span class="n">two</span><span class="o">.</span><span class="n">trip_times_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="mf">6.73</span><span class="p">,</span> <span class="mf">4.76</span><span class="p">])</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">visits</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">visits</span><span class="o">.</span><span class="n">n_trips_</span><span class="p">,</span> <span class="n">visits</span><span class="o">.</span><span class="n">trip_times_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="nb">round</span><span class="p">(</span><span class="n">visits</span><span class="o">.</span><span class="n">cost_</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="mf">7.44</span><span class="p">,</span> <span class="mf">7.57</span><span class="p">,</span> <span class="mf">6.26</span><span class="p">],</span> <span class="mf">512.03</span><span class="p">)</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">visits</span><span class="o">.</span><span class="n">problem_</span><span class="o">.</span><span class="n">service_time</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">]</span> <span class="o">*</span> <span class="mi">18</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="kc">True</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">eff</span><span class="p">,</span> <span class="n">raw</span> <span class="o">=</span> <span class="n">visits</span><span class="o">.</span><span class="n">problem_</span><span class="o">.</span><span class="n">time_or_cost</span><span class="p">,</span> <span class="n">visits</span><span class="o">.</span><span class="n">problem_</span><span class="o">.</span><span class="n">time</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">eff</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">raw</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">eff</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">raw</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">0</span><span class="p">]))</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="kc">True</span>
+</code></pre></div>
+<p>That effective matrix <em>is</em> the definition of the feature: folding the half hour into the
+columns of the non-depot nodes by hand gives the same fit.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">folded</span> <span class="o">=</span> <span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">folded</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">+=</span> <span class="mf">0.5</span>                                     <span class="c1"># pay the visit on arrival, never on the way back</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">by_hand</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">folded</span><span class="p">))</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">by_hand</span><span class="o">.</span><span class="n">tour_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">visits</span><span class="o">.</span><span class="n">tour_</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="ow">and</span> <span class="n">by_hand</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="n">visits</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kc">True</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">route_cost</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">route_cost</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">visits</span><span class="o">.</span><span class="n">route_</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span> <span class="o">==</span> <span class="n">visits</span><span class="o">.</span><span class="n">cost_</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="kc">True</span>
+</code></pre></div>
+<p>The feasibility check counts the visit too: under a four-hour day node <code>91</code> (3.88 h there
+and back) cannot be served once its half hour is added, and the message says so.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">RoutingProblem</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span><span class="p">))</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="o">...</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">skroute</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InfeasibleProblemError</span><span class="p">:</span> <span class="n">nodes</span> <span class="p">[</span><span class="mi">91</span><span class="p">]</span> <span class="n">cannot</span> <span class="n">be</span> <span class="n">served</span> <span class="ow">in</span> <span class="n">one</span> <span class="n">trip</span><span class="p">:</span> <span class="n">depot</span> <span class="nb">round</span> <span class="n">trip</span> <span class="n">plus</span> <span class="n">service</span> <span class="n">time</span> <span class="n">exceeds</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">4.0</span> <span class="p">(</span><span class="mi">91</span><span class="p">:</span> <span class="n">travel</span> <span class="mf">3.88</span><span class="o">...</span> <span class="o">+</span> <span class="n">service</span> <span class="mf">0.5</span><span class="p">)</span>
+</code></pre></div>
+<p>An array gives every node its own duration — a longer visit at the far address, a
+quarter of an hour loading at the depot before leaving:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">per_node</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">19</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">per_node</span><span class="p">[</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="mi">91</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">1.0</span>            <span class="c1"># one hour at node 91</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">per_node</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.25</span>                                       <span class="c1"># loading at the depot, once per day</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">loaded</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="n">per_node</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="n">problem_</span><span class="o">.</span><span class="n">service_time</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">8.0</span><span class="p">))</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">(</span><span class="mf">0.25</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="timetables">Timetables<a class="headerlink" href="#timetables" title="Permanent link">&para;</a></h2>
+<p><a class="autorefs autorefs-internal" title="timetable" href="../../api/base/#skroute.metrics.timetable"><code>timetable</code></a> turns a fitted solution into clock times: one
+list of <a class="autorefs autorefs-internal" title="Stop
+
+
+  
+      dataclass
+  " href="../../api/base/#skroute.metrics.Stop"><code>Stop</code></a>s per day, opening with the departure from the depot
+(order <code>0</code>) and closing with the return, computed from <code>problem_.time</code> (driving) and
+<code>problem_.service_time</code> (the visits). Times are minutes since <code>start</code>, with <code>arrival_time</code>
+and <code>departure_time</code> as <code>HH:MM</code>; the Barcelona matrix is in hours, hence <code>units="h"</code>
+(the default, <code>"min"</code>, fits a matrix from a routing API).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">timetable</span><span class="p">,</span> <span class="n">timetable_summary</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">days</span> <span class="o">=</span> <span class="n">timetable</span><span class="p">(</span><span class="n">visits</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="s2">"08:00"</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">"h"</span><span class="p">)</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">days</span><span class="p">)</span> <span class="o">==</span> <span class="n">visits</span><span class="o">.</span><span class="n">n_trips_</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="kc">True</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">days</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span>                                     <span class="c1"># the third day: three addresses</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="o">...</span>     <span class="nb">print</span><span class="p">(</span><span class="n">stop</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">arrival_time</span><span class="p">,</span> <span class="n">stop</span><span class="o">.</span><span class="n">departure_time</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">stop</span><span class="o">.</span><span class="n">travel</span><span class="p">),</span> <span class="n">stop</span><span class="o">.</span><span class="n">service</span><span class="p">)</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="mi">0</span> <span class="mi">10000007</span> <span class="mi">08</span><span class="p">:</span><span class="mi">00</span> <span class="mi">08</span><span class="p">:</span><span class="mi">00</span> <span class="mi">0</span> <span class="mf">0.0</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="mi">1</span> <span class="mi">4</span> <span class="mi">08</span><span class="p">:</span><span class="mi">46</span> <span class="mi">09</span><span class="p">:</span><span class="mi">16</span> <span class="mi">46</span> <span class="mf">30.0</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="mi">2</span> <span class="mi">91</span> <span class="mi">10</span><span class="p">:</span><span class="mi">51</span> <span class="mi">11</span><span class="p">:</span><span class="mi">21</span> <span class="mi">95</span> <span class="mf">30.0</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="mi">3</span> <span class="mi">25</span> <span class="mi">12</span><span class="p">:</span><span class="mi">56</span> <span class="mi">13</span><span class="p">:</span><span class="mi">26</span> <span class="mi">95</span> <span class="mf">30.0</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="mi">4</span> <span class="mi">10000007</span> <span class="mi">14</span><span class="p">:</span><span class="mi">16</span> <span class="mi">14</span><span class="p">:</span><span class="mi">16</span> <span class="mi">49</span> <span class="mf">0.0</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">([</span><span class="n">day</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">arrival</span> <span class="o">/</span> <span class="mi">60</span> <span class="k">for</span> <span class="n">day</span> <span class="ow">in</span> <span class="n">days</span><span class="p">],</span> <span class="n">visits</span><span class="o">.</span><span class="n">trip_times_</span><span class="p">))</span>   <span class="c1"># the day ends when the trip does</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="kc">True</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">timetable_summary</span><span class="p">(</span><span class="n">days</span><span class="p">):</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="o">...</span>     <span class="nb">print</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"day"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"n_stops"</span><span class="p">],</span> <span class="nb">round</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"driving"</span><span class="p">]),</span> <span class="n">row</span><span class="p">[</span><span class="s2">"service"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"back_at"</span><span class="p">])</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="mi">1</span> <span class="mi">8</span> <span class="mi">206</span> <span class="mf">240.0</span> <span class="mi">15</span><span class="p">:</span><span class="mi">26</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="mi">2</span> <span class="mi">7</span> <span class="mi">244</span> <span class="mf">210.0</span> <span class="mi">15</span><span class="p">:</span><span class="mi">34</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="mi">3</span> <span class="mi">3</span> <span class="mi">286</span> <span class="mf">90.0</span> <span class="mi">14</span><span class="p">:</span><span class="mi">16</span>
+</code></pre></div>
+<p>Read the third day as: leave at 08:00, drive 46 minutes to <code>4</code>, work there until 09:16,
+95 minutes to <code>91</code>, and so on; back at the depot at 14:16, 6.26 h after leaving — the
+<code>trip_times_[2]</code> above. A timetable also takes a <a class="autorefs autorefs-internal" title="RoutingProblem" href="../../api/base/#skroute.RoutingProblem"><code>RoutingProblem</code></a>
+and any label-space route: a multi-trip route (the depot repeated, as <code>route_</code>) is read as
+driven, an open tour or a closed route is cut into days with the problem's split rule.
+<em>As driven</em> means <strong>your</strong> days: a hand-made plan whose day runs over <code>max_time_work</code> is
+shown as it is, with a <code>UserWarning</code> naming the day — whereas <code>route_cost</code> always removes
+the depot occurrences and re-decodes the giant tour, so it prices the plan as the decoder
+would cut it, not as driven. The two agree on every route <code>fit</code> produces.
+With pandas installed, <code>as_frame=True</code> returns one flat table ready for <code>to_csv</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">table</span> <span class="o">=</span> <span class="n">timetable</span><span class="p">(</span><span class="n">visits</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">"h"</span><span class="p">,</span> <span class="n">as_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[:</span><span class="mi">5</span><span class="p">]</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="p">((</span><span class="mi">24</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">[</span><span class="s1">'day'</span><span class="p">,</span> <span class="s1">'order'</span><span class="p">,</span> <span class="s1">'label'</span><span class="p">,</span> <span class="s1">'arrival_time'</span><span class="p">,</span> <span class="s1">'departure_time'</span><span class="p">])</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">timetable</span><span class="p">(</span><span class="n">visits</span><span class="o">.</span><span class="n">problem_</span><span class="p">,</span> <span class="n">visits</span><span class="o">.</span><span class="n">tour_</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">"h"</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">arrival_time</span>    <span class="c1"># the giant tour, re-decoded</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="s1">'15:26'</span>
+</code></pre></div>
 <h2 id="when-a-customer-cannot-be-served">When a customer cannot be served<a class="headerlink" href="#when-a-customer-cannot-be-served" title="Permanent link">&para;</a></h2>
 <p>Node <code>91</code> is the farthest from the depot: 3.88 h there and back. With a three-hour day
 no trip can include it, and <a class="autorefs autorefs-internal" title="RoutingProblem" href="../../api/base/#skroute.RoutingProblem"><code>RoutingProblem</code></a> says so before
 any search runs, naming the labels:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">InfeasibleProblemError</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">RoutingProblem</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span><span class="p">))</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="o">...</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">skroute</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InfeasibleProblemError</span><span class="p">:</span> <span class="n">nodes</span> <span class="p">[</span><span class="mi">91</span><span class="p">]</span> <span class="n">cannot</span> <span class="n">be</span> <span class="n">served</span> <span class="ow">in</span> <span class="n">one</span> <span class="n">trip</span><span class="p">:</span> <span class="n">depot</span> <span class="nb">round</span> <span class="n">trip</span> <span class="n">exceeds</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="o">...</span>     <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span><span class="p">))</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="o">...</span> <span class="k">except</span> <span class="n">InfeasibleProblemError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="o">...</span>     <span class="n">unreachable</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"]"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"["</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">unreachable</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="s1">'91'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">InfeasibleProblemError</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">RoutingProblem</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span><span class="p">))</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="o">...</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">skroute</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">InfeasibleProblemError</span><span class="p">:</span> <span class="n">nodes</span> <span class="p">[</span><span class="mi">91</span><span class="p">]</span> <span class="n">cannot</span> <span class="n">be</span> <span class="n">served</span> <span class="ow">in</span> <span class="n">one</span> <span class="n">trip</span><span class="p">:</span> <span class="n">depot</span> <span class="nb">round</span> <span class="n">trip</span> <span class="n">exceeds</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="o">...</span>     <span class="n">SimulatedAnnealing</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">3.0</span><span class="p">))</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="o">...</span> <span class="k">except</span> <span class="n">InfeasibleProblemError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="o">...</span>     <span class="n">unreachable</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"]"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"["</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">unreachable</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="s1">'91'</span>
 </code></pre></div>
 <p>What to do depends on the business, not on the solver: lengthen the day, move the
 depot, serve the node from another depot or on its own, or drop it from the matrix
@@ -1928,28 +2127,28 @@ sources. From a <strong>long table</strong> of <code>(origin, destination, value
 export, a database query — <a class="autorefs autorefs-internal" title="pairs_to_matrix" href="../../api/preprocessing/#skroute.preprocessing.pairs_to_matrix"><code>pairs_to_matrix</code></a>
 pivots by labels, so the row order does not matter and a missing direction is mirrored
 when <code>symmetric=True</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">pairs_to_matrix</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hours</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">"id_origin"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"id_destinity"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"hours"</span><span class="p">])</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">eur</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">"id_origin"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"id_destinity"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"cost"</span><span class="p">])</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hours</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">hours</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">)),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">))</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">((</span><span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">pairs_to_matrix</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hours</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">"id_origin"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"id_destinity"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"hours"</span><span class="p">])</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">eur</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pairs_to_matrix</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">"id_origin"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"id_destinity"</span><span class="p">],</span> <span class="n">frame</span><span class="p">[</span><span class="s2">"cost"</span><span class="p">])</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">hours</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">hours</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">)),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">))</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">((</span><span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 <p>From <strong>coordinates</strong>, <a class="autorefs autorefs-internal" title="distance_matrix" href="../../api/preprocessing/#skroute.preprocessing.distance_matrix"><code>distance_matrix</code></a> gives
 great-circle kilometres (<code>metric="haversine"</code>, decimal-degree <code>(latitude, longitude)</code>)
-that an average speed and a service time turn into hours. It is a rough proxy for road
-times — on this table the road distance is typically 30–40 % longer than the straight line
-(median ratio 1.37) and several times longer for a few pairs — but it is what you have
-before calling a routing API:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">distance_matrix</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">km</span> <span class="o">=</span> <span class="n">distance_matrix</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"haversine"</span><span class="p">)</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">service</span> <span class="o">=</span> <span class="mi">7</span> <span class="o">/</span> <span class="mi">60</span>                                           <span class="c1"># a 7-minute stop at every address</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">approx</span> <span class="o">=</span> <span class="n">km</span> <span class="o">/</span> <span class="mf">40.0</span> <span class="o">+</span> <span class="n">service</span> <span class="o">*</span> <span class="p">(</span><span class="n">km</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>                    <span class="c1"># hours at 40 km/h; no stop on the diagonal</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">approx</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">approx</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">approx</span><span class="p">[</span><span class="n">km</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">((</span><span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rough</span> <span class="o">=</span> <span class="n">ClarkeWright</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">approx</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="o">...</span>                            <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">12.83</span><span class="p">,</span> <span class="n">people</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rough</span><span class="o">.</span><span class="n">n_trips_</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">rough</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">8.0</span><span class="p">))</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="kc">True</span>
+that an average speed turns into hours of driving; the time at each address goes
+through <code>service_time=</code>. It is a rough proxy for road times — on this table the road
+distance is typically 30–40 % longer than the straight line (median ratio 1.37) and
+several times longer for a few pairs — but it is what you have before calling a routing
+API:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">distance_matrix</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">km</span> <span class="o">=</span> <span class="n">distance_matrix</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">"haversine"</span><span class="p">)</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">approx</span> <span class="o">=</span> <span class="n">km</span> <span class="o">/</span> <span class="mf">40.0</span>                                         <span class="c1"># hours of driving at 40 km/h</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">approx</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">approx</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">approx</span><span class="p">[</span><span class="n">km</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="p">((</span><span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rough</span> <span class="o">=</span> <span class="n">TwoOpt</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">approx</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="o">...</span>                      <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">12.83</span><span class="p">,</span> <span class="n">people</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">service_time</span><span class="o">=</span><span class="mi">7</span> <span class="o">/</span> <span class="mi">60</span><span class="p">)</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rough</span><span class="o">.</span><span class="n">n_trips_</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">rough</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">8.0</span><span class="p">))</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="kc">True</span>
 </code></pre></div>
 <p>A time matrix may be asymmetric (one-way streets, uphill legs) even when the cost
 matrix is symmetric; only the cost matrix must be symmetric for <code>ClarkeWright</code>.</p>
@@ -1957,20 +2156,20 @@ matrix is symmetric; only the cost matrix must be symmetric for <code>ClarkeWrig
 <p><strong><code>time_matrix</code> is keyword-only.</strong> 1.0 took <code>fit(route, time, cost)</code>; a migrated call
 that keeps the old positional order would swap two square matrices without any error
 and price hours as euros. 2.0 refuses it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="o">...</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="ne">TypeError</span><span class="p">:</span> <span class="o">...</span><span class="n">positional</span> <span class="n">arguments</span> <span class="n">but</span> <span class="mi">3</span> <span class="n">were</span> <span class="n">given</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">bcn</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="o">...</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="ne">TypeError</span><span class="p">:</span> <span class="o">...</span><span class="n">positional</span> <span class="n">arguments</span> <span class="n">but</span> <span class="mi">3</span> <span class="n">were</span> <span class="n">given</span>
 </code></pre></div>
 <p><strong>A half-configured budget raises</strong> instead of silently doing nothing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">12.83</span><span class="p">)</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="o">...</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">extra_cost</span><span class="p">,</span> <span class="n">people</span> <span class="ow">and</span> <span class="n">split</span> <span class="n">have</span> <span class="n">no</span> <span class="n">effect</span> <span class="n">without</span> <span class="n">max_time_work</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">)</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="o">...</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">max_time_work</span> <span class="n">given</span> <span class="n">but</span> <span class="n">no</span> <span class="n">time_matrix</span><span class="p">;</span> <span class="k">pass</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">X</span> <span class="n">to</span> <span class="n">use</span> <span class="n">the</span> <span class="n">cost</span> <span class="n">matrix</span> <span class="k">as</span> <span class="n">durations</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span> <span class="n">extra_cost</span><span class="o">=</span><span class="mf">12.83</span><span class="p">)</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="o">...</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">extra_cost</span><span class="p">,</span> <span class="n">people</span> <span class="ow">and</span> <span class="n">split</span> <span class="n">have</span> <span class="n">no</span> <span class="n">effect</span> <span class="n">without</span> <span class="n">max_time_work</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">SimulatedAnnealing</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">bcn</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">depot</span><span class="o">=</span><span class="n">bcn</span><span class="o">.</span><span class="n">depot</span><span class="p">,</span> <span class="n">max_time_work</span><span class="o">=</span><span class="mf">8.0</span><span class="p">)</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="o">...</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="ne">ValueError</span><span class="p">:</span> <span class="n">max_time_work</span> <span class="n">given</span> <span class="n">but</span> <span class="n">no</span> <span class="n">time_matrix</span><span class="p">;</span> <span class="k">pass</span> <span class="n">time_matrix</span><span class="o">=</span><span class="n">X</span> <span class="n">to</span> <span class="n">use</span> <span class="n">the</span> <span class="n">cost</span> <span class="n">matrix</span> <span class="k">as</span> <span class="n">durations</span>
 </code></pre></div>
 <p><strong>Not every solver searches under the budget.</strong> <code>NearestNeighbour</code>, <code>Insertion</code>, <code>NRBS</code>
 and <code>SOM</code> optimise the plain tour and warn (<code>UserWarning</code>); their result is still split
@@ -1985,12 +2184,12 @@ the cost matrix; the solver has no way to notice a mismatch except through an
 <a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a> fits clones of a stochastic solver from independent
 seeds on the same problem — on threads by default, since the kernels release the GIL —
 and keeps the best; wrapping a budget-aware solver keeps the budget inside the search:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiStart</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">greedy</span><span class="p">)</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">estimators_</span><span class="p">),</span> <span class="n">ms</span><span class="o">.</span><span class="n">n_trips_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">trips_</span><span class="p">),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">8.0</span><span class="p">))</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="kc">True</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">skroute</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiStart</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span> <span class="o">=</span> <span class="n">MultiStart</span><span class="p">(</span><span class="n">SimulatedAnnealing</span><span class="p">(),</span> <span class="n">n_restarts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">greedy</span><span class="p">)</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">estimators_</span><span class="p">),</span> <span class="n">ms</span><span class="o">.</span><span class="n">n_trips_</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">trips_</span><span class="p">),</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">trip_times_</span> <span class="o">&lt;=</span> <span class="mf">8.0</span><span class="p">))</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ms</span><span class="o">.</span><span class="n">cost_</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">costs_</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="kc">True</span>
 </code></pre></div>
 <p>Where next: <a href="../choosing_a_solver/">choosing a solver</a> for the trade-offs between the
 budget-aware solvers, <a href="../warm_starts_and_ensembles/">warm starts and ensembles</a> for
@@ -2048,13 +2247,13 @@ chaining them, and the <a href="../../api/datasets/">datasets</a> page for the o
         
         
           
-          <a href="../warm_starts_and_ensembles/" class="md-footer__link md-footer__link--next" aria-label="Next: Warm starts and ensembles">
+          <a href="../real_inputs/" class="md-footer__link md-footer__link--next" aria-label="Next: Real inputs from map services">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Warm starts and ensembles
+                Real inputs from map services
               </div>
             </div>
             <div class="md-footer__button md-icon">
