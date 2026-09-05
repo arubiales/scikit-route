@@ -9,6 +9,7 @@ fitted solver are translated back to *label space* with
 
 from __future__ import annotations
 
+import math
 from numbers import Real
 from typing import Any
 
@@ -28,6 +29,58 @@ _SPLIT = {"greedy": int(core.SplitRule.SPLIT_GREEDY), "optimal": int(core.SplitR
 def _is_number(x: Any) -> bool:
     """A real scalar (Python or numpy), never a bool, a string or an array."""
     return isinstance(x, Real) and not isinstance(x, (bool, np.bool_))
+
+
+def _finite(value: Any) -> float | None:
+    """``float(value)`` when ``value`` is a real scalar with a finite value, else ``None``; never raises.
+
+    Pure Python on purpose: ``numpy.isfinite`` cannot take every ``numbers.Real`` (a ``Fraction``, an int
+    beyond the float range) and would leak its own ``TypeError`` instead of the messages of §3.3.
+    """
+    if not _is_number(value):
+        return None
+    try:
+        v = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def _coerce_service_time(value: Any, n: int, depot: int, labels: np.ndarray) -> np.ndarray:
+    """The ``(n,)`` float64 service array of D32: zeros for ``None``, a scalar on every non-depot node,
+    or an array in matrix row order (finite, ``>= 0``; a pandas Series must carry the labels of X)."""
+    if value is None:
+        return np.zeros(n)
+    if isinstance(value, np.ndarray) and value.ndim == 0 and value.dtype.kind in "iuf":
+        value = value.item()  # a 0-d numeric array is the scalar it wraps
+    if _is_number(value):
+        v = _finite(value)
+        if v is None or v < 0:
+            raise ValueError(f"service_time must be a finite number >= 0, got {value!r}")
+        s = np.full(n, v)
+        s[depot] = 0.0
+        return s
+    kind = f"service_time must be a number or an ({n},) array-like, got {type(value).__name__}"
+    if isinstance(value, (str, bytes, bool, np.bool_)):
+        raise ValueError(kind)
+    try:
+        s = np.array(value, dtype=np.float64)  # a copy: the caller's array is never aliased
+    except (TypeError, ValueError):  # a dict, a complex, a list of strings...
+        raise ValueError(kind) from None
+    if s.ndim == 0:  # something numpy reads as one number that is not a numbers.Real (a Decimal...)
+        raise ValueError(kind)
+    if s.shape != (n,):
+        raise ValueError(f"service_time must be a scalar or have shape ({n},), got shape {s.shape}")
+    # a pandas Series (duck-typed) is read positionally like every array, but its labels must be X's: a
+    # Series in another order would silently move every service (the depot's zero included)
+    labelled = hasattr(value, "index") and hasattr(value, "to_numpy")
+    if labelled and list(value.index) != labels.tolist():
+        raise ValueError("service_time index differs from the labels of X")
+    if not np.isfinite(s).all():
+        raise ValueError("service_time contains NaN or infinite values")
+    if (s < 0).any():
+        raise ValueError("service_time contains negative durations")
+    return np.ascontiguousarray(s)
 
 
 class RoutingProblem:
@@ -51,6 +104,12 @@ class RoutingProblem:
         Fixed charge per trip beyond the first.
     people : int >= 1, default 1
         Multiplies extra_cost only.
+    service_time : float or (n,) array-like, optional
+        Time spent at each node, in the units of ``time_matrix`` (finite, >= 0). A scalar applies to
+        every non-depot node; an array gives one value per node in matrix row order (the depot's
+        entry is paid once per trip, at departure). A pandas Series is read in row order too, but
+        its index must be the labels of ``X``. Requires ``max_time_work`` (D32). Default: no
+        service time.
     split : {"greedy", "optimal"}, default "greedy"
         Decoder of the giant tour into trips (see D1).
 
@@ -59,7 +118,10 @@ class RoutingProblem:
     cost : ndarray of shape (n, n), float64, C-contiguous
         The coerced cost matrix.
     time : ndarray of shape (n, n) or None
-        The coerced time matrix; ``None`` for plain TSP.
+        The coerced **raw** travel-time matrix; ``None`` for plain TSP. The kernels read
+        ``time_or_cost`` instead, which adds the service times.
+    service_time : ndarray of shape (n,), float64
+        Service time of every node in matrix row order; all zeros when not given.
     n : int
         Number of nodes.
     labels : ndarray of shape (n,), dtype int64 or object
@@ -84,6 +146,23 @@ class RoutingProblem:
     partition of the giant tour into consecutive feasible trips. Both are O(n)
     and O(n L) respectively, with L the longest feasible open path.
 
+    A service time is folded into the matrix the decoders read (D32): with ``s`` the
+    ``(n,)`` service array and ``d`` the depot, the *effective* time matrix is
+    ``T_eff[i, j] = T[i, j] + s[j]`` for ``j != d`` (the service is paid on arrival),
+    ``T_eff[i, d] = T[i, d]`` (nothing is paid on returning) and ``T_eff[d, j] += s[d]``
+    for ``j != d`` (a service at the depot is paid once per trip, at departure); the
+    diagonal, which no kernel reads, stays raw. ``time_or_cost`` returns ``T_eff``, so
+    ``evaluate``, ``trip_starts`` and ``trip_times`` all account for the services, and
+    fitting with ``service_time`` equals fitting on ``T_eff`` without it. ``time``
+    keeps the raw travel times for reporting (``skroute.metrics.timetable``).
+
+    The problem never writes to its arrays, but it does not copy a float64, C-contiguous
+    ``X`` or ``time_matrix`` either — ``cost`` and ``time`` are then *views* of the caller's
+    arrays (no second n x n matrix at n = 10 639) — so an array must not be modified after
+    it has been passed. ``service_time`` is always copied, and with a non-zero service
+    ``T_eff`` is a private matrix: a later write to the caller's ``time_matrix`` would move
+    ``timetable`` (which reads ``time``) but not ``trip_times_`` (which reads ``T_eff``).
+
     References
     ----------
     .. [1] C. Prins, "A simple and effective evolutionary algorithm for the vehicle
@@ -105,6 +184,19 @@ class RoutingProblem:
     >>> q = RoutingProblem(C, time_matrix=hours, max_time_work=4.0, extra_cost=3.0)
     >>> q.evaluate([0, 1, 2, 3]), q.trip_starts([0, 1, 2, 3]).tolist()
     (41.0, [1, 3, 4])
+
+    Half an hour at every customer under a five-hour day: the services are paid on
+    arrival (row 0 of the effective matrix), never on the way back (column 0), and
+    ``trip_times`` includes them.
+
+    >>> r = RoutingProblem(C, time_matrix=hours, max_time_work=5.0, extra_cost=3.0, service_time=0.5)
+    >>> r.service_time.tolist()
+    [0.0, 0.5, 0.5, 0.5]
+    >>> r.time_or_cost[0].tolist(), r.time_or_cost[:, 0].tolist()
+    ([0.0, 1.5, 2.5, 2.5], [0.0, 1.0, 2.0, 2.0])
+    >>> starts = r.trip_starts([0, 1, 2, 3])
+    >>> starts.tolist(), r.trip_times([0, 1, 2, 3], starts).tolist(), r.evaluate([0, 1, 2, 3])
+    ([1, 3, 4], [5.0, 4.5], 41.0)
     """
 
     def __init__(
@@ -118,6 +210,7 @@ class RoutingProblem:
         max_time_work: float | None = None,
         extra_cost: float = 0.0,
         people: int = 1,
+        service_time: Any = None,
         split: str = "greedy",
     ) -> None:
         C, lab = coerce_matrix(X, "X")  # float64 C-contiguous, labels or None
@@ -146,14 +239,23 @@ class RoutingProblem:
             raise ValueError(f"split must be 'greedy' or 'optimal', got {split!r}")
         self.split: str = split
         self.time: np.ndarray | None
+        self.service_time: np.ndarray
+        # ``T_eff`` of D32: what the kernels read as durations. Aliases ``time`` when there is no service.
+        self._time_eff: np.ndarray | None
         if max_time_work is None:
             if time_matrix is not None:
                 raise ValueError(
                     "time_matrix given but no max_time_work; pass max_time_work=<hours per trip>"
                 )
+            if service_time is not None:
+                raise ValueError(
+                    "service_time given but no max_time_work; pass max_time_work=<hours per trip>"
+                )
             if extra_cost != 0.0 or people != 1 or split != "greedy":
                 raise ValueError("extra_cost, people and split have no effect without max_time_work")  # D3
             self.time = None
+            self._time_eff = None
+            self.service_time = np.zeros(n)
             self.max_time_work: float = np.inf
         else:
             if time_matrix is None:
@@ -162,7 +264,8 @@ class RoutingProblem:
                     "pass time_matrix=X to use the cost matrix as durations"
                 )
             # type first, then value: a str, a bool or a 1-element array gets THIS message, not a numpy one
-            if not (_is_number(max_time_work) and np.isfinite(max_time_work) and float(max_time_work) > 0):
+            mtw = _finite(max_time_work)
+            if mtw is None or mtw <= 0:
                 raise ValueError(f"max_time_work must be a finite number > 0, got {max_time_work!r}")
             T, tlab = coerce_matrix(time_matrix, "time_matrix")
             if T.shape != C.shape:
@@ -172,20 +275,43 @@ class RoutingProblem:
             if (T < 0).any():
                 raise ValueError("time_matrix contains negative durations")
             self.time = T
-            self.max_time_work = float(max_time_work)
+            self.max_time_work = mtw
             d = self.depot
-            bad = T[d, :] + T[:, d] > self.max_time_work
+            s = _coerce_service_time(service_time, n, d, self.labels)
+            self.service_time = s
+            if s.any():
+                T_eff = T + s[np.newaxis, :]  # the service of j is paid on arrival at j...
+                T_eff[:, d] = T[:, d]  # ...never on returning to the depot...
+                T_eff[d, :] += s[d]  # ...and the depot's own service once per trip, at departure
+                np.fill_diagonal(T_eff, np.diagonal(T))  # the diagonal is never read (§3.1): keep it raw
+                self._time_eff = np.ascontiguousarray(T_eff)
+            else:
+                self._time_eff = T
+            T_eff = self._time_eff
+            bad = T_eff[d, :] + T_eff[:, d] > self.max_time_work
             bad[d] = False
             if bad.any():
+                if s.any():
+                    detail = ", ".join(
+                        f"{lab!r}: travel {T[d, j] + T[j, d]:g} + service {s[j] + s[d]:g}"
+                        for j, lab in zip(
+                            np.flatnonzero(bad).tolist(), self.labels[bad].tolist(), strict=True
+                        )
+                    )
+                    raise InfeasibleProblemError(
+                        f"nodes {self.labels[bad].tolist()} cannot be served in one trip: depot round trip "
+                        f"plus service time exceeds max_time_work={self.max_time_work} ({detail})"
+                    )
                 raise InfeasibleProblemError(
                     f"nodes {self.labels[bad].tolist()} cannot be served in one trip: "
                     f"depot round trip exceeds max_time_work={self.max_time_work}"
                 )
-        if not (_is_number(extra_cost) and np.isfinite(extra_cost) and float(extra_cost) >= 0):
+        fixed = _finite(extra_cost)
+        if fixed is None or fixed < 0:
             raise ValueError(f"extra_cost must be a finite number >= 0, got {extra_cost!r}")
         if not isinstance(people, (int, np.integer)) or isinstance(people, bool) or people < 1:
             raise ValueError(f"people must be an integer >= 1, got {people!r}")
-        self.extra_cost: float = float(extra_cost)
+        self.extra_cost: float = fixed
         self.people: int = int(people)
         self.coords: np.ndarray | None = None
         if coords is not None:
@@ -209,12 +335,13 @@ class RoutingProblem:
 
     @property
     def time_or_cost(self) -> np.ndarray:
-        """The matrix kernels receive as ``T``: the time matrix, or the cost matrix when there is no budget.
+        """The matrix kernels receive as ``T``: the effective time matrix, or the cost matrix if no budget.
 
-        Without a budget (``max_time_work == inf``) the kernels never read ``T``; passing the cost matrix
-        keeps every call signature uniform.
+        The effective matrix is ``time`` plus the service times (D32, see the class notes): it *is*
+        ``time`` when no service was given. Without a budget (``max_time_work == inf``) the kernels
+        never read ``T``; passing the cost matrix keeps every call signature uniform.
         """
-        return self.cost if self.time is None else self.time
+        return self.cost if self._time_eff is None else self._time_eff
 
     @property
     def split_code(self) -> int:
@@ -297,11 +424,11 @@ class RoutingProblem:
         return out
 
     def trip_times(self, tour: Any, starts: Any) -> np.ndarray:
-        """Duration of each closed trip, float64 ``(n_trips,)``. Requires a time matrix."""
-        if self.time is None:
+        """Duration of each closed trip, float64 ``(n_trips,)``, services included. Requires a time matrix."""
+        if self._time_eff is None:
             raise ValueError("trip_times needs a time matrix; this problem is a plain TSP")
         out = np.empty(len(starts) - 1)
-        core.trip_times(self.time, self._as_index(tour), self._as_index(starts), out)
+        core.trip_times(self._time_eff, self._as_index(tour), self._as_index(starts), out)
         return out
 
     def neighbours(self, k: int = 10) -> np.ndarray:

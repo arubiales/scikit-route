@@ -11,9 +11,15 @@ Every solver in scikit-route consumes a dense `(n, n)` cost matrix.
   replacement of 1.0's `dfcolumn_to_dict`;
 * **a dict of dicts** `{i: {j: value}}` — `from_dict_of_dicts` and
   `to_dict_of_dicts`;
-* **the road network** — `skroute.preprocessing.google.GoogleDistanceMatrix`,
-  which batches Google Distance Matrix API requests (optional `googlemaps`
-  extra, billed to your account).
+* **the road network** — [`travel_time_matrix`][skroute.preprocessing.travel_time_matrix]
+  asks an OSRM server (the public demo by default, no key) or the Google Distance
+  Matrix API for real driving times and distances between `(lat, lon)` points;
+  `skroute.preprocessing.google.GoogleDistanceMatrix` is the Google client it
+  delegates to (optional `googlemaps` extra, billed to your account);
+* **the world itself** — [`geocode`][skroute.preprocessing.geocode] turns an address
+  into coordinates (Nominatim or Google) and [`fetch_pois`][skroute.preprocessing.fetch_pois]
+  lists the OpenStreetMap points of interest of an area matching a brand, a name or an
+  amenity (Overpass). The [user guide](../user_guide/real_inputs.md) walks through them.
 
 `normalize_coords` rescales planar coordinates into the unit square while
 preserving their aspect ratio (what the SOM feeds its ring with).
@@ -95,11 +101,44 @@ would turn the `1` into `"1"` and `depot=1` would never match).
     options:
       show_root_heading: true
 
+## Map services
+
+`skroute.preprocessing.maps` talks to the services with the standard library only
+(`urllib.request` + `json`): every function honours `timeout=` (`travel_time_matrix`
+forwards it to the `googlemaps` client as well) and retries a failed call up to three
+times with back-off (0.5 s, 1 s, 2 s) on `429`/`5xx` and connection errors — a
+connection dropped while the answer was being read included — raising
+[`MapServiceError`][skroute.preprocessing.maps.MapServiceError] afterwards, with the
+status, the request URL (API keys redacted) and the first 200 characters of the body.
+Coordinates are `(lat, lon)` everywhere in the API — the OSRM URLs are built `lon,lat`
+internally. Results from OpenStreetMap (Nominatim, Overpass, most OSRM servers) are
+ODbL data: show "© OpenStreetMap contributors" with them.
+
+::: skroute.preprocessing.travel_time_matrix
+    options:
+      show_root_heading: true
+
+::: skroute.preprocessing.geocode
+    options:
+      show_root_heading: true
+
+::: skroute.preprocessing.fetch_pois
+    options:
+      show_root_heading: true
+
+::: skroute.preprocessing.maps.MapServiceError
+    options:
+      show_root_heading: true
+
 ## Google Distance Matrix API
 
 Install the extra with `pip install scikit-route[google]`. Requests are batched
 `batch_size × batch_size` origins × destinations (the API caps a request at 100
-elements); the 1.0 `CostScraper` issued one request per pair.
+elements); the 1.0 `CostScraper` issued one request per pair. `departure_time=` asks
+for traffic-aware durations (`duration_in_traffic`, preferred over `duration` when
+present); `timeout=` bounds each HTTP call (the library default is no limit);
+`travel_time_matrix(provider="google")` wraps the client into the same `Bunch` as
+OSRM and passes its `timeout` on.
 
 ::: skroute.preprocessing.google.GoogleDistanceMatrix
     options:

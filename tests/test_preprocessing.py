@@ -504,6 +504,9 @@ def test_public_names_are_exported():
         "to_dict_of_dicts",
         "from_dict_of_dicts",
         "normalize_coords",
+        "fetch_pois",
+        "geocode",
+        "travel_time_matrix",
     }
     assert set(preprocessing.__all__) == expected
     for name in expected:

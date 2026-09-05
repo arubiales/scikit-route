@@ -16,11 +16,40 @@ three parts:
   of `fit`, so you can watch (or stop) a search while it runs.
 - the helpers [`clone`](#skroute.clone), [`is_router`](#skroute.is_router),
   [`all_solvers`](#skroute.all_solvers) and [`set_log_level`](#skroute.set_log_level), the
-  exceptions and the public recomputation helpers of `skroute.metrics`.
+  exceptions and the public helpers of `skroute.metrics`: [`route_cost`](#skroute.metrics.route_cost)
+  and [`split_trips`](#skroute.metrics.split_trips) recompute a label-space route,
+  [`timetable`](#skroute.metrics.timetable) turns a solution into arrival and departure times
+  (one list of [`Stop`](#skroute.metrics.Stop)s per day) and
+  [`timetable_summary`](#skroute.metrics.timetable_summary) totals every day.
 
 Plain TSP is `est.fit(C)`; the multi-trip objective is
 `est.fit(C, time_matrix=T, max_time_work=8, extra_cost=12.83, people=2)` — `time_matrix` is
 keyword-only, so the two square matrices can never be swapped by accident.
+
+## Service times
+
+A visit takes time: `fit(..., service_time=0.5)` (a scalar for every non-depot node) or
+`service_time=array` (one value per node, in matrix row order, the depot's paid once per day at
+departure) adds it to the budget, in the units of `time_matrix` (D32). The kernels search on the
+*effective* matrix `T_eff[i, j] = T[i, j] + service[j]` for `j != depot`, `T_eff[i, depot] = T[i, depot]`
+and `T_eff[depot, j] += service[depot]`; `problem_.time` stays the raw driving time,
+`problem_.service_time` is the `(n,)` array (zeros when not given), `problem_.time_or_cost` is
+`T_eff`, and `trip_times_` includes the visits. A fit with `service_time` equals, by definition, a
+fit on `T_eff` without it; `route_cost(..., service_time=)` re-prices a route the same way.
+
+```pycon
+>>> import numpy as np
+>>> from skroute import BruteForce
+>>> from skroute.metrics import timetable
+>>> C = np.array([[0, 5, 9, 10], [5, 0, 4, 8], [9, 4, 0, 3], [10, 8, 3, 0]], dtype=float)
+>>> hours = np.array([[0, 1, 2, 2], [1, 0, 1, 2], [2, 1, 0, 1], [2, 2, 1, 0]], dtype=float)
+>>> bf = BruteForce().fit(C, time_matrix=hours, max_time_work=5.0, extra_cost=3.0, service_time=0.5)
+>>> bf.route_.tolist(), bf.trip_times_.tolist(), bf.cost_
+([0, 1, 2, 0, 3, 0], [5.0, 4.5], 41.0)
+>>> [(s.label, s.arrival_time, s.departure_time) for s in timetable(bf, units="h")[0]]
+[(0, '08:00', '08:00'), (1, '09:00', '09:30'), (2, '10:30', '11:00'), (0, '13:00', '13:00')]
+
+```
 
 ## Watching a solver work
 

@@ -20,6 +20,9 @@ __all__ = ["check_is_fitted", "check_random_state", "coerce_labels", "coerce_mat
 def coerce_matrix(M: Any, name: str) -> tuple[np.ndarray, np.ndarray | None]:
     """Coerce a cost or time matrix to a C-contiguous float64 array and extract its labels.
 
+    A float64, C-contiguous ndarray is returned as is (no copy): ``RoutingProblem`` keeps such an
+    input as a view of the caller's array (see its Notes on aliasing); every other input is converted.
+
     Parameters
     ----------
     M : (n, n) array-like, DataFrame or dict-of-dicts

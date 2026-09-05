@@ -27,6 +27,7 @@ from ._static import (
     route_index,
     route_title,
 )
+from .google_maps import PALETTE, node_names, trip_labels
 
 if TYPE_CHECKING:
     from ._live import LivePlot
@@ -34,18 +35,7 @@ if TYPE_CHECKING:
 
 __all__ = ["plot_route_map"]
 
-_TAB10 = (
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-)
+_TAB10 = PALETTE  # one colour per trip, the same as the Google Maps exports
 _OSM = "open-street-map"
 SPEED_FACTORS = (0.5, 1.0, 2.0, 4.0, 8.0)  # the speed menu of ``Recorder.to_plotly``
 # Trace positions shared by the live view and the slider figure: nodes, depot, then the four live traces.
@@ -140,25 +130,31 @@ def _trace_cls(go: Any, *, map: bool) -> Any:
     return go.Scattermap if map else go.Scatter
 
 
-def _base_traces(go: Any, xy: np.ndarray, depot: int, labels: Any, *, map: bool) -> list[Any]:
-    """Nodes and depot."""
+def _base_traces(
+    go: Any, xy: np.ndarray, depot: int, labels: Any, *, map: bool, names: Any = None
+) -> list[Any]:
+    """Nodes and depot; the hover text is ``names`` (a sequence in row order or a mapping by label),
+    else the labels."""
     cls = _trace_cls(go, map=map)
     mask = np.ones(xy.shape[0], dtype=bool)
     mask[depot] = False
+    text = np.asarray(node_names(np.asarray(labels), names), dtype=object)
     nodes = cls(
         mode="markers",
         marker={"size": 7, "color": POINT_COLOR},
-        text=[str(x) for x in np.asarray(labels)[mask]],
+        text=text[mask].tolist(),
         hoverinfo="text",
         name="nodes",
+        showlegend=False,
         **_xy_kwargs(xy, mask, map=map),
     )
     dep = cls(
         mode="markers",
         marker={"size": 14, "color": DEPOT_COLOR},
-        text=[str(np.asarray(labels)[depot])],
+        text=[text[depot]],
         hoverinfo="text",
         name="depot",
+        showlegend=False,
         **_xy_kwargs(xy, [depot], map=map),
     )
     return [nodes, dep]
@@ -185,8 +181,10 @@ def _live_traces(go: Any, *, map: bool) -> list[Any]:
     ]
 
 
-def _layout(go: Any, xy: np.ndarray, title: str, *, map: bool, zoom: float | None) -> Any:
-    layout = go.Layout(title={"text": title}, margin={"l": 10, "r": 10, "t": 50, "b": 10}, showlegend=False)
+def _layout(
+    go: Any, xy: np.ndarray, title: str, *, map: bool, zoom: float | None, legend: bool = False
+) -> Any:
+    layout = go.Layout(title={"text": title}, margin={"l": 10, "r": 10, "t": 50, "b": 10}, showlegend=legend)
     if map:
         layout.update(
             map={"style": _OSM, "center": _center(xy), "zoom": auto_zoom(xy) if zoom is None else zoom}
@@ -201,7 +199,14 @@ def _layout(go: Any, xy: np.ndarray, title: str, *, map: bool, zoom: float | Non
 
 
 # --------------------------------------------------------------------------- public
-def plot_route_map(obj: Any, coords: Any = None, *, zoom: float | None = None) -> Any:
+def plot_route_map(
+    obj: Any,
+    coords: Any = None,
+    *,
+    zoom: float | None = None,
+    names: Any = None,
+    trip_names: Any = None,
+) -> Any:
     """Draw a solution on OpenStreetMap tiles with Plotly (one line per trip, the depot marked).
 
     Parameters
@@ -213,6 +218,12 @@ def plot_route_map(obj: Any, coords: Any = None, *, zoom: float | None = None) -
         ``coords``.
     zoom : float, optional
         Map zoom level; default: fitted to the points.
+    names : sequence of n str or mapping {label: str}, optional
+        The hover text of each node — a name per row of ``coords`` (matrix row order) or a mapping
+        from label to name (a label without an entry shows the label); default: the labels.
+    trip_names : sequence of str, optional
+        One name per trip, shown in a legend (``"Monday"``, ``"Tuesday"``...); without it the
+        lines are named ``"trip 1"``, ``"trip 2"``... and the legend stays hidden.
 
     Returns
     -------
@@ -230,23 +241,35 @@ def plot_route_map(obj: Any, coords: Any = None, *, zoom: float | None = None) -
     >>> fig = plot_route_map(ils)
     >>> [t.type for t in fig.data], fig.layout.map.style
     (['scattermap', 'scattermap', 'scattermap'], 'open-street-map')
+
+    Names on hover and a legend of days for a two-day plan:
+
+    >>> days = IteratedLocalSearch(random_state=0).fit(
+    ...     bcn.cost, labels=bcn.labels, coords=bcn.coords, time_matrix=bcn.time, max_time_work=6.0
+    ... )
+    >>> places = {label: f"Place {label}" for label in bcn.labels}
+    >>> fig = plot_route_map(days, names=places, trip_names=["Monday", "Tuesday"])
+    >>> fig.data[1].text, [t.name for t in fig.data[2:]], fig.layout.showlegend
+    (('Place 10000007',), ['Monday', 'Tuesday'], True)
     """
     go = graph_objects()
     xy, trips, depot, labels, name, cost = resolve(obj, coords)
-    traces = _base_traces(go, xy, depot, labels, map=True)
+    traces = _base_traces(go, xy, depot, labels, map=True, names=names)
+    titles = trip_labels(trip_names, len(trips)) if trip_names is not None else None
     for k, trip in enumerate(trips):
         traces.append(
             go.Scattermap(
                 mode="lines",
                 line={"width": 3, "color": _TAB10[k % 10]},
-                name=f"trip {k + 1}",
+                name=titles[k] if titles is not None else f"trip {k + 1}",
                 hoverinfo="skip",
                 **_xy_kwargs(xy, trip, map=True),
             )
         )
-    return go.Figure(
-        data=traces, layout=_layout(go, xy, route_title(name, cost, len(trips)), map=True, zoom=zoom)
+    layout = _layout(
+        go, xy, route_title(name, cost, len(trips)), map=True, zoom=zoom, legend=titles is not None
     )
+    return go.Figure(data=traces, layout=layout)
 
 
 # --------------------------------------------------------------------------- LivePlot backend

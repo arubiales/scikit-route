@@ -31,6 +31,49 @@ class Identity(BaseRouter):
         return np.roll(np.arange(problem.n, dtype=np.int64), -problem.depot)
 
 
+class _BudgetAwareNN(BaseRouter):
+    """Nearest neighbour that closes a trip when the next leg no longer fits, priced on ``_durations``:
+    the effective matrix (correct) or, in the subclass, the raw ``problem.time`` (the D32 violation)."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction", budget_aware=True)
+
+    def _durations(self, problem):
+        return problem.time_or_cost
+
+    def _solve(self, problem, rng):
+        T, d = self._durations(problem), problem.depot
+        left, tour, cur, used = set(range(problem.n)) - {problem.depot}, [d], d, 0.0
+        while left:
+            nxt = min(left, key=lambda j: (problem.cost[cur, j], j))
+            if cur != d and used + T[cur, nxt] + T[nxt, d] > problem.max_time_work:
+                cur, used = d, 0.0  # back to the depot: a new trip starts from the nearest node to it
+                continue
+            used += T[cur, nxt]
+            tour.append(nxt)
+            left.remove(nxt)
+            cur = nxt
+        return np.array(tour, dtype=np.int64)
+
+
+class _PricesOnRawTime(_BudgetAwareNN):
+    def _durations(self, problem):
+        return problem.cost if problem.time is None else problem.time
+
+
+class _DropsServiceTime(BaseRouter):
+    """A ``fit`` override that swallows ``service_time`` (a third-party solver's easy mistake)."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction", budget_aware=True)
+
+    def fit(self, X, *, service_time=None, **kw):
+        return super().fit(X, **kw)
+
+    def _solve(self, problem, rng):
+        return np.roll(np.arange(problem.n, dtype=np.int64), -problem.depot)
+
+
 # --------------------------------------------------------------------------- validation
 def test_check_random_state():
     assert isinstance(check_random_state(None), np.random.Generator)
@@ -176,6 +219,76 @@ def test_route_cost_matches_the_label_space_oracle(n, asym):
         assert route_cost(C, route, labels=labels) == pytest.approx(reference.tour_cost(C, tour), rel=1e-12)
 
 
+def test_check_router_catches_a_solver_that_ignores_the_service_times():
+    """Checks 6 and 8 of the public battery cover D32: a ``fit`` that drops ``service_time`` fails both, a
+    search that prices durations on ``problem.time`` instead of ``time_or_cost`` fails check 8, and a
+    correct budget-aware solver passes them (the same battery every shipped solver runs in test_common)."""
+    from skroute.utils import estimator_checks
+
+    estimator_checks.check_invalid_inputs(_BudgetAwareNN())
+    estimator_checks.check_multi_trip(_BudgetAwareNN())
+    with pytest.raises(AssertionError, match=r"check 6: fit must raise ValueError \('service_time given but"):
+        estimator_checks.check_invalid_inputs(_DropsServiceTime())
+    with pytest.raises(AssertionError, match=r"check 8: problem_\.service_time must be the given"):
+        estimator_checks.check_multi_trip(_DropsServiceTime())
+    estimator_checks.check_invalid_inputs(_PricesOnRawTime())  # validation is the base class's: fine
+    with pytest.raises(
+        AssertionError, match=r"check 8: a fit with service_time must equal the fit on the time"
+    ):
+        estimator_checks.check_multi_trip(_PricesOnRawTime())
+
+
+def test_route_cost_with_service_time_matches_the_estimator_and_the_folded_matrix():
+    kw = {"labels": NAMES, "time_matrix": H4, "max_time_work": 5.0, "extra_cost": 3.0}
+    est = Identity()
+    with pytest.warns(UserWarning):
+        est.fit(C4, service_time=0.5, **kw)
+    assert est.n_trips_ == 2 and est.trip_times_.tolist() == [5.0, 4.5]  # services included
+    assert route_cost(C4, est.route_, service_time=0.5, **kw) == est.cost_ == 41.0
+    assert route_cost(C4, est.tour_, service_time=[0.0, 0.5, 0.5, 0.5], **kw) == 41.0  # array == scalar
+    assert route_cost(C4, est.tour_, **kw) == 22.0  # without the services the tour is one trip
+    folded = H4.copy()
+    folded[:, 1:] += 0.5  # the definition: the service is paid on arrival at every non-depot node
+    assert route_cost(C4, est.route_, **dict(kw, time_matrix=folded)) == 41.0
+    with pytest.raises(ValueError, match="service_time given but no max_time_work"):
+        route_cost(C4, [0, 1, 2, 3], service_time=0.5)
+    with pytest.raises(ValueError, match=re.escape("service_time must be a finite number >= 0, got -1.0")):
+        route_cost(C4, [0, 1, 2, 3], time_matrix=H4, max_time_work=5.0, service_time=-1.0)
+
+
+@pytest.mark.parametrize("n,asym", [(6, False), (7, True)])
+def test_route_cost_with_service_time_matches_the_oracle_on_the_folded_matrix(n, asym):
+    C, _ = _euclid(n, seed=n, asymmetric=asym)
+    rng = np.random.default_rng(100 + n)
+    T = np.ascontiguousarray(C * rng.uniform(0.6, 1.4, C.shape))
+    np.fill_diagonal(T, 0.0)
+    service = rng.uniform(0.0, 5.0, n)
+    depot = 1
+    labels = [f"n{i}" for i in range(n)]
+    folded = T + service[None, :]  # T_eff of D32, written out by hand
+    folded[:, depot] = T[:, depot]
+    folded[depot, :] += service[depot]
+    folded[depot, depot] = 0.0
+    budget = 1.3 * float((folded[depot] + folded[:, depot]).max())
+    for _ in range(10):
+        tour = [depot, *rng.permutation([i for i in range(n) if i != depot])]
+        route = [labels[i] for i in tour]
+        for split in ("greedy", "optimal"):
+            got = route_cost(
+                C,
+                route,
+                labels=labels,
+                time_matrix=T,
+                max_time_work=budget,
+                extra_cost=2.5,
+                people=3,
+                service_time=service,
+                split=split,
+            )
+            ref = reference.route_cost_from_labels(C, route, labels, "n1", folded, budget, 7.5, split)
+            assert got == pytest.approx(ref, rel=1e-9)
+
+
 def test_split_trips():
     trips = split_trips([0, 1, 2, 0, 3, 0])
     assert [t.tolist() for t in trips] == [[0, 1, 2, 0], [0, 3, 0]] and all(
@@ -225,7 +338,9 @@ def test_lazy_exports_and_dir():
         "CheapestInsertion" not in skroute.__all__ and "FarthestInsertion" not in skroute.__all__
     )  # D18: no aliases
     assert {"__version__", "all_solvers", "set_log_level", "check_router"} <= set(skroute.__all__)
-    assert skroute.__version__ == "2.0.0"
+    from skroute._version import __version__ as version
+
+    assert skroute.__version__ == version and re.fullmatch(r"\d+\.\d+\.\d+(\.dev\d+)?", version)
     with pytest.raises(AttributeError, match="module 'skroute' has no attribute 'NoSuchSolver'"):
         _ = skroute.NoSuchSolver
     if "BruteForce" not in skroute._EXPORTS:  # while the exact package has not registered itself (D29)

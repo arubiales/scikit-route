@@ -25,6 +25,9 @@ jobs:
         run: python -m pip install -e ".[test]"
       - name: Slow tests
         run: pytest tests -m slow -q --junitxml=slow-${{ matrix.os }}.xml
+      - name: Live map services (OSRM, Nominatim, Overpass; D33)
+        run: pytest tests -m network -q
+        continue-on-error: true  # public servers: outages and rate limits must not fail the nightly
       - name: Benchmark table
         run: python benchmarks/waterloo.py --out benchmarks-${{ matrix.os }}.md
       - uses: actions/upload-artifact@v4

@@ -23,7 +23,7 @@ import pathlib
 import numpy as np
 import pytest
 import reference
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from skroute._core import _routing as core
@@ -244,6 +244,52 @@ def test_trip_starts_fit_the_budget_and_cover_the_tour(inst, split):
         trip = [d, *tour[starts[t] : starts[t + 1]].tolist(), d]
         assert costs[t] == pytest.approx(sum(C[a, b] for a, b in itertools.pairwise(trip)), rel=1e-12)
         assert times[t] == pytest.approx(sum(T[a, b] for a, b in itertools.pairwise(trip)), rel=1e-12)
+
+
+@SETTINGS
+@given(instances(with_time=True), st.data())
+def test_problem_with_service_time_feeds_the_kernels_the_folded_matrix(inst, data):
+    """D32: ``RoutingProblem(service_time=s)`` prices, splits and times a tour exactly like the kernels on
+    ``T_eff[i, j] = T[i, j] + s[j]`` (``j != depot``), ``T_eff[i, depot] = T[i, depot]``,
+    ``T_eff[depot, j] += s[depot]`` — built here by hand."""
+    from skroute import RoutingProblem
+
+    C, T, tour, n = inst["C"], inst["T"], inst["tour"], inst["n"]
+    mt, fc, d = inst["max_time"], inst["fixed_cost"], inst["depot"]
+    assume(mt > 0.0)  # the all-zero kind gives a zero budget, which RoutingProblem rejects
+    round_trip = max(T[d, v] + T[v, d] for v in range(n) if v != d)
+    # services as fractions of the slack, so every round trip still fits with its service and the depot's
+    slack = (mt - round_trip) / 2.0
+    fractions = data.draw(st.lists(st.floats(0.0, 1.0), min_size=n, max_size=n))
+    service = np.array(fractions) * slack
+    folded = T + service[None, :]
+    folded[:, d] = T[:, d]
+    folded[d, :] += service[d]
+    np.fill_diagonal(folded, np.diagonal(T))
+    folded = np.ascontiguousarray(folded)
+    for split, name in ((GREEDY, "greedy"), (OPTIMAL, "optimal")):
+        p = RoutingProblem(
+            C, time_matrix=T, depot=d, max_time_work=mt, extra_cost=fc, service_time=service, split=name
+        )
+        assert np.array_equal(p.time_or_cost, folded) and np.array_equal(p.time, T)
+        assert p.time_or_cost.flags["C_CONTIGUOUS"] and p.time_or_cost.dtype == np.float64
+        assert p.service_time.tolist() == service.tolist()
+        assert p.evaluate(tour) == core.problem_cost_py(C, folded, tour, mt, fc, split)
+        out = np.empty(n + 1, dtype=np.int64)
+        k = core.trip_starts(folded, tour, mt, split, C, fc, out)
+        starts = p.trip_starts(tour)
+        assert starts.tolist() == out[: k + 1].tolist()
+        times = np.empty(k)
+        core.trip_times(folded, tour, starts, times)
+        assert p.trip_times(tour, starts).tolist() == times.tolist()
+        assert np.all(times <= mt + 1e-9 * max(1.0, mt))
+        # each trip's duration is its driving time plus the services of the nodes it visits (and the depot's)
+        for t in range(k):
+            trip = [d, *tour[starts[t] : starts[t + 1]].tolist(), d]
+            driving = sum(T[a, b] for a, b in itertools.pairwise(trip))
+            assert times[t] == pytest.approx(
+                driving + service[trip[1:-1]].sum() + service[d], rel=1e-9, abs=1e-12 * max(1.0, mt)
+            )
 
 
 @SETTINGS

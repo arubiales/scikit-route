@@ -313,7 +313,7 @@ class ClarkeWright(BaseRouter):
             problem.cost,
             problem.depot,
             float(self.shape),
-            T=problem.time,
+            T=problem.time_or_cost,
             max_time=problem.max_time_work,
             on_step=on_step,
         )

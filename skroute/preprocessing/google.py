@@ -45,6 +45,17 @@ class GoogleDistanceMatrix:
         (the API caps a request at 100 elements, hence ``1 <= batch_size <= 10``).
         The 1.0 ``CostScraper`` issued one request per pair -- 18 336 requests for
         the 192 Qatar nodes; with ``batch_size=10`` that is 400 requests.
+    departure_time : "now", datetime or int, optional
+        Forwarded to the API when given (``"now"``, a ``datetime`` or a Unix
+        timestamp): the answer then carries ``duration_in_traffic``, which `fetch`
+        prefers over ``duration`` for the ``time`` matrix. Traffic-aware requests are
+        billed at the higher "Advanced" rate; ``mode`` must be ``"driving"`` for Google
+        to honour it.
+    timeout : float, optional
+        Seconds the ``googlemaps`` client waits for each HTTP answer (its ``timeout``,
+        connect and read combined). ``None`` leaves the client's default (no limit) and
+        sends no ``timeout`` at all; `skroute.preprocessing.travel_time_matrix` passes its
+        own ``timeout`` here.
 
     Attributes
     ----------
@@ -73,7 +84,15 @@ class GoogleDistanceMatrix:
     ((2, 2), {'distance': 'm', 'time': 'h'})
     """
 
-    def __init__(self, api_key: str, mode: str = "driving", *, batch_size: int = 10) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        mode: str = "driving",
+        *,
+        batch_size: int = 10,
+        departure_time: Any = None,
+        timeout: float | None = None,
+    ) -> None:
         try:
             import googlemaps
         except ImportError as exc:  # pragma: no cover - exercised only without the extra
@@ -84,10 +103,20 @@ class GoogleDistanceMatrix:
             raise ValueError(f"batch_size must be an integer in [1, 10]; got {batch_size!r}")
         if not 1 <= batch_size <= int(_MAX_ELEMENTS_PER_REQUEST**0.5):
             raise ValueError(f"batch_size must be an integer in [1, 10]; got {batch_size!r}")
+        if timeout is not None and (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, (int, float, np.integer, np.floating))
+            or timeout <= 0
+        ):
+            raise ValueError(f"timeout must be a positive number of seconds or None; got {timeout!r}")
         self.api_key = api_key
         self.mode = mode
         self.batch_size = int(batch_size)
-        self._client = googlemaps.Client(key=api_key)
+        self.departure_time = departure_time
+        self.timeout = None if timeout is None else float(timeout)
+        # The keyword is sent only when asked for: a client faked or wrapped with (key) alone keeps working
+        client_kwargs: dict[str, Any] = {} if self.timeout is None else {"timeout": self.timeout}
+        self._client = googlemaps.Client(key=api_key, **client_kwargs)
 
     def fetch(self, coords: ArrayLike, labels: ArrayLike | None = None) -> Bunch:
         """Request the full ``(n, n)`` distance and duration matrices.
@@ -102,7 +131,8 @@ class GoogleDistanceMatrix:
         Returns
         -------
         Bunch
-            ``distance`` (metres) and ``time`` (hours) as ``float64 (n, n)`` arrays,
+            ``distance`` (metres) and ``time`` (hours; ``duration_in_traffic`` when the
+            answer carries it, else ``duration``) as ``float64 (n, n)`` arrays,
             ``labels`` (``int64`` when every label is an integer, ``object`` otherwise
             -- the rule of `skroute.utils.validation.coerce_labels`) and
             ``units == {"distance": "m", "time": "h"}``. The matrices are directional
@@ -125,6 +155,9 @@ class GoogleDistanceMatrix:
         time = np.full((n, n), np.nan, dtype=np.float64)
         addresses = [""] * n
         bs = self.batch_size
+        request_kwargs: dict[str, Any] = {"mode": self.mode}
+        if self.departure_time is not None:
+            request_kwargs["departure_time"] = self.departure_time
         starts = list(range(0, n, bs))
         total = len(starts) ** 2
         done = 0
@@ -136,7 +169,7 @@ class GoogleDistanceMatrix:
                 _log.info(
                     "GoogleDistanceMatrix: request %d/%d (%d x %d elements)", done, total, i1 - i0, j1 - j0
                 )
-                response = self._client.distance_matrix(points[i0:i1], points[j0:j1], mode=self.mode)
+                response = self._client.distance_matrix(points[i0:i1], points[j0:j1], **request_kwargs)
                 self._fill(response, distance, time, addresses, i0, i1, j0, j1)
         self.addresses_ = addresses
         self.n_requests_ = done
@@ -178,7 +211,9 @@ class GoogleDistanceMatrix:
                 if element.get("status") != "OK":
                     continue
                 metres = _element_value(element, "distance")
-                seconds = _element_value(element, "duration")
+                seconds = _element_value(element, "duration_in_traffic")  # present with departure_time
+                if seconds is None:
+                    seconds = _element_value(element, "duration")
                 if metres is None or seconds is None:
                     # An "OK" element without both values is unroutable for us: a KeyError here would
                     # abort fetch() after the quota of the previous requests has been spent.
