@@ -104,12 +104,15 @@ would turn the `1` into `"1"` and `depot=1` would never match).
 ## Map services
 
 `skroute.preprocessing.maps` talks to the services with the standard library only
-(`urllib.request` + `json`): every function honours `timeout=` and retries a failed
-call up to three times with back-off (0.5 s, 1 s, 2 s) on `429`/`5xx` and connection
-errors, raising [`MapServiceError`][skroute.preprocessing.maps.MapServiceError]
-afterwards. Coordinates are `(lat, lon)` everywhere in the API — the OSRM URLs are
-built `lon,lat` internally. Results from OpenStreetMap (Nominatim, Overpass, most OSRM
-servers) are ODbL data: show "© OpenStreetMap contributors" with them.
+(`urllib.request` + `json`): every function honours `timeout=` (`travel_time_matrix`
+forwards it to the `googlemaps` client as well) and retries a failed call up to three
+times with back-off (0.5 s, 1 s, 2 s) on `429`/`5xx` and connection errors — a
+connection dropped while the answer was being read included — raising
+[`MapServiceError`][skroute.preprocessing.maps.MapServiceError] afterwards, with the
+status, the request URL (API keys redacted) and the first 200 characters of the body.
+Coordinates are `(lat, lon)` everywhere in the API — the OSRM URLs are built `lon,lat`
+internally. Results from OpenStreetMap (Nominatim, Overpass, most OSRM servers) are
+ODbL data: show "© OpenStreetMap contributors" with them.
 
 ::: skroute.preprocessing.travel_time_matrix
     options:
@@ -133,8 +136,9 @@ Install the extra with `pip install scikit-route[google]`. Requests are batched
 `batch_size × batch_size` origins × destinations (the API caps a request at 100
 elements); the 1.0 `CostScraper` issued one request per pair. `departure_time=` asks
 for traffic-aware durations (`duration_in_traffic`, preferred over `duration` when
-present); `travel_time_matrix(provider="google")` wraps the client into the same
-`Bunch` as OSRM.
+present); `timeout=` bounds each HTTP call (the library default is no limit);
+`travel_time_matrix(provider="google")` wraps the client into the same `Bunch` as
+OSRM and passes its `timeout` on.
 
 ::: skroute.preprocessing.google.GoogleDistanceMatrix
     options:

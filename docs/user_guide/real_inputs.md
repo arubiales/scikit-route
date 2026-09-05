@@ -36,7 +36,7 @@ Burger King; look yours up on wikidata.org):
 >>> bk = fetch_pois("Comunidad de Madrid", amenity="fast_food", wikidata="Q177054")  # doctest: +SKIP
 >>> bk  # doctest: +SKIP
 Bunch(DESCR, addresses, coords, labels, names, tags)
->>> bk.coords.shape, bk.labels[:2]  # doctest: +SKIP
+>>> bk.coords.shape, bk.labels[:2].tolist()  # doctest: +SKIP
 ((183, 2), ['node/26289763', 'node/178821228'])
 >>> bk.names[1], bk.addresses[1]  # doctest: +SKIP
 ('Burger King', 'Calle de Esparteros 3, 28012 Madrid')
@@ -45,11 +45,11 @@ Data © OpenStreetMap contributors, licensed under the Open Database License (OD
 
 ```
 
-`coords` is a float64 `(n, 2)` array; `labels` are the OSM ids (`node/123`,
-`way/123`, `relation/123` — ways and relations, e.g. a restaurant mapped as a
-building, are placed at the centre of their bounding box thanks to `out center`);
-`names` and `addresses` come from the `name` and `addr:*` tags (`""` when unknown) and
-`tags` keeps everything else. The query itself is in `DESCR`, together with the ODbL
+`coords` is a float64 `(n, 2)` array; `labels` is an object array of the OSM ids
+(`node/123`, `way/123`, `relation/123` — ways and relations, e.g. a restaurant mapped
+as a building, are placed at the centre of their bounding box thanks to `out center`);
+`names` and `addresses` are lists from the `name` and `addr:*` tags (`""` when unknown)
+and `tags` keeps everything else. The query itself is in `DESCR`, together with the ODbL
 attribution you must show with the data.
 
 The filters are `amenity=` (exact tag), `brand=` (exact), `name=` (case-insensitive
@@ -61,8 +61,9 @@ empty result and a `UserWarning`, not an error.
 !!! note "Near-duplicates are kept"
     OpenStreetMap sometimes has the same shop twice: as the building (a way) and as a
     node inside it. `fetch_pois` does not guess which one you want. Keep only nodes
-    (`[l.startswith("node/") for l in bk.labels]`) or drop anything within a few metres
-    of an earlier point with the great-circle distances of
+    (`mask = [l.startswith("node/") for l in bk.labels]`, then `bk.coords[mask]` and
+    `bk.labels[mask]`) or drop anything within a few metres of an earlier point with
+    the great-circle distances of
     [`haversine_matrix`][skroute.preprocessing.haversine_matrix] (kilometres):
 
     ```python
@@ -96,7 +97,7 @@ the town). A query with no match raises `ValueError("no result for ...")`. Nomin
 usage policy — a descriptive `User-Agent` and at most one request per second — is
 enforced for you: the default agent is `scikit-route/<version> (+repository URL)`
 (pass `user_agent=` to name your own application), and a second call within a second
-of the first simply waits.
+of the first simply waits — so does a retry after a `429`.
 
 ## 3. The matrix: `travel_time_matrix`
 
@@ -123,7 +124,9 @@ Bunch(coords, distance, provider, time, units)
 in metres, the diagonal is `0`. Pairs the server cannot route become `nan` in both
 matrices with a single `RuntimeWarning` naming how many — fill them (a large value, or
 the great-circle distance at a plausible speed) before solving, since every solver
-needs finite matrices.
+needs finite matrices. An OSRM server that returns no distances (a build without
+`annotations=distance`) also gets one `RuntimeWarning`: `time` is complete, `distance`
+is `nan` off the diagonal.
 
 The demo server caps the size of a table request, so the points are tiled in blocks of
 `chunk_size` (default 50): a request carries the row block as `sources` and the column
@@ -137,8 +140,9 @@ With `provider="google"` the same call delegates to
 [`GoogleDistanceMatrix`][skroute.preprocessing.google.GoogleDistanceMatrix] (install
 `scikit-route[google]`; requests are billed to the account behind `api_key`) and
 converts its hours to the requested unit; `departure_time="now"` (or a `datetime`)
-asks for traffic-aware durations. OSRM has no traffic model — a `departure_time`
-given with `provider="osrm"` is ignored with a `UserWarning`.
+asks for traffic-aware durations and `timeout=` reaches the client, while `base_url`,
+`user_agent` and `pause` only concern OSRM. OSRM has no traffic model — a
+`departure_time` given with `provider="osrm"` is ignored with a `UserWarning`.
 
 ```python
 >>> res = travel_time_matrix(coords, provider="google", api_key="<your key>", departure_time="now")  # doctest: +SKIP
@@ -165,10 +169,20 @@ MultiStart(estimator=IteratedLocalSearch(time_limit=15), n_restarts=4, random_st
 
 ```
 
-Three days of pure driving — but every stop also takes time (half an hour of
-maintenance per restaurant here), which is what turns three days into many more. The
-2.1 release adds `service_time=` to `fit` so the budget accounts for it; see the
-problem model and the worked case of the technician.
+Three days of pure driving — but every stop also takes time: half an hour of
+maintenance per restaurant here. Pass it as `service_time=30` (minutes, the unit of the
+matrix; the same at every customer, nothing at the depot) and the budget accounts for it
+— see [Service times](multi_trip.md#service-times) for the model. The 183 half-hours
+alone are 91.5 hours of work, so no plan fits in fewer than twelve eight-hour days:
+
+```python
+>>> est.fit(res.time, time_matrix=res.time, labels=labels, depot="office",
+...         max_time_work=8 * 60, extra_cost=8 * 60, split="optimal", service_time=30)  # doctest: +SKIP
+MultiStart(estimator=IteratedLocalSearch(time_limit=15), n_restarts=4, random_state=0)
+>>> est.n_trips_ >= 12  # doctest: +SKIP
+True
+
+```
 
 ## Being a good citizen
 
@@ -182,8 +196,8 @@ every run; and display "© OpenStreetMap contributors" wherever the data appears
 (the OSRM demo) and [wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances)
 (Overpass). When a service is down or throttles you, the functions retry three times
 with back-off and then raise
-[`MapServiceError`][skroute.preprocessing.maps.MapServiceError] with the HTTP status and
-the first 200 characters of the answer.
+[`MapServiceError`][skroute.preprocessing.maps.MapServiceError] with the HTTP status,
+the request URL (API keys redacted) and the first 200 characters of the answer.
 
 Contributors: the tests of this module never touch the network (recorded answers under
 `tests/data/maps/`); the live checks carry the `network` marker and run in the nightly
