@@ -46,6 +46,7 @@ nav:
       - The problem model: user_guide/problem_model.md
       - Choosing a solver: user_guide/choosing_a_solver.md
       - Multi-trip routing: user_guide/multi_trip.md
+      - Real inputs from map services: user_guide/real_inputs.md
       - Warm starts and ensembles: user_guide/warm_starts_and_ensembles.md
       - Live visualisation: user_guide/visualisation.md
   - API reference:
