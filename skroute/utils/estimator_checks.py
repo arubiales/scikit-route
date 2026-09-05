@@ -600,7 +600,9 @@ def check_tags_honoured(estimator: BaseRouter) -> None:
 
 def check_multi_trip(estimator: BaseRouter) -> None:
     """8. Multi-trip on Alicante: trips fit the budget, ``trip_times_`` exists only with a time matrix,
-    and the optimal decoder never prices the fitted tour above the greedy one."""
+    the optimal decoder never prices the fitted tour above the greedy one, and a scalar ``service_time``
+    (D32) is honoured: the trips fit the budget with the services included and the fit equals the fit
+    on the time matrix with the services folded in by hand."""
     tags = estimator._get_tags()
     if tags.exact and not tags.budget_aware:
         return  # raises under a budget by design (D6); covered by check 7
@@ -655,6 +657,56 @@ def check_multi_trip(estimator: BaseRouter) -> None:
         "under split='optimal' every trip must fit the budget too",
     )
     _assert(est_opt.problem_.split == "optimal", 8, "problem_.split must record the requested decoder")
+    # D32: a scalar service time (an eighth of the day at every customer; every round trip still fits).
+    service = budget / 8.0
+    est_s = _fit(_fresh(estimator), d.cost, time_matrix=d.time, coords=d.coords, service_time=service, **kw)
+    ps = est_s.problem_
+    others = np.arange(n) != ps.depot
+    _assert(
+        isinstance(ps.service_time, np.ndarray)
+        and ps.service_time.dtype == np.float64
+        and ps.service_time.shape == (n,)
+        and ps.service_time[ps.depot] == 0.0
+        and bool(np.all(ps.service_time[others] == service)),
+        8,
+        "problem_.service_time must be the (n,) float64 array: the scalar at every non-depot node, 0 at the depot",
+    )
+    _assert(np.array_equal(ps.time, d.time), 8, "problem_.time must stay the raw travel-time matrix")
+    _assert(
+        bool(np.all(est_s.trip_times_ <= budget + 1e-9)),
+        8,
+        f"with service_time every trip must fit max_time_work={budget} services included, "
+        f"got {est_s.trip_times_.tolist()}",
+    )
+    index = _label_index(est_s)
+    for k, trip in enumerate(est_s.trips_):
+        idx = [index[x] for x in trip.tolist()]
+        dur = float(sum(d.time[idx[i], idx[i + 1]] for i in range(len(idx) - 1))) + service * (len(idx) - 2)
+        _assert(
+            math.isclose(dur, est_s.trip_times_[k], rel_tol=1e-9, abs_tol=1e-12),
+            8,
+            f"trip_times_[{k}] must be the closed trip's driving time plus the service of every visited node",
+        )
+    tour_idx = ps.to_index_tour(est_s.tour_)
+    _assert(
+        np.allclose(ps.trip_times(tour_idx, ps.trip_starts(tour_idx)), est_s.trip_times_, rtol=1e-12, atol=0),
+        8,
+        "problem_.trip_times must reproduce trip_times_ with the services included",
+    )
+    folded = np.array(d.time, dtype=np.float64, copy=True)
+    folded[:, others] += service  # the definition of the feature: the service is paid on arrival
+    _read_only(folded)
+    est_f = _fit(_fresh(estimator), d.cost, time_matrix=folded, coords=d.coords, **kw)
+    _assert(
+        est_s.tour_.tolist() == est_f.tour_.tolist()
+        and [t.tolist() for t in est_s.trips_] == [t.tolist() for t in est_f.trips_]
+        and math.isclose(est_s.cost_, est_f.cost_, rel_tol=1e-12)
+        and np.allclose(est_s.trip_times_, est_f.trip_times_, rtol=1e-12, atol=0),
+        8,
+        "a fit with service_time must equal the fit on the time matrix with the services folded in "
+        f"(D32): got tour {est_s.tour_.tolist()} costing {est_s.cost_} vs {est_f.tour_.tolist()} "
+        f"costing {est_f.cost_}",
+    )
 
 
 class _RecordingHandler(logging.Handler):
