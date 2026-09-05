@@ -671,7 +671,11 @@ def check_multi_trip(estimator: BaseRouter) -> None:
         8,
         "problem_.service_time must be float64 (n,): the scalar at every non-depot node, 0 at the depot",
     )
-    _assert(np.array_equal(ps.time, d.time), 8, "problem_.time must stay the raw travel-time matrix")
+    _assert(
+        ps.time is not None and np.array_equal(ps.time, d.time),
+        8,
+        "problem_.time must stay the raw travel-time matrix",
+    )
     _assert(
         bool(np.all(est_s.trip_times_ <= budget + 1e-9)),
         8,

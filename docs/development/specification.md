@@ -436,6 +436,34 @@ def coerce_labels(seq, n):
 
 Non-numeric matrix input raises the numpy/`ValueError` naturally ("could not convert string to float"), which is acceptable. Unhashable labels raise `TypeError` from `set()`, also acceptable.
 
+#### Service time (D32, added 2026-09-05)
+
+`RoutingProblem(X, *, time_matrix=None, depot=None, coords=None, labels=None, max_time_work=None, extra_cost=0.0, people=1, service_time=None, split="greedy")` — `service_time` sits **after `people` and before `split`**, in the same position in `BaseRouter.fit` and in `skroute.metrics.route_cost`; `base._FIT_KWARGS` lists it. Coercion (`problem._coerce_service_time(value, n, depot)`):
+
+- `None` -> `np.zeros(n)` (also for a plain TSP, so `problem.service_time` always exists);
+- a real scalar (`_is_number`: never a bool) -> `np.full(n, float(value))` with `s[depot] = 0.0`; rejected unless finite and `>= 0`: `ValueError("service_time must be a finite number >= 0, got {value!r}")`;
+- anything else -> `np.array(value, dtype=np.float64)` (a copy: the caller's array is never aliased), which must have shape `(n,)` (`"service_time must be a scalar or have shape ({n},), got shape {shape}"`), be finite (`"service_time contains NaN or infinite values"`) and non-negative (`"service_time contains negative durations"`). Labels are not read: the array is in matrix row order, like `coords`.
+- Without `max_time_work`: `ValueError("service_time given but no max_time_work; pass max_time_work=<hours per trip>")`, checked after the `time_matrix` message and before the D3 one (`extra_cost, people and split ...`).
+
+The effective matrix is built once in `__init__` and stored as `problem._time_eff` (float64, C-contiguous):
+
+```python
+T_eff = T + s[np.newaxis, :]              # the service of j is paid on arrival at j
+T_eff[:, d] = T[:, d]                     # nothing on returning to the depot
+T_eff[d, :] += s[d]                       # the depot's own service once per trip, at departure
+np.fill_diagonal(T_eff, np.diagonal(T))   # the whole diagonal stays raw: no kernel reads it (§3.1)
+```
+
+When every service is zero `_time_eff` **is** `time` (no copy), so `problem.time_or_cost is problem.time` and a fit without `service_time` is bit-identical to 2.0. `time_or_cost` returns `_time_eff` (or `cost` for a plain TSP); `evaluate`, `trip_starts` **and `trip_times`** read `_time_eff`, so `trip_times` includes the services; `problem.time` stays the raw travel-time matrix and `problem.service_time` the `(n,)` array. Every solver prices durations through `problem.time_or_cost` (a solver reading `problem.time` in its search breaks the D32 equality asserted by check 8). The depot feasibility check uses `T_eff` (`bad = T_eff[d, :] + T_eff[:, d] > max_time_work`, depot excluded); with a non-zero service the message is
+
+```
+nodes [labels] cannot be served in one trip: depot round trip plus service time exceeds max_time_work={mtw} ({label!r}: travel {T[d, j] + T[j, d]:g} + service {s[j] + s[d]:g}, ...)
+```
+
+and without one the 2.0 message is unchanged. `BaseRouter.fit` forwards `service_time` to the problem and the "X is a RoutingProblem: pass it alone" check rejects it like the other problem arguments; `fit_time_` is unaffected.
+
+`skroute.metrics` (D32): `timetable(obj, route=None, *, start="08:00", units="min", as_frame=False) -> list[list[Stop]]` — `obj` a fitted estimator (`problem_` and `route_`; `route` may override the route) or a `RoutingProblem` (then `route` is required); a route with the depot repeated in its interior is read as driven (one day per segment, every non-depot label exactly once), otherwise it is a giant tour (open or closed) decoded with `problem.trip_starts`; `ValueError("timetable needs time_matrix and max_time_work")` for a plain TSP, `TypeError` for anything else, `NotFittedError` for an unfitted estimator. `start` is `"HH:MM"` or a `datetime.time`; `units` (`"min"`, `"h"`, `"s"`) are the units of `problem.time` — the timetable is always in minutes (added to the D32 signature so that the hours tables of `skroute.datasets` get correct clock strings). `Stop` is a frozen dataclass `Stop(day, order, label, arrival, departure, travel, service, wait=0.0, start=480.0)`: `day` 1-based, `order` 0 at the departure from the depot and last at the return, `arrival`/`departure`/`travel`/`service` in minutes since `start` (`departure = arrival + service + wait`; at the departure stop `arrival = 0`, `departure = service[depot]`; at the return `service = 0`, `departure = arrival`), `wait` always `0.0` today (reserved for time windows), `start` the minutes after midnight of the day's start (excluded from the repr); properties `arrival_time`/`departure_time` -> `HH:MM` rounded to the nearest minute, wrapping past midnight. `as_frame=True` returns a `pandas.DataFrame` with columns `day, order, label, arrival_time, departure_time, travel, service, wait, arrival, departure` (pandas imported lazily; the `ImportError` names `scikit-route[pandas]`). `timetable_summary(days) -> list[dict]` gives per day `day, n_stops, driving, service, total, back_at`. The end of every day equals the corresponding `trip_times_` value (converted to minutes), which is how the hypothesis test of `tests/test_timetable.py` proves that every day of a fitted solution fits the budget.
+
 ### 3.4 `skroute/base.py` — `RouterTags`, `BaseRouter`, `clone` (complete)
 
 ```python
