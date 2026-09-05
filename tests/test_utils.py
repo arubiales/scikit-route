@@ -176,6 +176,57 @@ def test_route_cost_matches_the_label_space_oracle(n, asym):
         assert route_cost(C, route, labels=labels) == pytest.approx(reference.tour_cost(C, tour), rel=1e-12)
 
 
+def test_route_cost_with_service_time_matches_the_estimator_and_the_folded_matrix():
+    kw = {"labels": NAMES, "time_matrix": H4, "max_time_work": 5.0, "extra_cost": 3.0}
+    est = Identity()
+    with pytest.warns(UserWarning):
+        est.fit(C4, service_time=0.5, **kw)
+    assert est.n_trips_ == 2 and est.trip_times_.tolist() == [5.0, 4.5]  # services included
+    assert route_cost(C4, est.route_, service_time=0.5, **kw) == est.cost_ == 41.0
+    assert route_cost(C4, est.tour_, service_time=[0.0, 0.5, 0.5, 0.5], **kw) == 41.0  # array == scalar
+    assert route_cost(C4, est.tour_, **kw) == 22.0  # without the services the tour is one trip
+    folded = H4.copy()
+    folded[:, 1:] += 0.5  # the definition: the service is paid on arrival at every non-depot node
+    assert route_cost(C4, est.route_, **dict(kw, time_matrix=folded)) == 41.0
+    with pytest.raises(ValueError, match="service_time given but no max_time_work"):
+        route_cost(C4, [0, 1, 2, 3], service_time=0.5)
+    with pytest.raises(ValueError, match=re.escape("service_time must be a finite number >= 0, got -1.0")):
+        route_cost(C4, [0, 1, 2, 3], time_matrix=H4, max_time_work=5.0, service_time=-1.0)
+
+
+@pytest.mark.parametrize("n,asym", [(6, False), (7, True)])
+def test_route_cost_with_service_time_matches_the_oracle_on_the_folded_matrix(n, asym):
+    C, _ = _euclid(n, seed=n, asymmetric=asym)
+    rng = np.random.default_rng(100 + n)
+    T = np.ascontiguousarray(C * rng.uniform(0.6, 1.4, C.shape))
+    np.fill_diagonal(T, 0.0)
+    service = rng.uniform(0.0, 5.0, n)
+    depot = 1
+    labels = [f"n{i}" for i in range(n)]
+    folded = T + service[None, :]  # T_eff of D32, written out by hand
+    folded[:, depot] = T[:, depot]
+    folded[depot, :] += service[depot]
+    folded[depot, depot] = 0.0
+    budget = 1.3 * float((folded[depot] + folded[:, depot]).max())
+    for _ in range(10):
+        tour = [depot, *rng.permutation([i for i in range(n) if i != depot])]
+        route = [labels[i] for i in tour]
+        for split in ("greedy", "optimal"):
+            got = route_cost(
+                C,
+                route,
+                labels=labels,
+                time_matrix=T,
+                max_time_work=budget,
+                extra_cost=2.5,
+                people=3,
+                service_time=service,
+                split=split,
+            )
+            ref = reference.route_cost_from_labels(C, route, labels, "n1", folded, budget, 7.5, split)
+            assert got == pytest.approx(ref, rel=1e-9)
+
+
 def test_split_trips():
     trips = split_trips([0, 1, 2, 0, 3, 0])
     assert [t.tolist() for t in trips] == [[0, 1, 2, 0], [0, 3, 0]] and all(
@@ -225,7 +276,9 @@ def test_lazy_exports_and_dir():
         "CheapestInsertion" not in skroute.__all__ and "FarthestInsertion" not in skroute.__all__
     )  # D18: no aliases
     assert {"__version__", "all_solvers", "set_log_level", "check_router"} <= set(skroute.__all__)
-    assert skroute.__version__ == "2.0.0"
+    from skroute._version import __version__ as version
+
+    assert skroute.__version__ == version and re.fullmatch(r"\d+\.\d+\.\d+(\.dev\d+)?", version)
     with pytest.raises(AttributeError, match="module 'skroute' has no attribute 'NoSuchSolver'"):
         _ = skroute.NoSuchSolver
     if "BruteForce" not in skroute._EXPORTS:  # while the exact package has not registered itself (D29)

@@ -75,7 +75,7 @@ _STAGES = ("start", "iteration", "end")
 
 log = logging.getLogger("skroute")
 
-_FIT_KWARGS = ("depot", "coords", "labels", "max_time_work", "extra_cost", "people", "split")
+_FIT_KWARGS = ("depot", "coords", "labels", "max_time_work", "extra_cost", "people", "service_time", "split")
 
 
 @dataclass(frozen=True)
@@ -299,7 +299,7 @@ class BaseRouter:
     trip_costs_ : ndarray of shape (n_trips,), float64
         Travel cost of each closed trip (fixed charge excluded).
     trip_times_ : ndarray of shape (n_trips,), float64
-        Only when a time matrix was given; each ``<= max_time_work + 1e-9``.
+        Only when a time matrix was given; each ``<= max_time_work + 1e-9``, service times included.
     cost_ : float
         ``trip_costs_.sum() + fixed_cost * (n_trips_ - 1)``, recomputed from the tour (D2).
     fit_time_ : float
@@ -477,6 +477,7 @@ class BaseRouter:
         max_time_work: float | None = None,
         extra_cost: float = 0.0,
         people: int = 1,
+        service_time: Any = None,
         split: str = "greedy",
         callback: Callable[[RouteEvent], Any] | None = None,
     ) -> BaseRouter:
@@ -501,6 +502,10 @@ class BaseRouter:
             Fixed charge per trip beyond the first.
         people : int >= 1, default 1
             Multiplies ``extra_cost`` only.
+        service_time : float or (n,) array-like, optional
+            Time spent at each stop, in the units of ``time_matrix`` (D32): a scalar for every
+            non-depot node, or one value per node in matrix row order. Requires ``max_time_work``;
+            the trips then fit the budget with the services included (``trip_times_`` counts them).
         split : {"greedy", "optimal"}, default "greedy"
             Decoder of the giant tour into trips.
         callback : callable, optional
@@ -529,7 +534,7 @@ class BaseRouter:
         if isinstance(X, RoutingProblem):
             if (
                 time_matrix is not None
-                or any(v is not None for v in (depot, coords, labels, max_time_work))
+                or any(v is not None for v in (depot, coords, labels, max_time_work, service_time))
                 or extra_cost != 0.0
                 or people != 1
                 or split != "greedy"
@@ -546,6 +551,7 @@ class BaseRouter:
                 max_time_work=max_time_work,
                 extra_cost=extra_cost,
                 people=people,
+                service_time=service_time,
                 split=split,
             )
         validate_parameter_constraints(

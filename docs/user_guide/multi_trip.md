@@ -195,8 +195,125 @@ True
 
 ```
 
-When you build your own time matrix, add the service time the same way — to every
-off-diagonal leg — or the budget will be met on paper and missed on the road.
+When you build your own time matrix, keep it as driving time and pass the visits
+through `service_time=` (next section) instead of folding them into every leg by hand: the
+budget is then met on the road as well as on paper, and the timetable knows what is
+driving and what is time at the door.
+
+## Service times
+
+A visit takes time. `fit(..., service_time=)` accepts a scalar — the same duration at
+every customer, nothing at the depot — or one value per node in matrix row order, in the
+units of the time matrix, and it requires `max_time_work`. The solver then searches on the
+*effective* time matrix $T^{\text{eff}}_{ij} = T_{ij} + s_j$: the service of a node is paid
+on arrival, nothing is paid on returning to the depot, and a service at the depot itself
+is paid once per day, at departure. `trip_times_` counts the visits, `problem_.time`
+keeps the raw driving times, and `problem_.time_or_cost` is the effective matrix.
+
+Half an hour at each of the 18 addresses turns the two-day plan of
+[`TwoOpt`][skroute.TwoOpt] (deterministic, budget-aware) into three days:
+
+```python
+>>> from skroute import TwoOpt
+>>> two = TwoOpt().fit(bcn.cost, **data)
+>>> two.n_trips_, two.trip_times_.round(2).tolist()
+(2, [6.73, 4.76])
+>>> visits = TwoOpt().fit(bcn.cost, service_time=0.5, **data)
+>>> visits.n_trips_, visits.trip_times_.round(2).tolist(), round(visits.cost_, 2)
+(3, [7.44, 7.57, 6.26], 512.03)
+>>> visits.problem_.service_time.tolist() == [0.0] + [0.5] * 18
+True
+>>> eff, raw = visits.problem_.time_or_cost, visits.problem_.time
+>>> bool(np.allclose(eff[0, 1:], raw[0, 1:] + 0.5)) and bool(np.array_equal(eff[1:, 0], raw[1:, 0]))
+True
+
+```
+
+That effective matrix *is* the definition of the feature: folding the half hour into the
+columns of the non-depot nodes by hand gives the same fit.
+
+```python
+>>> folded = bcn.time.copy()
+>>> folded[:, 1:] += 0.5                                     # pay the visit on arrival, never on the way back
+>>> by_hand = TwoOpt().fit(bcn.cost, **dict(data, time_matrix=folded))
+>>> by_hand.tour_.tolist() == visits.tour_.tolist() and by_hand.cost_ == visits.cost_
+True
+>>> from skroute.metrics import route_cost
+>>> route_cost(bcn.cost, visits.route_, service_time=0.5, **data) == visits.cost_
+True
+
+```
+
+The feasibility check counts the visit too: under a four-hour day node `91` (3.88 h there
+and back) cannot be served once its half hour is added, and the message says so.
+
+```python
+>>> RoutingProblem(bcn.cost, service_time=0.5, **dict(data, max_time_work=4.0))
+Traceback (most recent call last):
+    ...
+skroute.exceptions.InfeasibleProblemError: nodes [91] cannot be served in one trip: depot round trip plus service time exceeds max_time_work=4.0 (91: travel 3.88... + service 0.5)
+
+```
+
+An array gives every node its own duration — a longer visit at the far address, a
+quarter of an hour loading at the depot before leaving:
+
+```python
+>>> per_node = np.full(19, 0.5)
+>>> per_node[bcn.labels.tolist().index(91)] = 1.0            # one hour at node 91
+>>> per_node[0] = 0.25                                       # loading at the depot, once per day
+>>> loaded = TwoOpt().fit(bcn.cost, service_time=per_node, **data)
+>>> float(loaded.problem_.service_time[0]), bool(np.all(loaded.trip_times_ <= 8.0))
+(0.25, True)
+
+```
+
+## Timetables
+
+[`timetable`][skroute.metrics.timetable] turns a fitted solution into clock times: one
+list of [`Stop`][skroute.metrics.Stop]s per day, opening with the departure from the depot
+(order `0`) and closing with the return, computed from `problem_.time` (driving) and
+`problem_.service_time` (the visits). Times are minutes since `start`, with `arrival_time`
+and `departure_time` as `HH:MM`; the Barcelona matrix is in hours, hence `units="h"`
+(the default, `"min"`, fits a matrix from a routing API).
+
+```python
+>>> from skroute.metrics import timetable, timetable_summary
+>>> days = timetable(visits, start="08:00", units="h")
+>>> len(days) == visits.n_trips_
+True
+>>> for stop in days[2]:                                     # the third day: three addresses
+...     print(stop.order, stop.label, stop.arrival_time, stop.departure_time, round(stop.travel), stop.service)
+0 10000007 08:00 08:00 0 0.0
+1 4 08:46 09:16 46 30.0
+2 91 10:51 11:21 95 30.0
+3 25 12:56 13:26 95 30.0
+4 10000007 14:16 14:16 49 0.0
+>>> bool(np.allclose([day[-1].arrival / 60 for day in days], visits.trip_times_))   # the day ends when the trip does
+True
+>>> for row in timetable_summary(days):
+...     print(row["day"], row["n_stops"], round(row["driving"]), row["service"], row["back_at"])
+1 8 206 240.0 15:26
+2 7 244 210.0 15:34
+3 3 286 90.0 14:16
+
+```
+
+Read the third day as: leave at 08:00, drive 46 minutes to `4`, work there until 09:16,
+95 minutes to `91`, and so on; back at the depot at 14:16, 6.26 h after leaving — the
+`trip_times_[2]` above. A timetable also takes a [`RoutingProblem`][skroute.RoutingProblem]
+and any label-space route: a multi-trip route (the depot repeated, as `route_`) is read as
+driven, an open tour or a closed route is cut into days with the problem's split rule.
+With pandas installed, `as_frame=True` returns one flat table ready for `to_csv`:
+
+```python
+>>> table = timetable(visits, units="h", as_frame=True)
+>>> table.shape, table.columns.tolist()[:5]
+((24, 10), ['day', 'order', 'label', 'arrival_time', 'departure_time'])
+>>> timetable(visits.problem_, visits.tour_, units="h")[0][-1].arrival_time    # the giant tour, re-decoded
+'15:26'
+
+```
 
 ## When a customer cannot be served
 
@@ -245,20 +362,20 @@ when `symmetric=True`:
 
 From **coordinates**, [`distance_matrix`][skroute.preprocessing.distance_matrix] gives
 great-circle kilometres (`metric="haversine"`, decimal-degree `(latitude, longitude)`)
-that an average speed and a service time turn into hours. It is a rough proxy for road
-times — on this table the road distance is typically 30–40 % longer than the straight line
-(median ratio 1.37) and several times longer for a few pairs — but it is what you have
-before calling a routing API:
+that an average speed turns into hours of driving; the time at each address goes
+through `service_time=`. It is a rough proxy for road times — on this table the road
+distance is typically 30–40 % longer than the straight line (median ratio 1.37) and
+several times longer for a few pairs — but it is what you have before calling a routing
+API:
 
 ```python
 >>> from skroute.preprocessing import distance_matrix
 >>> km = distance_matrix(bcn.coords, metric="haversine")
->>> service = 7 / 60                                           # a 7-minute stop at every address
->>> approx = km / 40.0 + service * (km > 0)                    # hours at 40 km/h; no stop on the diagonal
+>>> approx = km / 40.0                                         # hours of driving at 40 km/h
 >>> approx.shape, bool(np.allclose(np.diag(approx), 0.0)), bool(np.all(approx[km > 0] > 0))
 ((19, 19), True, True)
->>> rough = ClarkeWright().fit(bcn.cost, time_matrix=approx, labels=bcn.labels, depot=bcn.depot,
-...                            max_time_work=8.0, extra_cost=12.83, people=2)
+>>> rough = TwoOpt().fit(bcn.cost, time_matrix=approx, labels=bcn.labels, depot=bcn.depot,
+...                      max_time_work=8.0, extra_cost=12.83, people=2, service_time=7 / 60)
 >>> rough.n_trips_ >= 1 and bool(np.all(rough.trip_times_ <= 8.0))
 True
 
