@@ -134,6 +134,8 @@ python examples/technician_madrid.py --refresh --provider google --google-key AI
 |---|---|
 | `--data DIR` | directory of the three CSVs (default `examples/data`) |
 | `--refresh` | fetch the restaurants (Overpass), the office (Nominatim) and the matrix (`--provider osrm \| google`) again, drop near-duplicates within 60 m and rewrite the CSVs |
+| `--provider osrm \| google` | the routing service of `--refresh`: the public OSRM demo server (free, no traffic model) or the Google Distance Matrix API with `departure_time="now"` (needs the key) |
+| `--limit N` | with `--refresh`: keep only the first N restaurants — a check of the three services in seconds |
 | `--google-key KEY` | a Google Maps API key (or `GOOGLE_MAPS_API_KEY`): the Google matrix with `--refresh --provider google`, and always the Maps JavaScript page `technician_madrid_google.html` |
 | `--service MIN`, `--hours H`, `--start HH:MM` | minutes per visit (30), hours per day (8), departure time (08:00) |
 | `--solver multistart \| ils \| sa \| tabu \| genetic` | the search: `MultiStart(IteratedLocalSearch(local_search=("or_opt",), n_candidates=5), n_restarts=8, n_jobs=-1, prefer="processes")` by default — relocations are the move that repacks a day |
@@ -143,9 +145,11 @@ python examples/technician_madrid.py --refresh --provider google --google-key AI
 | `--extra-day-cost MIN` | the charge per extra day in minutes of driving (default: the day's budget, so fewer days always win) |
 | `--out DIR` | output directory (`./technician_madrid_out`) |
 | `--live`, `--record GIF` | watch the search with `LivePlot`, or record it with `Recorder` and save a GIF (the restarts then run sequentially) |
+| `--verbose` | also log the solvers' own progress (restarts, iterations) through the `skroute` logger |
 
 The output directory receives `technician_madrid_timetable.csv` (every stop with its
-arrival and departure), `technician_madrid_days.csv` (the totals per day),
+arrival and departure), `technician_madrid_days.csv` (the totals per day: stops, minutes and
+kilometres of driving, service, the time back at the office),
 `technician_madrid.kml` (for Google My Maps and Google Earth),
 `technician_madrid_google_urls.txt` (one Google Maps Directions link per leg of at most
 nine stops), `technician_madrid_map.html` (the Plotly map on OpenStreetMap tiles, one
