@@ -170,6 +170,21 @@ Play/Pause, a speed menu and a slider (`viz-map` adds OpenStreetMap tiles):
 
 ```
 
+## Real-world planning
+
+The 2.1 release closes the loop from the map to the map. `skroute.preprocessing.maps` asks
+OpenStreetMap for the stops (`fetch_pois`), Nominatim or Google for an address (`geocode`)
+and OSRM or Google for the road travel times (`travel_time_matrix`); `fit(...,
+service_time=)` accounts for the time spent at each stop, `skroute.metrics.timetable` turns
+a fit into clock times, and `skroute.viz.google_maps` exports the plan as Google Maps
+Directions links, a KML for Google My Maps or a Maps JavaScript page. The worked case
+[*A real case: the technician's plan*](https://arubiales.github.io/scikit-route/user_guide/real_world/)
+— `examples/technician_madrid.py` — schedules one alarm-systems technician over the 182
+Burger King restaurants of the Madrid region from an office in Leganés, thirty minutes per
+visit and eight-hour days on real OSRM driving times: **15 days and 25.8 hours of
+driving** against the 16 days of the construction heuristics (12 is the service-only lower
+bound), reproducible offline from the CSVs committed under `examples/data/`.
+
 ## Documentation
 
 - [User guide, API reference and benchmarks](https://arubiales.github.io/scikit-route/)
