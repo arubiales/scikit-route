@@ -104,3 +104,51 @@ matplotlib animation (`plt.show()`, or `IPython.display.HTML(anim.to_jshtml())`)
 `rec.save("run.gif", coords, speed=10)` writes it (`.mp4` with ffmpeg), and
 `rec.to_plotly(coords, map=...)` gives a figure with Play/Pause, a speed menu (0.5x to 8x)
 and a slider. The user guide page *Live visualisation* covers all of this in detail.
+
+## `technician_madrid.py` — a real plan: every Burger King of Madrid, one technician, eight-hour days
+
+The worked case of the 2.1 release, in the owner's words: *"imaginemos que tenemos que hacer
+los mantenimientos de los Burger King de Madrid y nuestra oficina está en Leganés en Calle
+Ramón y Cajal 18. Un mantenimiento medio tarda 30 min. Quiero ver todas las rutas como serían
+para cubrir todos los Burger King por un técnico de mantenimiento de sistemas de alarma día
+tras día hasta que los haga todos, lo más óptimo posible. Su jornada es de 8 horas."* The
+182 restaurants come from OpenStreetMap (`fetch_pois`), the office from Nominatim (`geocode`),
+the driving times from OSRM (`travel_time_matrix`); the plan is a multi-trip fit where a trip
+is a working day, with `service_time=30`, `max_time_work=480`, `extra_cost=480` (a day costs
+more than any driving) and `split="optimal"`. The data are committed under `examples/data/`
+(see its README for the provenance and the attribution), so the script runs offline. On the
+machine that wrote the documentation the default two-minute run gives **15 days and 25.8 hours
+of driving** (the constructions need 16 days; 12 is the service-only lower bound); the user
+guide page *A real case: the technician's plan* narrates the results.
+
+```bash
+python examples/technician_madrid.py                                   # the committed data, two minutes
+python examples/technician_madrid.py --quick                           # a few seconds (what the test runs)
+python examples/technician_madrid.py --solver sa --time-limit 60 --live
+python examples/technician_madrid.py --google-key AIza...              # + a Google Maps page of the plan
+python examples/technician_madrid.py --refresh                         # fetch the live services again
+python examples/technician_madrid.py --refresh --provider google --google-key AIza...   # with traffic
+```
+
+| Option | Meaning |
+|---|---|
+| `--data DIR` | directory of the three CSVs (default `examples/data`) |
+| `--refresh` | fetch the restaurants (Overpass), the office (Nominatim) and the matrix (`--provider osrm \| google`) again, drop near-duplicates within 60 m and rewrite the CSVs |
+| `--google-key KEY` | a Google Maps API key (or `GOOGLE_MAPS_API_KEY`): the Google matrix with `--refresh --provider google`, and always the Maps JavaScript page `technician_madrid_google.html` |
+| `--service MIN`, `--hours H`, `--start HH:MM` | minutes per visit (30), hours per day (8), departure time (08:00) |
+| `--solver multistart \| ils \| sa \| tabu \| genetic` | the search: `MultiStart(IteratedLocalSearch(local_search=("or_opt",), n_candidates=5), n_restarts=8, n_jobs=-1, prefer="processes")` by default — relocations are the move that repacks a day |
+| `--time-limit SECONDS` | wall-clock budget of the whole run (120): the search takes 85 % of it, a polish of the winner with the full move set (2-opt and Or-opt) the rest; everything is priced with `split="optimal"` |
+| `--seed N` | `random_state` (0) |
+| `--quick` | a few iterations instead of the time budget — deterministic, a few seconds |
+| `--extra-day-cost MIN` | the charge per extra day in minutes of driving (default: the day's budget, so fewer days always win) |
+| `--out DIR` | output directory (`./technician_madrid_out`) |
+| `--live`, `--record GIF` | watch the search with `LivePlot`, or record it with `Recorder` and save a GIF (the restarts then run sequentially) |
+
+The output directory receives `technician_madrid_timetable.csv` (every stop with its
+arrival and departure), `technician_madrid_days.csv` (the totals per day),
+`technician_madrid.kml` (for Google My Maps and Google Earth),
+`technician_madrid_google_urls.txt` (one Google Maps Directions link per leg of at most
+nine stops), `technician_madrid_map.html` (the Plotly map on OpenStreetMap tiles, one
+colour per day), `technician_madrid_google.html` when a key is given, and the two PNGs of
+the documentation; the console shows the per-day table, the totals, the lower bound and
+the two construction baselines through the `skroute` logger.
