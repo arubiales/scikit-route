@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - unreleased
+### Added
+- Service times: `fit(..., service_time=)` adds the time spent at each stop to the per-trip budget;
+  `skroute.metrics.timetable` turns a solution into a per-day timetable (D32).
+- `skroute.preprocessing.maps`: real road travel times (`travel_time_matrix`, OSRM or Google),
+  `geocode` (Nominatim or Google) and `fetch_pois` (OpenStreetMap through Overpass) (D33).
+- `skroute.viz.google_maps`: the plan on Google Maps as Directions URLs, a KML for Google My Maps and
+  a standalone Maps JavaScript page; `plot_route_map(names=, trip_names=)` (D34).
+- Worked case `examples/technician_madrid.py`: a maintenance technician covering every Burger King of the
+  Madrid region from an office in Leganés, with real driving times, 30-minute visits and 8-hour days (D35).
+
 ## [2.0.0] - 2026-09-04
 
 A complete rewrite. Version 1.0.0a2 (2021) is the last release of the old code
