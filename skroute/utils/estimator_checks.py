@@ -468,7 +468,8 @@ def check_input_kinds(estimator: BaseRouter) -> None:
 
 
 def check_invalid_inputs(estimator: BaseRouter) -> None:
-    """6. Invalid inputs raise ``ValueError`` with the messages of §3.3; an infeasible node raises
+    """6. Invalid inputs raise ``ValueError`` with the messages of §3.3 — the ``service_time`` ones of D32
+    included, so a ``fit`` override that swallows or reorders it is caught; an infeasible node raises
     ``InfeasibleProblemError``."""
     C, xy = _euclid(6, seed=6)
     T = C / 10.0
@@ -489,6 +490,20 @@ def check_invalid_inputs(estimator: BaseRouter) -> None:
         ),
         ({"X": C[:2, :2]}, "X must have at least 3 nodes"),
         ({"X": RoutingProblem(C), "depot": 0}, "X is a RoutingProblem: pass it alone"),
+        # D32: service_time is validated before the feasibility check, so the budget's size is irrelevant
+        ({"X": C, "service_time": 0.5}, "service_time given but no max_time_work"),
+        (
+            {"X": C, "time_matrix": T, "max_time_work": 5.0, "service_time": -1.0},
+            "service_time must be a finite number >= 0",
+        ),
+        (
+            {"X": C, "time_matrix": T, "max_time_work": 5.0, "service_time": np.zeros(5)},
+            "service_time must be a scalar or have shape (6,)",
+        ),
+        (
+            {"X": C, "time_matrix": T, "max_time_work": 5.0, "service_time": [0.0, -1.0, 0.0, 0.0, 0.0, 0.0]},
+            "service_time contains negative durations",
+        ),
     ]
     for kw, message in cases:
         X = kw.pop("X")
@@ -600,9 +615,10 @@ def check_tags_honoured(estimator: BaseRouter) -> None:
 
 def check_multi_trip(estimator: BaseRouter) -> None:
     """8. Multi-trip on Alicante: trips fit the budget, ``trip_times_`` exists only with a time matrix,
-    the optimal decoder never prices the fitted tour above the greedy one, and a scalar ``service_time``
-    (D32) is honoured: the trips fit the budget with the services included and the fit equals the fit
-    on the time matrix with the services folded in by hand."""
+    the optimal decoder never prices the fitted tour above the greedy one, and ``service_time`` (D32) is
+    honoured: a scalar is coerced as §3.3 says and a per-node array — the depot's service included, so
+    the once-per-trip departure term is exercised — gives trips that fit the budget with the services
+    included and a fit equal to the fit on the time matrix with the services folded in by hand."""
     tags = estimator._get_tags()
     if tags.exact and not tags.budget_aware:
         return  # raises under a budget by design (D6); covered by check 7
@@ -657,19 +673,34 @@ def check_multi_trip(estimator: BaseRouter) -> None:
         "under split='optimal' every trip must fit the budget too",
     )
     _assert(est_opt.problem_.split == "optimal", 8, "problem_.split must record the requested decoder")
-    # D32: a scalar service time (an eighth of the day at every customer; every round trip still fits).
+    # D32, the coercion (no fit needed): a scalar is an eighth of the day at every customer, 0 at the depot.
     service = budget / 8.0
-    est_s = _fit(_fresh(estimator), d.cost, time_matrix=d.time, coords=d.coords, service_time=service, **kw)
+    scalar = RoutingProblem(d.cost, time_matrix=d.time, service_time=service, **kw)
+    depot = scalar.depot
+    others = np.arange(n) != depot
+    _assert(
+        isinstance(scalar.service_time, np.ndarray)
+        and scalar.service_time.dtype == np.float64
+        and scalar.service_time.shape == (n,)
+        and scalar.service_time[depot] == 0.0
+        and bool(np.all(scalar.service_time[others] == service)),
+        8,
+        "problem.service_time must be float64 (n,): the scalar at every non-depot node, 0 at the depot",
+    )
+    # D32, the fit: the same service at every customer plus a sixteenth of the day at the depot before
+    # leaving (paid once per trip, at departure); every round trip still fits.
+    s = np.full(n, service)
+    s[depot] = service / 2.0
+    _read_only(s)
+    est_s = _fit(_fresh(estimator), d.cost, time_matrix=d.time, coords=d.coords, service_time=s, **kw)
     ps = est_s.problem_
-    others = np.arange(n) != ps.depot
     _assert(
         isinstance(ps.service_time, np.ndarray)
         and ps.service_time.dtype == np.float64
-        and ps.service_time.shape == (n,)
-        and ps.service_time[ps.depot] == 0.0
-        and bool(np.all(ps.service_time[others] == service)),
+        and np.array_equal(ps.service_time, s)
+        and ps.service_time is not s,
         8,
-        "problem_.service_time must be float64 (n,): the scalar at every non-depot node, 0 at the depot",
+        "problem_.service_time must be the given (n,) array as float64, copied",
     )
     _assert(
         ps.time is not None and np.array_equal(ps.time, d.time),
@@ -685,11 +716,13 @@ def check_multi_trip(estimator: BaseRouter) -> None:
     index = _label_index(est_s)
     for k, trip in enumerate(est_s.trips_):
         idx = [index[x] for x in trip.tolist()]
-        dur = float(sum(d.time[idx[i], idx[i + 1]] for i in range(len(idx) - 1))) + service * (len(idx) - 2)
+        driving = float(sum(d.time[idx[i], idx[i + 1]] for i in range(len(idx) - 1)))
+        dur = driving + float(s[idx[1:-1]].sum()) + float(s[depot])
         _assert(
             math.isclose(dur, est_s.trip_times_[k], rel_tol=1e-9, abs_tol=1e-12),
             8,
-            f"trip_times_[{k}] must be the closed trip's driving time plus the service of every visited node",
+            f"trip_times_[{k}] must be the closed trip's driving time plus the service of every visited node "
+            "plus the depot's, once",
         )
     tour_idx = ps.to_index_tour(est_s.tour_)
     _assert(
@@ -698,7 +731,8 @@ def check_multi_trip(estimator: BaseRouter) -> None:
         "problem_.trip_times must reproduce trip_times_ with the services included",
     )
     folded = np.array(d.time, dtype=np.float64, copy=True)
-    folded[:, others] += service  # the definition of the feature: the service is paid on arrival
+    folded[:, others] += service  # the definition of the feature: the service is paid on arrival...
+    folded[depot, others] += s[depot]  # ...and the depot's own once per trip, at departure
     np.fill_diagonal(folded, np.diagonal(d.time))  # never read; kept raw like RoutingProblem does
     _read_only(folded)
     est_f = _fit(_fresh(estimator), d.cost, time_matrix=folded, coords=d.coords, **kw)

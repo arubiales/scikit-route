@@ -8,6 +8,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import itertools
+import warnings
 
 import numpy as np
 import pytest
@@ -17,7 +18,7 @@ from hypothesis import strategies as st
 from skroute import RoutingProblem, TwoOpt
 from skroute.base import BaseRouter, RouterTags
 from skroute.exceptions import NotFittedError
-from skroute.metrics import Stop, timetable, timetable_summary
+from skroute.metrics import Stop, route_cost, timetable, timetable_summary
 
 LABELS = ["office", "a", "b", "c", "d"]
 # driving minutes; the office is row 0
@@ -228,7 +229,58 @@ def test_timetable_summary_by_hand():
         {"day": 1, "n_stops": 3, "driving": 135.0, "service": 105.0, "total": 240.0, "back_at": "11:00"},
         {"day": 2, "n_stops": 1, "driving": 60.0, "service": 60.0, "total": 120.0, "back_at": "09:00"},
     ]
-    assert timetable_summary([]) == []
+    assert timetable_summary([]) == [] and timetable_summary([[]]) == []
+    assert timetable_summary(tuple(days)) == timetable_summary(days)
+
+
+def test_timetable_summary_refuses_the_frame_and_other_kinds_with_a_pointer():
+    # the natural mistake: both forms come out of timetable(...), only the list form is summarised
+    pd = pytest.importorskip("pandas")
+    est = _fit()
+    frame = timetable(est, as_frame=True)
+    assert isinstance(frame, pd.DataFrame)
+    with pytest.raises(TypeError, match=r"not a DataFrame; with as_frame=True group the frame by 'day'"):
+        timetable_summary(frame)
+    with pytest.raises(TypeError, match="not a NoneType"):
+        timetable_summary(None)
+    with pytest.raises(TypeError, match="every day must be a list of Stop"):
+        timetable_summary(["office", "a"])  # a day is not a list
+    with pytest.raises(TypeError, match="every day must be a list of Stop"):
+        timetable_summary([[("office", 0.0)]])  # a stop is not a Stop
+
+
+def test_timetable_keeps_the_days_as_driven_and_warns_when_one_runs_over_the_budget():
+    est = _fit()
+    problem = est.problem_
+    # day two: office->b 40 + 45, ->c 30 + 30, ->d 35 + 60 = 240, back 30 -> 270 > 240: the user's plan does
+    # not fit, and the timetable says so instead of re-cutting it
+    driven = ["office", "a", "office", "b", "c", "d", "office"]
+    with pytest.warns(UserWarning, match=r"day 2 ends at 270 min, over max_time_work \(240 min\)") as rec:
+        days = timetable(problem, driven)
+    assert len(rec) == 1 and "read as driven" in str(rec[0].message)
+    assert [[s.label for s in day] for day in days] == [
+        ["office", "a", "office"],
+        ["office", "b", "c", "d", "office"],
+    ]
+    assert [day[-1].arrival for day in days] == [70.0, 270.0]  # 20 + 30 of service + 20 back; 270 as above
+    # route_cost re-decodes the same labels as a giant tour (office-a-b-c-d -> DAY1 + DAY2, 195 of driving)
+    # while the plan as driven costs 175: the two public metrics describe different plans on purpose
+    kw = {"time_matrix": T5, "max_time_work": BUDGET, "service_time": S5, "labels": LABELS}
+    assert route_cost(T5, driven, **kw) == 195.0 == route_cost(T5, LABELS, **kw)
+    assert sum(s.travel for day in days for s in day) == 175.0
+    # the same warning in hours, and none at all for a plan that fits or for anything fit produced
+    with pytest.warns(UserWarning, match=r"over max_time_work \(240 min\)"):
+        timetable(_fit(time_matrix=T5 / 60.0, max_time_work=4.0, service_time=S5 / 60.0), driven, units="h")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        timetable(problem, ["office", "a", "b", "office", "c", "d", "office"])  # 215 minutes: fits
+        timetable(est)
+        timetable(est, est.tour_)
+        assert timetable(problem, LABELS)[0][-1].arrival == BUDGET  # exactly on the budget: no warning
+    # the frame form warns too (same code path)
+    pytest.importorskip("pandas")
+    with pytest.warns(UserWarning, match="day 2 ends at 270 min"):
+        timetable(problem, driven, as_frame=True)
 
 
 def test_stop_is_a_frozen_dataclass_with_clock_properties():
@@ -253,6 +305,17 @@ def test_stop_is_a_frozen_dataclass_with_clock_properties():
     assert (
         Stop(1, 0, 0, 0.0, 0.0, 0.0, 0.0, start=23 * 60 + 59.6).departure_time == "00:00"
     )  # rounds and wraps
+    # start is left out of equality and hashing as it is of the repr: same minutes, same stop, whatever clock
+    later = Stop(1, 2, "b", 95.0, 125.0, 20.0, 30.0, start=9 * 60)
+    assert later == stop and hash(later) == hash(stop) and repr(later) == repr(stop)
+    assert later.arrival_time == "10:35" != stop.arrival_time
+    assert len({stop, later}) == 1 and Stop(1, 2, "b", 95.0, 125.0, 20.0, 30.0, wait=1.0) != stop
+    est = _fit()
+    assert timetable(est, start="06:00") == timetable(est, start="10:00")
+    # microseconds of a datetime.time count like the seconds do
+    late = timetable(est, start=datetime.time(9, 5, 30, 999999))
+    assert late[0][0].start == pytest.approx(545.5 + 0.999999 / 60.0)
+    assert late[0][0].start > 545.5
 
 
 def test_timetable_errors():

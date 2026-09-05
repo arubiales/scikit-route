@@ -504,8 +504,9 @@ class BaseRouter:
             Multiplies ``extra_cost`` only.
         service_time : float or (n,) array-like, optional
             Time spent at each stop, in the units of ``time_matrix`` (D32): a scalar for every
-            non-depot node, or one value per node in matrix row order. Requires ``max_time_work``;
-            the trips then fit the budget with the services included (``trip_times_`` counts them).
+            non-depot node, or one value per node in matrix row order (a pandas Series must carry
+            the labels of ``X``). Requires ``max_time_work``; the trips then fit the budget with the
+            services included (``trip_times_`` counts them).
         split : {"greedy", "optimal"}, default "greedy"
             Decoder of the giant tour into trips.
         callback : callable, optional

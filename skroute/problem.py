@@ -9,6 +9,7 @@ fitted solver are translated back to *label space* with
 
 from __future__ import annotations
 
+import math
 from numbers import Real
 from typing import Any
 
@@ -30,20 +31,51 @@ def _is_number(x: Any) -> bool:
     return isinstance(x, Real) and not isinstance(x, (bool, np.bool_))
 
 
-def _coerce_service_time(value: Any, n: int, depot: int) -> np.ndarray:
+def _finite(value: Any) -> float | None:
+    """``float(value)`` when ``value`` is a real scalar with a finite value, else ``None``; never raises.
+
+    Pure Python on purpose: ``numpy.isfinite`` cannot take every ``numbers.Real`` (a ``Fraction``, an int
+    beyond the float range) and would leak its own ``TypeError`` instead of the messages of §3.3.
+    """
+    if not _is_number(value):
+        return None
+    try:
+        v = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def _coerce_service_time(value: Any, n: int, depot: int, labels: np.ndarray) -> np.ndarray:
     """The ``(n,)`` float64 service array of D32: zeros for ``None``, a scalar on every non-depot node,
-    or an array in matrix row order (finite, ``>= 0``)."""
+    or an array in matrix row order (finite, ``>= 0``; a pandas Series must carry the labels of X)."""
     if value is None:
         return np.zeros(n)
+    if isinstance(value, np.ndarray) and value.ndim == 0 and value.dtype.kind in "iuf":
+        value = value.item()  # a 0-d numeric array is the scalar it wraps
     if _is_number(value):
-        if not (np.isfinite(value) and float(value) >= 0):
+        v = _finite(value)
+        if v is None or v < 0:
             raise ValueError(f"service_time must be a finite number >= 0, got {value!r}")
-        s = np.full(n, float(value))
+        s = np.full(n, v)
         s[depot] = 0.0
         return s
-    s = np.array(value, dtype=np.float64)  # a copy: the caller's array is never aliased
+    kind = f"service_time must be a number or an ({n},) array-like, got {type(value).__name__}"
+    if isinstance(value, (str, bytes, bool, np.bool_)):
+        raise ValueError(kind)
+    try:
+        s = np.array(value, dtype=np.float64)  # a copy: the caller's array is never aliased
+    except (TypeError, ValueError):  # a dict, a complex, a list of strings...
+        raise ValueError(kind) from None
+    if s.ndim == 0:  # something numpy reads as one number that is not a numbers.Real (a Decimal...)
+        raise ValueError(kind)
     if s.shape != (n,):
         raise ValueError(f"service_time must be a scalar or have shape ({n},), got shape {s.shape}")
+    # a pandas Series (duck-typed) is read positionally like every array, but its labels must be X's: a
+    # Series in another order would silently move every service (the depot's zero included)
+    labelled = hasattr(value, "index") and hasattr(value, "to_numpy")
+    if labelled and list(value.index) != labels.tolist():
+        raise ValueError("service_time index differs from the labels of X")
     if not np.isfinite(s).all():
         raise ValueError("service_time contains NaN or infinite values")
     if (s < 0).any():
@@ -75,7 +107,8 @@ class RoutingProblem:
     service_time : float or (n,) array-like, optional
         Time spent at each node, in the units of ``time_matrix`` (finite, >= 0). A scalar applies to
         every non-depot node; an array gives one value per node in matrix row order (the depot's
-        entry is paid once per trip, at departure). Requires ``max_time_work`` (D32). Default: no
+        entry is paid once per trip, at departure). A pandas Series is read in row order too, but
+        its index must be the labels of ``X``. Requires ``max_time_work`` (D32). Default: no
         service time.
     split : {"greedy", "optimal"}, default "greedy"
         Decoder of the giant tour into trips (see D1).
@@ -122,6 +155,13 @@ class RoutingProblem:
     ``evaluate``, ``trip_starts`` and ``trip_times`` all account for the services, and
     fitting with ``service_time`` equals fitting on ``T_eff`` without it. ``time``
     keeps the raw travel times for reporting (``skroute.metrics.timetable``).
+
+    The problem never writes to its arrays, but it does not copy a float64, C-contiguous
+    ``X`` or ``time_matrix`` either — ``cost`` and ``time`` are then *views* of the caller's
+    arrays (no second n x n matrix at n = 10 639) — so an array must not be modified after
+    it has been passed. ``service_time`` is always copied, and with a non-zero service
+    ``T_eff`` is a private matrix: a later write to the caller's ``time_matrix`` would move
+    ``timetable`` (which reads ``time``) but not ``trip_times_`` (which reads ``T_eff``).
 
     References
     ----------
@@ -224,7 +264,8 @@ class RoutingProblem:
                     "pass time_matrix=X to use the cost matrix as durations"
                 )
             # type first, then value: a str, a bool or a 1-element array gets THIS message, not a numpy one
-            if not (_is_number(max_time_work) and np.isfinite(max_time_work) and float(max_time_work) > 0):
+            mtw = _finite(max_time_work)
+            if mtw is None or mtw <= 0:
                 raise ValueError(f"max_time_work must be a finite number > 0, got {max_time_work!r}")
             T, tlab = coerce_matrix(time_matrix, "time_matrix")
             if T.shape != C.shape:
@@ -234,9 +275,9 @@ class RoutingProblem:
             if (T < 0).any():
                 raise ValueError("time_matrix contains negative durations")
             self.time = T
-            self.max_time_work = float(max_time_work)
+            self.max_time_work = mtw
             d = self.depot
-            s = _coerce_service_time(service_time, n, d)
+            s = _coerce_service_time(service_time, n, d, self.labels)
             self.service_time = s
             if s.any():
                 T_eff = T + s[np.newaxis, :]  # the service of j is paid on arrival at j...
@@ -265,11 +306,12 @@ class RoutingProblem:
                     f"nodes {self.labels[bad].tolist()} cannot be served in one trip: "
                     f"depot round trip exceeds max_time_work={self.max_time_work}"
                 )
-        if not (_is_number(extra_cost) and np.isfinite(extra_cost) and float(extra_cost) >= 0):
+        fixed = _finite(extra_cost)
+        if fixed is None or fixed < 0:
             raise ValueError(f"extra_cost must be a finite number >= 0, got {extra_cost!r}")
         if not isinstance(people, (int, np.integer)) or isinstance(people, bool) or people < 1:
             raise ValueError(f"people must be an integer >= 1, got {people!r}")
-        self.extra_cost: float = float(extra_cost)
+        self.extra_cost: float = fixed
         self.people: int = int(people)
         self.coords: np.ndarray | None = None
         if coords is not None:
