@@ -1,0 +1,138 @@
+{
+ "version": 0.6,
+ "generator": "Overpass API 0.7.62.11 87bfad18",
+ "osm3s": {
+  "timestamp_osm_base": "2026-09-05T13:59:46Z",
+  "timestamp_areas_base": "2026-09-05T05:40:41Z",
+  "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+ },
+ "elements": [
+  {
+   "type": "relation",
+   "id": 15000002,
+   "members": [],
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "name": "Burger King (no centre)"
+   }
+  },
+  {
+   "type": "relation",
+   "id": 15000001,
+   "center": {
+    "lat": 40.3312,
+    "lon": -3.7601
+   },
+   "members": [],
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "type": "multipolygon"
+   }
+  },
+  {
+   "type": "way",
+   "id": 1156068846,
+   "center": {
+    "lat": 40.2955963,
+    "lon": -3.7626104
+   },
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "building": "yes",
+    "cuisine": "burger",
+    "name": "Burger King",
+    "takeaway": "yes"
+   }
+  },
+  {
+   "type": "way",
+   "id": 431072075,
+   "center": {
+    "lat": 40.3259272,
+    "lon": -3.7808313
+   },
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "building": "yes",
+    "cuisine": "burger",
+    "name": "Burger King",
+    "takeaway": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 11083618706,
+   "lat": 40.338684,
+   "lon": -3.7337169,
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "cuisine": "burger",
+    "name": "Burger King",
+    "takeaway": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 6723530125,
+   "lat": 40.3594929,
+   "lon": -3.7758412,
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "brand:wikipedia": "es:Burger King",
+    "cuisine": "burger",
+    "level": "2",
+    "name": "Burger King",
+    "takeaway": "yes",
+    "addr:postcode": "28914",
+    "addr:city": "Leganés"
+   }
+  },
+  {
+   "type": "node",
+   "id": 2631338026,
+   "lat": 40.3064563,
+   "lon": -3.8099901,
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "brand:wikipedia": "es:Burger King",
+    "cuisine": "burger",
+    "name": "Burger King",
+    "takeaway": "yes",
+    "addr:street": "Calle del Charco",
+    "addr:housenumber": "4"
+   }
+  },
+  {
+   "type": "node",
+   "id": 2613719490,
+   "lat": 40.3365943,
+   "lon": -3.7689667,
+   "tags": {
+    "amenity": "fast_food",
+    "brand": "Burger King",
+    "brand:wikidata": "Q177054",
+    "brand:wikipedia": "en:Burger King",
+    "cuisine": "burger",
+    "name": "Burger King",
+    "takeaway": "yes",
+    "addr:street": "Avenida de la Universidad",
+    "addr:housenumber": "12",
+    "addr:postcode": "28911",
+    "addr:city": "Leganés"
+   }
+  }
+ ]
+}

@@ -97,12 +97,13 @@ exclude = ["tests*", "benchmarks*", "docs*"]
 minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["tests"]
-addopts = "-m 'not slow' --strict-markers -ra"
+addopts = "-m 'not slow and not network' --strict-markers -ra"
 doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS NUMBER"
 junit_family = "xunit1"  # tests/benchmarks/test_waterloo.py records gaps with record_property
 markers = [
   "slow: Waterloo instances with n >= 194, MILP on qa194, anything above 10 s (deselected by default)",
   "benchmark: alias marker on the slow benchmark tests, for tooling",
+  "network: live calls to the public OSRM, Nominatim and Overpass servers (deselected by default, run by the nightly)",
 ]
 filterwarnings = ["error::DeprecationWarning:skroute.*"]
 
