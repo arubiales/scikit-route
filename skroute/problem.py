@@ -242,7 +242,7 @@ class RoutingProblem:
                 T_eff = T + s[np.newaxis, :]  # the service of j is paid on arrival at j...
                 T_eff[:, d] = T[:, d]  # ...never on returning to the depot...
                 T_eff[d, :] += s[d]  # ...and the depot's own service once per trip, at departure
-                T_eff[d, d] = T[d, d]  # the diagonal is never read (§3.1): keep it raw
+                np.fill_diagonal(T_eff, np.diagonal(T))  # the diagonal is never read (§3.1): keep it raw
                 self._time_eff = np.ascontiguousarray(T_eff)
             else:
                 self._time_eff = T
@@ -253,7 +253,9 @@ class RoutingProblem:
                 if s.any():
                     detail = ", ".join(
                         f"{lab!r}: travel {T[d, j] + T[j, d]:g} + service {s[j] + s[d]:g}"
-                        for j, lab in zip(np.flatnonzero(bad).tolist(), self.labels[bad].tolist(), strict=True)
+                        for j, lab in zip(
+                            np.flatnonzero(bad).tolist(), self.labels[bad].tolist(), strict=True
+                        )
                     )
                     raise InfeasibleProblemError(
                         f"nodes {self.labels[bad].tolist()} cannot be served in one trip: depot round trip "
@@ -291,11 +293,11 @@ class RoutingProblem:
 
     @property
     def time_or_cost(self) -> np.ndarray:
-        """The matrix kernels receive as ``T``: the effective time matrix, or the cost matrix without a budget.
+        """The matrix kernels receive as ``T``: the effective time matrix, or the cost matrix if no budget.
 
         The effective matrix is ``time`` plus the service times (D32, see the class notes): it *is*
-        ``time`` when no service was given. Without a budget (``max_time_work == inf``) the kernels never
-        read ``T``; passing the cost matrix keeps every call signature uniform.
+        ``time`` when no service was given. Without a budget (``max_time_work == inf``) the kernels
+        never read ``T``; passing the cost matrix keeps every call signature uniform.
         """
         return self.cost if self._time_eff is None else self._time_eff
 
@@ -380,7 +382,7 @@ class RoutingProblem:
         return out
 
     def trip_times(self, tour: Any, starts: Any) -> np.ndarray:
-        """Duration of each closed trip, float64 ``(n_trips,)``, service times included. Requires a time matrix."""
+        """Duration of each closed trip, float64 ``(n_trips,)``, services included. Requires a time matrix."""
         if self._time_eff is None:
             raise ValueError("trip_times needs a time matrix; this problem is a plain TSP")
         out = np.empty(len(starts) - 1)

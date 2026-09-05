@@ -4,6 +4,7 @@ and the installed-copy guard (D16)."""
 from __future__ import annotations
 
 import dataclasses
+import itertools
 import math
 import os
 import re
@@ -256,6 +257,39 @@ def test_time_matrix_is_keyword_only():
         ),
         ({"X": C4, "split": "both"}, "split must be 'greedy' or 'optimal', got 'both'"),
         ({"X": C4, "coords": np.zeros((4, 3))}, "coords must have shape (4, 2), got (4, 3)"),
+        # service time (D32)
+        (
+            {"X": C4, "service_time": 0.5},
+            "service_time given but no max_time_work; pass max_time_work=<hours per trip>",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": -1.0},
+            "service_time must be a finite number >= 0, got -1.0",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": np.nan},
+            "service_time must be a finite number >= 0, got nan",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": np.inf},
+            "service_time must be a finite number >= 0, got inf",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": [0.5, 0.5, 0.5]},
+            "service_time must be a scalar or have shape (4,), got shape (3,)",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": np.zeros((4, 1))},
+            "service_time must be a scalar or have shape (4,), got shape (4, 1)",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": [0.0, np.nan, 0.5, 0.5]},
+            "service_time contains NaN or infinite values",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": [0.0, -0.5, 0.5, 0.5]},
+            "service_time contains negative durations",
+        ),
     ],
 )
 def test_error_messages_of_spec(kwargs, message):
@@ -299,6 +333,99 @@ def test_multi_trip_problem_attributes():
     assert p.coords is not None and p.coords.shape == (4, 2) and p.coords.dtype == np.float64
     assert repr(p) == "RoutingProblem(n=4, multi-trip, symmetric, depot=0)"
     assert not RoutingProblem(_euclid(5, seed=5, asymmetric=True)[0]).symmetric
+
+
+def test_service_time_effective_matrix_definition():
+    s = np.array([0.25, 0.5, 1.0, 0.75])
+    p = RoutingProblem(C4, labels=NAMES, depot="a", time_matrix=H4, max_time_work=9.0, service_time=s)
+    d = p.depot
+    assert d == 1
+    assert p.service_time.tolist() == s.tolist() and p.service_time.dtype == np.float64
+    assert p.service_time is not s and p.service_time.flags["C_CONTIGUOUS"]
+    assert np.array_equal(p.time, H4) and p.time is not p.time_or_cost  # time stays raw
+    eff = p.time_or_cost
+    assert eff.dtype == np.float64 and eff.flags["C_CONTIGUOUS"] and eff.shape == (4, 4)
+    for i in range(4):
+        for j in range(4):
+            if i == j or j == d:  # the diagonal is never read and stays raw; nothing on returning
+                expected = H4[i, j]
+            elif i == d:  # leaving the depot: the arrival service plus the depot's own, once per trip
+                expected = H4[i, j] + s[j] + s[d]
+            else:
+                expected = H4[i, j] + s[j]
+            assert eff[i, j] == expected, (i, j)
+    # a scalar applies to every non-depot node and equals the explicit array
+    q = RoutingProblem(C4, labels=NAMES, depot="a", time_matrix=H4, max_time_work=9.0, service_time=0.5)
+    assert q.service_time.tolist() == [0.5, 0.0, 0.5, 0.5]
+    arr = RoutingProblem(
+        C4, labels=NAMES, depot="a", time_matrix=H4, max_time_work=9.0, service_time=[0.5, 0.0, 0.5, 0.5]
+    )
+    assert np.array_equal(q.time_or_cost, arr.time_or_cost)
+    assert q.evaluate([1, 0, 2, 3]) == arr.evaluate([1, 0, 2, 3])
+    assert np.array_equal(
+        q.time_or_cost,
+        RoutingProblem(
+            C4, labels=NAMES, depot="a", time_matrix=H4, max_time_work=9.0, service_time=np.float32(0.5)
+        ).time_or_cost,
+    )
+    # without a service the effective matrix IS the time matrix (aliased: nothing to copy); zeros too
+    plain = RoutingProblem(C4, time_matrix=H4, max_time_work=4.0)
+    assert plain.time_or_cost is plain.time and plain.service_time.tolist() == [0.0] * 4
+    zeros = RoutingProblem(C4, time_matrix=H4, max_time_work=4.0, service_time=0.0)
+    assert zeros.time_or_cost is zeros.time and zeros.service_time.tolist() == [0.0] * 4
+    tsp = RoutingProblem(C4)
+    assert tsp.service_time.tolist() == [0.0] * 4 and tsp.time_or_cost is tsp.cost
+    # the caller's array is copied: later writes do not leak into the problem
+    s[0] = 99.0
+    assert p.service_time[0] == 0.25
+    assert repr(p) == "RoutingProblem(n=4, multi-trip, symmetric, depot='a')"
+
+
+def test_infeasible_with_service_time_names_the_node_and_the_service():
+    with pytest.raises(InfeasibleProblemError) as exc:
+        RoutingProblem(C4, labels=NAMES, time_matrix=H4, max_time_work=4.0, service_time=0.5)
+    assert str(exc.value) == (
+        "nodes ['b', 'c'] cannot be served in one trip: depot round trip plus service time exceeds "
+        "max_time_work=4.0 ('b': travel 4 + service 0.5, 'c': travel 4 + service 0.5)"
+    )
+    assert isinstance(exc.value, ValueError)
+    # the depot's own service counts once, at departure: 'c' needs 2 + 0.5 + 0.2 + 2 = 4.7 h
+    with pytest.raises(InfeasibleProblemError, match=re.escape("('c': travel 4 + service 0.7)")):
+        RoutingProblem(C4, labels=NAMES, time_matrix=H4, max_time_work=4.5, service_time=[0.2, 0.0, 0.0, 0.5])
+    RoutingProblem(C4, labels=NAMES, time_matrix=H4, max_time_work=4.75, service_time=[0.2, 0.0, 0.0, 0.5])
+    # with a zero service the message of the spec is unchanged
+    with pytest.raises(InfeasibleProblemError) as exc:
+        RoutingProblem(C4, time_matrix=H4, max_time_work=3.0, service_time=0.0)
+    assert (
+        str(exc.value)
+        == "nodes [2, 3] cannot be served in one trip: depot round trip exceeds max_time_work=3.0"
+    )
+    RoutingProblem(C4, time_matrix=H4, max_time_work=4.0, service_time=0.0)  # every round trip fits
+
+
+def test_trip_times_include_the_services_and_match_the_reference_on_the_folded_matrix():
+    p = RoutingProblem(C4, time_matrix=H4, max_time_work=5.0, extra_cost=3.0, service_time=0.5)
+    tour = [0, 1, 2, 3]
+    starts = p.trip_starts(tour)
+    assert starts.tolist() == [1, 3, 4]
+    assert p.trip_times(tour, starts).tolist() == [5.0, 4.5]  # 1.5 + 1.5 + 2 ; 2.5 + 2
+    assert p.evaluate(tour) == 41.0
+    folded = H4.copy()
+    folded[:, 1:] += 0.5
+    for split in ("greedy", "optimal"):
+        q = RoutingProblem(
+            C4, time_matrix=H4, max_time_work=5.0, extra_cost=3.0, service_time=0.5, split=split
+        )
+        for perm in itertools.permutations([1, 2, 3]):
+            t = [0, *perm]
+            assert q.evaluate(t) == pytest.approx(reference.problem_cost(C4, folded, t, 5.0, 3.0, split))
+            assert q.trip_starts(t).tolist() == reference.trip_starts(C4, folded, t, 5.0, 3.0, split)
+            st = q.trip_starts(t)
+            assert np.all(q.trip_times(t, st) <= 5.0 + 1e-9)
+            for k in range(len(st) - 1):
+                trip = [0, *t[st[k] : st[k + 1]], 0]
+                driving = sum(H4[a, b] for a, b in itertools.pairwise(trip))
+                assert q.trip_times(t, st)[k] == pytest.approx(driving + 0.5 * (len(trip) - 2))
 
 
 def test_coerce_labels_dtypes():
@@ -565,6 +692,98 @@ def test_fit_multi_trip_attributes_and_budget_warning():
         )
     assert aware.cost_ == 41.0 and aware.n_trips_ == 2 and aware.problem_.split == "optimal"
     assert aware.history_.dtype == np.float64 and aware.history_[-1] == 41.0
+
+
+def test_fit_with_service_time_equals_the_fit_on_the_folded_time_matrix():
+    import inspect
+
+    from skroute.base import _FIT_KWARGS
+
+    params = list(inspect.signature(BaseRouter.fit).parameters)
+    assert params == [
+        "self",
+        "X",
+        "time_matrix",
+        "depot",
+        "coords",
+        "labels",
+        "max_time_work",
+        "extra_cost",
+        "people",
+        "service_time",
+        "split",
+        "callback",
+    ]
+    assert _FIT_KWARGS == (
+        "depot",
+        "coords",
+        "labels",
+        "max_time_work",
+        "extra_cost",
+        "people",
+        "service_time",
+        "split",
+    )
+    kw = {"labels": NAMES, "time_matrix": H4, "max_time_work": 5.0, "extra_cost": 3.0}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        est = RandomWalk(random_state=0).fit(C4, service_time=0.5, **kw)
+    assert est.problem_.service_time.tolist() == [0.0, 0.5, 0.5, 0.5]
+    assert np.array_equal(est.problem_.time, H4)
+    assert est.n_trips_ == 2 and bool(np.all(est.trip_times_ <= 5.0 + 1e-9)) and est.cost_ == 41.0
+    assert isinstance(est.fit_time_, float)
+    folded = H4.copy()
+    folded[:, 1:] += 0.5
+    ref = RandomWalk(random_state=0).fit(C4, **dict(kw, time_matrix=folded))
+    assert est.tour_.tolist() == ref.tour_.tolist() and est.cost_ == ref.cost_
+    assert [t.tolist() for t in est.trips_] == [t.tolist() for t in ref.trips_]
+    assert est.trip_times_.tolist() == ref.trip_times_.tolist()
+    # the same through a ready problem, which is passed alone
+    problem = RoutingProblem(C4, service_time=0.5, **kw)
+    again = RandomWalk(random_state=0).fit(problem)
+    assert again.tour_.tolist() == est.tour_.tolist() and again.problem_ is problem
+    with pytest.raises(ValueError, match="X is a RoutingProblem: pass it alone, without other fit arguments"):
+        RandomWalk().fit(problem, service_time=0.5)
+    with pytest.raises(ValueError, match="service_time given but no max_time_work"):
+        RandomWalk().fit(C4, service_time=0.5)
+    with pytest.raises(ValueError, match=re.escape("service_time must be a scalar or have shape (4,)")):
+        RandomWalk().fit(C4, service_time=[1.0, 2.0], **kw)
+
+
+def test_fit_without_service_time_is_unchanged(alicante, fast_instance):
+    from skroute import SimulatedAnnealing, TwoOpt
+
+    d, kw = alicante["bunch"], alicante["kwargs"]
+    inst = fast_instance
+    C = inst["C"]
+    T = np.ascontiguousarray(C / 50.0)
+    budget = 1.5 * float((T[0] + T[:, 0]).max())
+    cases = [
+        (TwoOpt(), d.cost, dict(kw, time_matrix=d.time)),
+        (SimulatedAnnealing(random_state=0), d.cost, dict(kw, time_matrix=d.time, split="optimal")),
+        (TwoOpt(), C, {"time_matrix": T, "max_time_work": budget, "extra_cost": 5.0}),
+        (
+            SimulatedAnnealing(random_state=0),
+            C,
+            {"time_matrix": T, "max_time_work": budget, "extra_cost": 5.0},
+        ),
+    ]
+    for est, X, fit_kw in cases:
+        n = X.shape[0]
+        fits = [
+            clone(est).fit(X, **fit_kw),
+            clone(est).fit(X, service_time=None, **fit_kw),
+            clone(est).fit(X, service_time=0.0, **fit_kw),
+            clone(est).fit(X, service_time=np.zeros(n), **fit_kw),
+        ]
+        base = fits[0]
+        assert base.problem_.time_or_cost is base.problem_.time
+        for other in fits[1:]:
+            assert other.problem_.time_or_cost is other.problem_.time
+            assert other.problem_.service_time.tolist() == [0.0] * n
+            assert other.tour_.tolist() == base.tour_.tolist() and other.cost_ == base.cost_
+            assert [t.tolist() for t in other.trips_] == [t.tolist() for t in base.trips_]
+            assert other.trip_times_.tolist() == base.trip_times_.tolist()
 
 
 def test_fit_accepts_a_routing_problem_only_alone():

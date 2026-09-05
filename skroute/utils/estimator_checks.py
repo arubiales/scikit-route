@@ -669,7 +669,7 @@ def check_multi_trip(estimator: BaseRouter) -> None:
         and ps.service_time[ps.depot] == 0.0
         and bool(np.all(ps.service_time[others] == service)),
         8,
-        "problem_.service_time must be the (n,) float64 array: the scalar at every non-depot node, 0 at the depot",
+        "problem_.service_time must be float64 (n,): the scalar at every non-depot node, 0 at the depot",
     )
     _assert(np.array_equal(ps.time, d.time), 8, "problem_.time must stay the raw travel-time matrix")
     _assert(
@@ -695,6 +695,7 @@ def check_multi_trip(estimator: BaseRouter) -> None:
     )
     folded = np.array(d.time, dtype=np.float64, copy=True)
     folded[:, others] += service  # the definition of the feature: the service is paid on arrival
+    np.fill_diagonal(folded, np.diagonal(d.time))  # never read; kept raw like RoutingProblem does
     _read_only(folded)
     est_f = _fit(_fresh(estimator), d.cost, time_matrix=folded, coords=d.coords, **kw)
     _assert(

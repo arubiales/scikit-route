@@ -180,7 +180,7 @@ def _closed(depot: Any, body: list[Any], kind: Any) -> np.ndarray:
 # ------------------------------------------------------------------------------- timetable (D32)
 def _clock(minutes: float) -> str:
     """``HH:MM`` of a number of minutes after midnight, rounded to the nearest minute, wrapping at 24 h."""
-    total = int(math.floor(minutes + 0.5)) % _MINUTES_PER_DAY
+    total = math.floor(minutes + 0.5) % _MINUTES_PER_DAY
     return f"{total // 60:02d}:{total % 60:02d}"
 
 
@@ -363,8 +363,13 @@ def timetable(
     >>> from skroute import BruteForce
     >>> from skroute.metrics import timetable
     >>> minutes = np.array([[0, 30, 60, 60], [30, 0, 30, 60], [60, 30, 0, 30], [60, 60, 30, 0]], dtype=float)
-    >>> est = BruteForce().fit(minutes, labels=["office", "a", "b", "c"], time_matrix=minutes,
-    ...                        max_time_work=200.0, service_time=30.0)
+    >>> est = BruteForce().fit(
+    ...     minutes,
+    ...     labels=["office", "a", "b", "c"],
+    ...     time_matrix=minutes,
+    ...     max_time_work=200.0,
+    ...     service_time=30.0,
+    ... )
     >>> est.route_.tolist()
     ['office', 'a', 'b', 'office', 'c', 'office']
     >>> days = timetable(est, start="09:00")
@@ -374,7 +379,7 @@ def timetable(
     1 a 09:30 10:00 30.0 30.0
     2 b 10:30 11:00 30.0 30.0
     3 office 12:00 12:00 60.0 0.0
-    >>> [(d[-1].arrival, d[-1].arrival_time) for d in days]     # each day ends within 200 minutes
+    >>> [(d[-1].arrival, d[-1].arrival_time) for d in days]  # each day ends within 200 minutes
     [(180.0, '12:00'), (150.0, '11:30')]
 
     The same from a problem and a route (any tour, decoded with the problem's split rule), and
@@ -485,8 +490,10 @@ def timetable_summary(days: list[list[Stop]]) -> list[dict[str, Any]]:
     >>> from skroute.metrics import timetable, timetable_summary
     >>> minutes = np.array([[0, 30, 60, 60], [30, 0, 30, 60], [60, 30, 0, 30], [60, 60, 30, 0]], dtype=float)
     >>> est = BruteForce().fit(minutes, time_matrix=minutes, max_time_work=200.0, service_time=30.0)
-    >>> timetable_summary(timetable(est))
-    [{'day': 1, 'n_stops': 2, 'driving': 120.0, 'service': 60.0, 'total': 180.0, 'back_at': '11:00'}, {'day': 2, 'n_stops': 1, 'driving': 120.0, 'service': 30.0, 'total': 150.0, 'back_at': '10:30'}]
+    >>> for day in timetable_summary(timetable(est)):
+    ...     print(day)
+    {'day': 1, 'n_stops': 2, 'driving': 120.0, 'service': 60.0, 'total': 180.0, 'back_at': '11:00'}
+    {'day': 2, 'n_stops': 1, 'driving': 120.0, 'service': 30.0, 'total': 150.0, 'back_at': '10:30'}
     """
     out: list[dict[str, Any]] = []
     for stops in days:
