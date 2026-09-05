@@ -2,118 +2,118 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://arubiales.github.io/scikit-route/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/about/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/benchmarks/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/changelog/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/contributing/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/getting_started/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/installation/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/migration/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/ant_colony/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/base/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/construction/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/datasets/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/ensemble/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/exact/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/genetic/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/local_search/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/preprocessing/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/simulated_annealing/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/som/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/tabu_search/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/utils/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/api/viz/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/development/specification/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/user_guide/_capability_table/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/user_guide/choosing_a_solver/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/user_guide/multi_trip/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/user_guide/problem_model/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/user_guide/visualisation/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
     <url>
          <loc>https://arubiales.github.io/scikit-route/user_guide/warm_starts_and_ensembles/</loc>
-         <lastmod>2026-09-04</lastmod>
+         <lastmod>2026-09-05</lastmod>
     </url>
 </urlset>
