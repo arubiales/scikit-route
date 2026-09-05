@@ -1,11 +1,11 @@
 """The plan on Google Maps (D34): Directions URLs, a KML for Google My Maps and Google Earth, and a
 standalone Maps JavaScript page.
 
-Standard library only: this module imports neither matplotlib nor plotly, so ``import
-skroute.viz.google_maps`` works without the ``viz`` extras. Nothing here needs an API key except
-[`google_maps_html`][skroute.viz.google_maps_html], whose page loads the Maps JavaScript API — the
-URLs open in any browser or in the Google Maps app, and the KML is imported into Google My Maps
-(``Create a new map → Import``) or opened in Google Earth.
+No optional extra is needed: this module imports neither matplotlib nor plotly (numpy and the core
+of scikit-route only), so ``import skroute.viz.google_maps`` works without the ``viz`` extras.
+Nothing here needs an API key except [`google_maps_html`][skroute.viz.google_maps_html], whose page
+loads the Maps JavaScript API — the URLs open in any browser or in the Google Maps app, and the KML
+is imported into Google My Maps (``Create a new map → Import``) or opened in Google Earth.
 
 The three functions read the same inputs: a fitted estimator (``trips_`` and the coordinates of
 the fit), a ``RouteEvent`` (its trips) or a plain label-space route — an open tour, a closed one
@@ -31,12 +31,13 @@ import numpy as np
 
 from ..base import BaseRouter
 from ..utils.validation import check_is_fitted, coerce_labels
-from ._static import closed_trips, coords_array, is_event, trips_from_array
+from ._static import DEPOT_COLOR, closed_trips, coords_array, is_event, trips_from_array
 
 __all__ = ["google_maps_html", "google_maps_urls", "to_kml"]
 
 #: One colour per day, shared with ``plot_route_map`` (matplotlib's ``tab10`` cycle): blue, orange,
-#: green, red, purple, brown, pink, grey, olive, cyan. Day ``k`` takes ``PALETTE[(k - 1) % 10]``.
+#: green, red, purple, brown, pink, grey, olive, cyan. Day ``k`` takes ``PALETTE[(k - 1) % 10]``: the
+#: ten colours are distinct, an eleventh day repeats the first one's.
 PALETTE = (
     "#1f77b4",
     "#ff7f0e",
@@ -49,9 +50,10 @@ PALETTE = (
     "#bcbd22",
     "#17becf",
 )
-DEPOT_COLOR = "#c0392b"
 MODES = ("driving", "walking", "bicycling", "transit")
-URL_MAX_WAYPOINTS = 9  # the documented limit of the Maps URL scheme
+# The documented limit of the Maps URL scheme on the desktop site and in the Google Maps app; a link
+# opened in a phone's browser keeps only three (``max_waypoints=3`` for those).
+URL_MAX_WAYPOINTS = 9
 JS_MAX_WAYPOINTS = 25  # the documented limit of a DirectionsService request
 ENV_KEY = "GOOGLE_MAPS_API_KEY"
 DIRECTIONS_URL = "https://www.google.com/maps/dir/"
@@ -61,9 +63,12 @@ NO_COORDS = "no coordinates: pass coords= as (n, 2) (latitude, longitude) pairs 
 
 
 # --------------------------------------------------------------------------- the plan
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Plan:
     """What the three exports share: the closed index trips of a solution over validated coordinates.
+
+    Plans compare and hash by identity (``eq=False``): the generated field-wise ``__eq__`` would
+    compare the arrays and raise instead of answering.
 
     Attributes
     ----------
@@ -178,6 +183,11 @@ def _routes(obj: Any, coords: Any = None, labels: Any = None) -> Plan:
         raise ValueError("the route visits no node besides the depot; nothing to export")
     if any(int(t.min()) < 0 or int(t.max()) >= n for t in trips):
         raise ValueError("the route indexes rows beyond the end of coords (or negative rows)")
+    stops, counts = np.unique(np.concatenate([t[1:-1] for t in trips]), return_counts=True)
+    repeated = node_labels[stops[counts > 1]].tolist()
+    if repeated:
+        shown = ", ".join(repr(x) for x in repeated)
+        raise ValueError(f"the route visits {shown} more than once; every stop appears once across the days")
     return Plan(xy, trips, int(trips[0][0]), node_labels, None, None)
 
 
@@ -187,6 +197,10 @@ def node_names(labels: np.ndarray, names: Any) -> list[str]:
     text = [str(x) for x in labels.tolist()]
     if names is None:
         return text
+    if isinstance(names, str | bytes):
+        raise TypeError(
+            "names must be a sequence of str (matrix row order) or a mapping {label: name}, not a single str"
+        )
     if isinstance(names, Mapping):
         return [str(names.get(label, t)) for label, t in zip(labels.tolist(), text, strict=True)]
     given = [str(x) for x in names]
@@ -199,6 +213,8 @@ def trip_labels(trip_names: Any, n_trips: int) -> list[str]:
     """One title per day: ``trip_names`` (exactly ``n_trips`` entries) or ``"Day 1"``, ``"Day 2"``..."""
     if trip_names is None:
         return [f"Day {k + 1}" for k in range(n_trips)]
+    if isinstance(trip_names, str | bytes):
+        raise TypeError("trip_names must be a sequence of str, one per trip, not a single str")
     given = [str(x) for x in trip_names]
     if len(given) != n_trips:
         raise ValueError(f"trip_names has {len(given)} entries but the plan has {n_trips} trips")
@@ -216,7 +232,8 @@ def _hex_color(color: Any) -> str:
 
 
 def trip_colors(colors: Any, n_trips: int) -> list[str]:
-    """One ``"#rrggbb"`` per day: ``colors`` (cycled when shorter) or the ``PALETTE``."""
+    """One ``"#rrggbb"`` per day: ``colors`` (cycled when shorter) or the ``PALETTE`` (cycled past ten
+    days)."""
     given = list(PALETTE) if colors is None else [_hex_color(c) for c in colors]
     if not given:
         raise ValueError("colors must hold at least one colour")
@@ -261,8 +278,14 @@ def _check_mode(mode: str) -> str:
     return mode
 
 
-def _check_path(path: Any) -> Path:
+def _check_path(path: Any, coords: Any, caller: str) -> Path:
+    """``path`` as a ``Path``; when missing, a ``TypeError`` that spots a path put in the ``coords`` slot."""
     if path is None:
+        if isinstance(coords, str | os.PathLike):
+            raise TypeError(
+                f"path is required and coords looks like a file path ({os.fspath(coords)!r}): pass it as "
+                f"path= or as the third argument, {caller}(obj, None, {os.fspath(coords)!r})"
+            )
         raise TypeError("path is required: where to write the file")
     return Path(os.fspath(path))
 
@@ -296,7 +319,9 @@ def google_maps_urls(
     mode : {"driving", "walking", "bicycling", "transit"}, default "driving"
         The ``travelmode`` of the links (Google ignores waypoints in transit mode).
     max_waypoints : int, default 9
-        Intermediate stops per link; nine is Google's documented limit for the URL scheme.
+        Intermediate stops per link. Nine is Google's documented limit for the URL scheme on the
+        desktop site and in the Google Maps app; a link opened in a phone's *browser* keeps only
+        three, so pass ``max_waypoints=3`` for links that will be opened there.
 
     Returns
     -------
@@ -307,8 +332,13 @@ def google_maps_urls(
     Raises
     ------
     ValueError
-        Without coordinates, for coordinates outside the latitude/longitude ranges, an unknown
-        ``mode`` or a non-positive ``max_waypoints``.
+        Without coordinates, for coordinates outside the latitude/longitude ranges or with the
+        wrong number of rows, for ``labels=`` with a fitted estimator or an event, a route naming
+        something that is not one of ``labels=`` (or indexing beyond ``coords``), a route that
+        visits no stop or one more than once, an event without a tour yet, an unknown ``mode`` or a
+        non-positive ``max_waypoints``.
+    NotFittedError
+        For an estimator that has not been fitted.
 
     Examples
     --------
@@ -357,7 +387,9 @@ def google_maps_urls(
 
 # --------------------------------------------------------------------------- KML
 def _sub(parent: ET.Element, tag: str, text: str | None = None, **attrib: str) -> ET.Element:
-    element = ET.SubElement(parent, f"{{{KML_NS}}}{tag}", attrib)
+    """A child element. Tags are unqualified: the root declares ``xmlns`` and the children inherit
+    it, so nothing is registered in ElementTree's process-wide namespace map."""
+    element = ET.SubElement(parent, tag, attrib)
     if text is not None:
         element.text = text
     return element
@@ -411,26 +443,39 @@ def to_kml(
     trip_names : sequence of str, optional
         One folder name per day; default ``"Day 1"``, ``"Day 2"``...
     colors : sequence of str, optional
-        Hex colours (``"#rrggbb"``) per day, cycled when shorter; default: ``PALETTE``.
+        Hex colours (``"#rrggbb"``) per day, cycled when shorter; default: ``PALETTE`` — ten
+        distinct colours, so from the eleventh day on they repeat (pass more for longer plans).
 
     Returns
     -------
     path : pathlib.Path
         The file written.
 
+    Raises
+    ------
+    TypeError
+        Without ``path`` (also when a path was given in the ``coords`` slot), or when ``names`` or
+        ``trip_names`` is a single str rather than a sequence.
+    ValueError
+        For the inputs [`google_maps_urls`][skroute.viz.google_maps_urls] rejects (no or invalid
+        coordinates, a route visiting a node twice or none...), ``names`` or ``trip_names`` of the
+        wrong length, and ``colors`` empty or not hex.
+    NotFittedError
+        For an estimator that has not been fitted.
+
     Examples
     --------
     >>> import tempfile, xml.etree.ElementTree as ET
     >>> from pathlib import Path
-    >>> from skroute import IteratedLocalSearch
+    >>> from skroute import TwoOpt
     >>> from skroute.datasets import load_barcelona
     >>> from skroute.viz import to_kml
     >>> bcn = load_barcelona()
-    >>> ils = IteratedLocalSearch(random_state=0).fit(
+    >>> two = TwoOpt().fit(
     ...     bcn.cost, labels=bcn.labels, coords=bcn.coords, time_matrix=bcn.time, max_time_work=6.0
-    ... )  # 6-hour days: two of them
+    ... )  # 6-hour days: two of them (TwoOpt is deterministic, so the figures below are exact)
     >>> out = Path(tempfile.mkdtemp())
-    >>> kml = to_kml(ils, path=out / "plan.kml", trip_names=["Monday", "Tuesday"])
+    >>> kml = to_kml(two, path=out / "plan.kml", trip_names=["Monday", "Tuesday"])
     >>> root = ET.parse(kml).getroot()
     >>> ns = {"k": "http://www.opengis.net/kml/2.2"}
     >>> [f.findtext("k:name", namespaces=ns) for f in root.iterfind(".//k:Folder", ns)]
@@ -443,14 +488,13 @@ def to_kml(
     ... )
     ('1.1 23', 'Day 1, stop 1 of 7')
     """
-    out = _check_path(path)
+    out = _check_path(path, coords, "to_kml")
     plan = _routes(obj, coords, labels)
     text = node_names(plan.labels, names)
     days = trip_labels(trip_names, plan.n_trips)
     palette = trip_colors(colors, plan.n_trips)
 
-    ET.register_namespace("", KML_NS)
-    root = ET.Element(f"{{{KML_NS}}}kml")
+    root = ET.Element("kml", {"xmlns": KML_NS})
     doc = _sub(root, "Document")
     title = f"{plan.solver} plan" if plan.solver else "Route plan"
     _sub(doc, "name", f"{title}: {plan.n_trips} {'day' if plan.n_trips == 1 else 'days'}")
@@ -459,14 +503,14 @@ def to_kml(
     _sub(icon, "color", _kml_color(DEPOT_COLOR))
     _sub(icon, "scale", "1.3")
     _sub(_sub(icon, "Icon"), "href", "http://maps.google.com/mapfiles/kml/paddle/wht-stars.png")
-    for k, color in enumerate(palette):
+    for k, color in enumerate(palette):  # KML 2.2 orders a Style's children: IconStyle before LineStyle
         style = _sub(doc, "Style", id=f"day{k + 1}")
-        line = _sub(style, "LineStyle")
-        _sub(line, "color", _kml_color(color))
-        _sub(line, "width", "4")
         icon = _sub(style, "IconStyle")
         _sub(icon, "color", _kml_color(color))
         _sub(_sub(icon, "Icon"), "href", "http://maps.google.com/mapfiles/kml/paddle/wht-blank.png")
+        line = _sub(style, "LineStyle")
+        _sub(line, "color", _kml_color(color))
+        _sub(line, "width", "4")
 
     depot = _sub(doc, "Placemark")
     _sub(depot, "name", str(depot_name))
@@ -565,6 +609,8 @@ _PAGE = Template(
 
   function note(message) { text(document.getElementById("notes"), "p", message); }
 
+  // google.maps.Marker is deprecated since February 2024 in favour of AdvancedMarkerElement, but it
+  // is still served and not scheduled for removal (the console notes it); advanced markers need a mapId.
   function marker(position, label, color, title, zIndex) {
     return new google.maps.Marker({
       position: position,
@@ -585,13 +631,51 @@ _PAGE = Template(
   }
 
   function fallback(layer, points, status) {
+    // A dashed line, the Maps idiom: an invisible base stroke carrying repeated dash symbols.
     var line = new google.maps.Polyline({
       path: points, map: layer.visible ? map : null,
-      strokeColor: layer.color, strokeOpacity: 0.8, strokeWeight: 3,
-      icons: [{icon: {path: "M 0,-1 0,1", strokeOpacity: 1, scale: 3}, offset: "0", repeat: "14px"}]
+      strokeColor: layer.color, strokeOpacity: 0, strokeWeight: 3,
+      icons: [{icon: {path: "M 0,-1 0,1", strokeColor: layer.color, strokeOpacity: 1, scale: 3},
+               offset: "0", repeat: "14px"}]
     });
     layer.polylines.push(line);
-    note(layer.name + ": one leg drawn as straight lines, the directions request failed (" + status + ").");
+    note(layer.name + ": one leg drawn as a dashed straight line, the directions request failed ("
+         + status + ").");
+  }
+
+  // The Directions service throttles bursts from one client: the legs of every day queue up here,
+  // MAX_IN_FLIGHT requests at a time, and a leg refused with OVER_QUERY_LIMIT is asked once more
+  // after a pause before it falls back to a straight line.
+  var MAX_IN_FLIGHT = 2;
+  var RETRY_MS = 1000;
+  var queue = [];
+  var inFlight = 0;
+  var directions = null;
+
+  function pump() {
+    while (inFlight < MAX_IN_FLIGHT && queue.length > 0) { request(queue.shift()); }
+  }
+
+  function request(job) {
+    var slice = job.slice;
+    inFlight += 1;
+    directions.route({
+      origin: slice[0],
+      destination: slice[slice.length - 1],
+      waypoints: slice.slice(1, -1).map(function (p) { return {location: p, stopover: true}; }),
+      travelMode: google.maps.TravelMode[MODES[plan.mode] || "DRIVING"]
+    }, function (result, status) {
+      inFlight -= 1;
+      if (status === "OK") {
+        job.renderer.setDirections(result);
+      } else if (status === "OVER_QUERY_LIMIT" && !job.retried) {
+        job.retried = true;
+        setTimeout(function () { queue.push(job); pump(); }, RETRY_MS);
+      } else {
+        fallback(job.layer, slice, status);
+      }
+      pump();
+    });
   }
 
   function drawLeg(layer, points, leg) {
@@ -601,14 +685,7 @@ _PAGE = Template(
       polylineOptions: {strokeColor: layer.color, strokeOpacity: 0.85, strokeWeight: 5}
     });
     layer.renderers.push(renderer);
-    new google.maps.DirectionsService().route({
-      origin: slice[0],
-      destination: slice[slice.length - 1],
-      waypoints: slice.slice(1, -1).map(function (p) { return {location: p, stopover: true}; }),
-      travelMode: google.maps.TravelMode[MODES[plan.mode] || "DRIVING"]
-    }, function (result, status) {
-      if (status === "OK") { renderer.setDirections(result); } else { fallback(layer, slice, status); }
-    });
+    queue.push({layer: layer, slice: slice, renderer: renderer, retried: false});
   }
 
   function legend(layer, trip) {
@@ -630,6 +707,7 @@ _PAGE = Template(
     var bounds = new google.maps.LatLngBounds(depot, depot);
     map = new google.maps.Map(document.getElementById("map"),
                               {center: depot, zoom: 11, mapTypeControl: false, streetViewControl: false});
+    directions = new google.maps.DirectionsService();
     document.getElementById("heading").textContent = plan.title;
     var totals = plan.totals.n_trips + (plan.totals.n_trips === 1 ? " day, " : " days, ")
                + plan.totals.n_stops + " stops";
@@ -654,6 +732,7 @@ _PAGE = Template(
       trip.legs.forEach(function (leg) { drawLeg(layer, points, leg); });
       legend(layer, trip);
     });
+    pump();
     new google.maps.Marker({
       position: depot, map: map, title: plan.depot.name, zIndex: 1000,
       icon: {path: "M 0,-24 6,-8 24,-8 10,2 15,20 0,9 -15,20 -10,2 -24,-8 -6,-8 z", scale: 0.7,
@@ -756,7 +835,8 @@ def google_maps_html(
         A Maps JavaScript API key (Directions API enabled); default: the ``GOOGLE_MAPS_API_KEY``
         environment variable. The key is written into the page — share the file accordingly.
     names : sequence of n str or mapping {label: str}, optional
-        A display name per node (marker tooltips, the legend); default: the labels.
+        A display name per node (marker tooltips, the legend); default: the labels. A depot left
+        unnamed (``None``, or a mapping without its label) reads ``"Depot (<label>)"``.
     trip_names : sequence of str, optional
         One name per day; default ``"Day 1"``, ``"Day 2"``...
     title : str, optional
@@ -769,22 +849,38 @@ def google_maps_html(
 
     Raises
     ------
+    TypeError
+        Without ``path`` (also when a path was given in the ``coords`` slot), or when ``names`` or
+        ``trip_names`` is a single str rather than a sequence.
     ValueError
-        Without a key: ``"no Google Maps API key: pass api_key= or set GOOGLE_MAPS_API_KEY"``.
+        Without a key: ``"no Google Maps API key: pass api_key= or set GOOGLE_MAPS_API_KEY"``; for
+        the inputs [`google_maps_urls`][skroute.viz.google_maps_urls] rejects (no or invalid
+        coordinates, a route visiting a node twice or none...); ``names`` or ``trip_names`` of the
+        wrong length.
+    NotFittedError
+        For an estimator that has not been fitted.
+
+    Notes
+    -----
+    The days take the ten colours of ``PALETTE`` in turn, so from the eleventh day on they repeat.
+    The Directions requests go out a couple at a time and a leg refused with ``OVER_QUERY_LIMIT`` is
+    asked once more before it falls back to the dashed line. The markers are ``google.maps.Marker``,
+    which Google deprecated in February 2024 in favour of ``AdvancedMarkerElement`` but keeps
+    serving (the browser console notes it); a later release may switch.
 
     Examples
     --------
     >>> import json, re, tempfile
     >>> from pathlib import Path
-    >>> from skroute import IteratedLocalSearch
+    >>> from skroute import TwoOpt
     >>> from skroute.datasets import load_barcelona
     >>> from skroute.viz import google_maps_html
     >>> bcn = load_barcelona()
-    >>> ils = IteratedLocalSearch(random_state=0).fit(
+    >>> two = TwoOpt().fit(
     ...     bcn.cost, labels=bcn.labels, coords=bcn.coords, time_matrix=bcn.time * 60, max_time_work=360
-    ... )  # the bundled times are hours: minutes for the page
+    ... )  # the bundled times are hours: minutes for the page (TwoOpt is deterministic: exact figures)
     >>> out = Path(tempfile.mkdtemp())
-    >>> page = google_maps_html(ils, path=out / "plan.html", api_key="AIza-demo", title="Barcelona, two days")
+    >>> page = google_maps_html(two, path=out / "plan.html", api_key="AIza-demo", title="Barcelona, two days")
     >>> text = page.read_text(encoding="utf-8")
     >>> text.count("AIza-demo"), 'src="https://maps.googleapis.com/maps/api/js?key=AIza-demo' in text
     (1, True)
@@ -792,7 +888,7 @@ def google_maps_html(
     >>> plan["totals"], [t["n_stops"] for t in plan["trips"]], plan["trips"][0]["legs"]
     ({'n_trips': 2, 'n_stops': 18, 'driving_minutes': 676.7}, [7, 11], [[0, 8]])
     """
-    out = _check_path(path)
+    out = _check_path(path, coords, "google_maps_html")
     key = os.environ.get(ENV_KEY) if api_key is None else api_key
     if not key:
         raise ValueError(f"no Google Maps API key: pass api_key= or set {ENV_KEY}")
@@ -800,8 +896,9 @@ def google_maps_html(
     text = node_names(plan.labels, names)
     days = trip_labels(trip_names, plan.n_trips)
     palette = trip_colors(None, plan.n_trips)
-    if names is None:
-        text[plan.depot] = f"Depot ({text[plan.depot]})"
+    depot_label = plan.labels.tolist()[plan.depot]
+    if names is None or (isinstance(names, Mapping) and depot_label not in names):
+        text[plan.depot] = f"Depot ({text[plan.depot]})"  # an unnamed depot says what it is
     heading = title if title is not None else (f"{plan.solver} plan" if plan.solver else "Route plan")
     data = _plan_json(plan, text, days, palette, heading, "driving")
     # JSON inside a <script> block: no "<", ">" or "&" may survive (a name could hold "</script>")

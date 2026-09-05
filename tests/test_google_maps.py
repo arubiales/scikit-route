@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -23,8 +24,18 @@ import skroute
 from skroute import BruteForce, IteratedLocalSearch, RoutingProblem
 from skroute.base import RouteEvent
 from skroute.datasets import load_barcelona
-from skroute.viz import google_maps_html, google_maps_urls, to_kml
-from skroute.viz.google_maps import ENV_KEY, JS_MAX_WAYPOINTS, PALETTE, Plan, _legs, _routes
+from skroute.viz import _static, google_maps_html, google_maps_urls, to_kml
+from skroute.viz.google_maps import (
+    DEPOT_COLOR,
+    ENV_KEY,
+    JS_MAX_WAYPOINTS,
+    PALETTE,
+    Plan,
+    _legs,
+    _routes,
+    node_names,
+    trip_labels,
+)
 
 NS = {"k": "http://www.opengis.net/kml/2.2"}
 DIR = "https://www.google.com/maps/dir/"
@@ -126,6 +137,13 @@ def test_module_imports_without_matplotlib_or_plotly(two_trips):
     assert result.returncode == 0, result.stderr
     assert skroute.viz.google_maps.__all__ == ["google_maps_html", "google_maps_urls", "to_kml"]
     assert len(PALETTE) == len(set(PALETTE)) == 10 and all(re.fullmatch(r"#[0-9a-f]{6}", c) for c in PALETTE)
+    assert DEPOT_COLOR is _static.DEPOT_COLOR  # one depot colour for every drawing, not a copied literal
+
+
+def test_plan_compares_and_hashes_by_identity(two_trips):
+    """A frozen dataclass over arrays: the generated ``__eq__`` would raise on the ndarray fields."""
+    plan = _routes(two_trips)
+    assert plan == plan and plan != _routes(two_trips) and isinstance(hash(plan), int)
 
 
 # --------------------------------------------------------------------------- the shared plan
@@ -178,6 +196,13 @@ def test_routes_errors(two_trips, bcn):
         google_maps_urls([0, 7], SQUARE)
     with pytest.raises(ValueError, match="visits no node besides the depot"):
         google_maps_urls([0, 0], SQUARE)
+    # a plain route is one visit per stop: a zero-length leg and a stop on two days are both refused
+    with pytest.raises(ValueError, match="the route visits 1 more than once; every stop appears once"):
+        google_maps_urls([0, 1, 1, 2], SQUARE)
+    with pytest.raises(ValueError, match="the route visits 1 more than once"):
+        google_maps_urls([0, 1, 0, 1, 2], SQUARE)
+    with pytest.raises(ValueError, match="the route visits 'a', 'b' more than once"):
+        google_maps_urls(["d", "a", "b", "d", "b", "a", "c"], SQUARE, labels=list("dabc"))
     with pytest.raises(skroute.exceptions.NotFittedError):
         google_maps_urls(IteratedLocalSearch(), SQUARE)
     event = RouteEvent("SOM", "start", 0, np.nan, np.nan, None, None, two_trips.problem_, {})
@@ -195,6 +220,40 @@ def test_legs_split_at_the_boundary_stop():
     for bad in (0, -1, 2.5, True):
         with pytest.raises(ValueError, match="max_waypoints must be a positive integer"):
             _legs(trip, bad)
+
+
+def test_names_and_trip_names_reject_a_single_str(tmp_path, two_trips):
+    """``names="dabc"`` is not four names and ``trip_names="Mon"`` is not one day: a str is refused
+    rather than iterated character by character (the helpers also serve ``plot_route_map``)."""
+    labels = np.array(list("dabc"), dtype=object)
+    for bad in ("dabc", b"dabc"):
+        with pytest.raises(TypeError, match=r"names must be a sequence of str .* not a single str"):
+            node_names(labels, bad)
+        with pytest.raises(
+            TypeError, match="trip_names must be a sequence of str, one per trip, not a single str"
+        ):
+            trip_labels(bad, 4)
+    with pytest.raises(TypeError, match="not a single str"):
+        to_kml(two_trips, path=tmp_path / "x.kml", names="wxyz")
+    with pytest.raises(TypeError, match="not a single str"):
+        google_maps_html(two_trips, path=tmp_path / "x.html", api_key="k", trip_names="AB")
+    with pytest.raises(TypeError, match="not a single str"):
+        google_maps_html(two_trips, path=tmp_path / "x.html", api_key="k", trip_names="Monday")
+    # every other sequence of str is fine, tuples included
+    assert node_names(labels, ("w", "x", "y", "z")) == ["w", "x", "y", "z"]
+    assert trip_labels(("Mon", "Tue"), 2) == ["Mon", "Tue"]
+
+
+def test_path_given_in_the_coords_slot_is_diagnosed(tmp_path, two_trips):
+    """``to_kml(est, "plan.kml")`` puts the path where ``coords`` goes: the error says so."""
+    with pytest.raises(TypeError, match=r"coords looks like a file path \('plan.kml'\): pass it as path="):
+        to_kml(two_trips, "plan.kml")
+    with pytest.raises(TypeError, match=r"to_kml\(obj, None, 'plan.kml'\)"):
+        to_kml(two_trips, "plan.kml")
+    with pytest.raises(TypeError, match=r"google_maps_html\(obj, None, '.*plan.html'\)"):
+        google_maps_html(two_trips, tmp_path / "plan.html", api_key="k")
+    with pytest.raises(TypeError, match=r"^path is required: where to write the file$"):
+        google_maps_html(two_trips, SQUARE, api_key="k")
 
 
 # --------------------------------------------------------------------------- URLs
@@ -267,6 +326,13 @@ def test_kml_document_structure(tmp_path, two_trips):
     assert colours == ["ffb4771f", "ff0e7fff"]  # PALETTE[0] = #1f77b4, PALETTE[1] = #ff7f0e
     assert styles["day1"].findtext("k:LineStyle/k:width", namespaces=NS) == "4"
     assert styles["day1"].findtext("k:IconStyle/k:color", namespaces=NS) == "ffb4771f"
+    # KML 2.2 orders a Style's children: IconStyle, LabelStyle, LineStyle, PolyStyle...
+    assert [c.tag.rpartition("}")[2] for c in styles["day1"]] == ["IconStyle", "LineStyle"]
+    assert [c.tag.rpartition("}")[2] for c in styles["depot"]] == ["IconStyle"]
+    # the namespace is declared on the root, not registered in ElementTree's process-wide map
+    text = out.read_text(encoding="utf-8")
+    assert '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>' in text and "ns0:" not in text
+    assert "http://www.opengis.net/kml/2.2" not in ET._namespace_map
     # the depot is one Placemark at Document level, lon,lat,0
     depots = doc.findall("k:Placemark", NS)
     assert len(depots) == 1 and depots[0].findtext("k:name", namespaces=NS) == "Depot"
@@ -380,6 +446,9 @@ def test_html_page_embeds_the_plan_and_the_key_once(tmp_path, two_days, bcn):
         "google.maps.Polyline",
         'status === "OK"',
         "plan.depot.name",
+        "var MAX_IN_FLIGHT = 2;",  # the legs queue up: a couple of Directions requests at a time
+        'status === "OVER_QUERY_LIMIT" && !job.retried',  # a throttled leg is asked once more
+        "strokeOpacity: 0, strokeWeight: 3,",  # the fallback line: invisible stroke, dash symbols only
     ):
         assert needle in text
     plan = plan_of(text)
@@ -485,6 +554,17 @@ def test_html_names_by_mapping_and_custom_titles(tmp_path, two_trips):
     assert plan["title"] == "Two days" and plan["depot"]["name"] == "Office"
     assert [t["name"] for t in plan["trips"]] == ["Monday", "Tuesday"]
     assert plan["trips"][0]["names"] == ["a", "Bea"] and plan["trips"][1]["names"] == ["c"]
+    # a mapping that leaves the depot unnamed: it is still called out as the depot, like names=None
+    partial = plan_of(
+        google_maps_html(
+            two_trips, path=tmp_path / "partial.html", api_key="k", names={"a": "Ana"}
+        ).read_text()
+    )
+    assert partial["depot"]["name"] == "Depot (d)" and partial["trips"][0]["names"] == ["Ana", "b"]
+    by_row = google_maps_html(
+        two_trips, path=tmp_path / "rows.html", api_key="k", names=["HQ", "A", "B", "C"]
+    )
+    assert plan_of(by_row.read_text())["depot"]["name"] == "HQ"  # a sequence names every row, the depot too
     with pytest.raises(ValueError, match="trip_names has 3 entries but the plan has 2 trips"):
         google_maps_html(two_trips, path=tmp_path / "bad.html", api_key="k", trip_names=["a", "b", "c"])
 
@@ -501,3 +581,64 @@ def test_html_from_an_event_and_a_problem_without_coords(tmp_path, two_trips):
         google_maps_html(event, path=tmp_path / "bare.html", api_key="k")
     c = plan_of(google_maps_html(event, SQUARE, tmp_path / "bare.html", api_key="k").read_text())
     assert c["trips"] == b["trips"]
+
+
+# --------------------------------------------------------------------------- the page's script, in node
+FAKE_MAPS = r"""
+var calls = 0, callbacks = [], renders = 0, timeouts = 0, polylines = [];
+var blank = function () {
+  return {textContent: "", style: {}, appendChild: function () {}, addEventListener: function () {}};
+};
+var document = {
+  getElementById: function (id) { return id === "skroute-plan" ? {textContent: PLAN} : blank(); },
+  createElement: blank
+};
+var window = {};
+var setTimeout = function (fn) { timeouts += 1; fn(); };
+var google = {maps: {
+  LatLng: function (lat, lng) { this.lat = lat; this.lng = lng; },
+  LatLngBounds: function () { this.extend = function () {}; },
+  Map: function () { this.fitBounds = function () {}; },
+  Marker: function () { this.setMap = function () {}; },
+  Polyline: function (options) { polylines.push(options); this.setMap = function () {}; },
+  DirectionsRenderer: function () {
+    this.setDirections = function () { renders += 1; };
+    this.setMap = function () {};
+  },
+  DirectionsService: function () {
+    this.route = function (request, callback) { calls += 1; callbacks.push(callback); };
+  },
+  SymbolPath: {CIRCLE: 0},
+  TravelMode: {DRIVING: "DRIVING"}
+}};
+"""
+DRIVE = r"""
+window.initMap();
+var burst = calls;                             // requests in flight right after initMap
+callbacks.shift()(null, "OVER_QUERY_LIMIT");   // the first leg is throttled: queued again, once
+callbacks.shift()(null, "ZERO_RESULTS");       // the second fails for good: a dashed straight line
+while (callbacks.length) { callbacks.shift()({}, "OK"); }
+console.log(JSON.stringify({burst: burst, calls: calls, renders: renders, timeouts: timeouts,
+                            dashed: polylines.map(function (o) { return o.strokeOpacity; })}));
+"""
+
+
+def test_html_script_is_valid_javascript_and_paces_the_requests(tmp_path):
+    """The inline script, run with node against a fake Maps API: at most two Directions requests in
+    flight, a throttled leg retried once, a failed one drawn with an invisible stroke (dashes only)."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    rng = np.random.default_rng(5)
+    xy = np.column_stack((40.0 + rng.random(11) * 0.2, -3.0 + rng.random(11) * 0.2))
+    route = [0, 1, 2, 0, 3, 4, 0, 5, 6, 0, 7, 8, 0, 9, 10]  # five days of two stops: one leg each
+    text = google_maps_html(route, xy, tmp_path / "five.html", api_key="k").read_text(encoding="utf-8")
+    (script,) = re.findall(r"<script>(.*?)</script>", text, re.S)
+    (block,) = re.findall(r'id="skroute-plan">(.*?)</script>', text, re.S)
+    driver = tmp_path / "driver.js"
+    driver.write_text(
+        "var PLAN = " + json.dumps(block) + ";\n" + FAKE_MAPS + script + DRIVE, encoding="utf-8"
+    )
+    result = subprocess.run([node, str(driver)], check=False, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {"burst": 2, "calls": 6, "renders": 4, "timeouts": 1, "dashed": [0]}

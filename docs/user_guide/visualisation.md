@@ -395,8 +395,8 @@ hover text — a sequence in matrix row order or a mapping from label to name �
 
 ## Take the plan to Google Maps
 
-A plan is followed on a phone, not in a notebook. `skroute.viz.google_maps` — standard
-library only, no matplotlib or plotly needed — exports a fitted solver, a `RouteEvent`
+A plan is followed on a phone, not in a notebook. `skroute.viz.google_maps` — no viz
+extra needed, neither matplotlib nor plotly — exports a fitted solver, a `RouteEvent`
 or a plain route (an open tour, a closed one or a multi-trip route with the depot
 repeated between the days, with `coords=` as `(latitude, longitude)` rows and `labels=`
 naming them) in three forms that Google Maps understands. Every trip becomes one day,
@@ -410,16 +410,19 @@ between the origin and the destination, so a longer day is split into consecutiv
 that share their boundary stop: the first leaves the depot, the last returns to it, and
 each opens in a browser or in the Google Maps app with turn-by-turn navigation. `mode=`
 picks `"driving"`, `"walking"`, `"bicycling"` or `"transit"` (Google ignores waypoints in
-transit mode) and `max_waypoints=` lowers the limit — some clients accept fewer.
+transit mode) and `max_waypoints=` lowers the limit: Google documents nine waypoints on
+the desktop site and in the Google Maps app but only **three in a phone's browser**, so
+pass `max_waypoints=3` for links that will be opened there without the app.
 
 ```python
 >>> from skroute.viz import google_maps_html, google_maps_urls, to_kml
 >>> urls = google_maps_urls(days)
->>> [len(day) for day in urls]  # 7 stops fit one link; 11 need two legs of at most nine
-[1, 2]
+>>> stops = [len(trip) - 2 for trip in days.trips_]  # stops per day; how the solver split them
+>>> len(urls) == days.n_trips_ and all(len(day) == (m + 8) // 9 for day, m in zip(urls, stops))  # ceil(m / 9) legs
+True
 >>> urls[0][0].startswith("https://www.google.com/maps/dir/?api=1&origin=41.398568%2C2.167441&destination=")
 True
->>> urls[1][0].endswith("&travelmode=driving") and "&waypoints=" in urls[1][0]
+>>> all(link.endswith("&travelmode=driving") for day in urls for link in day)
 True
 
 ```
@@ -443,10 +446,14 @@ crow flies; the page below draws the roads.
 >>> kml = to_kml(days, path=out / "barcelona.kml", names=places, trip_names=["Monday", "Tuesday"])
 >>> root = ET.parse(kml).getroot()
 >>> ns = {"k": "http://www.opengis.net/kml/2.2"}
->>> [(f.findtext("k:name", namespaces=ns), len(f.findall("k:Placemark", ns)) - 1) for f in root.iterfind(".//k:Folder", ns)]
-[('Monday', 7), ('Tuesday', 11)]
->>> root.find(".//k:Folder/k:Placemark/k:name", ns).text, root.find(".//k:Folder/k:Placemark/k:description", ns).text
-('1.1 Place 23', 'Day 1, stop 1 of 7')
+>>> folders = list(root.iterfind(".//k:Folder", ns))
+>>> [f.findtext("k:name", namespaces=ns) for f in folders]
+['Monday', 'Tuesday']
+>>> [len(f.findall("k:Placemark", ns)) - 1 for f in folders] == stops  # a pin per stop, plus the line
+True
+>>> first = folders[0].find("k:Placemark", ns)  # "1.1 Place <label of the first stop>", "Day 1, stop 1 of m"
+>>> first.findtext("k:name", namespaces=ns) == f"1.1 {places[days.trips_[0][1]]}", first.findtext("k:description", namespaces=ns) == f"Day 1, stop 1 of {stops[0]}"
+(True, True)
 
 ```
 
@@ -458,7 +465,8 @@ waypoints, split like the links — drawn by a `DirectionsRenderer` in the day's
 with numbered markers at the stops and a star at the depot; a legend lists the days with
 a checkbox each (hide a day, its roads and markers go), the stops and the driving
 minutes, and a leg whose request fails is drawn as a dashed straight line and reported
-under the legend. The plan is embedded as one JSON object
+under the legend (the requests go out two at a time, and one refused for quota is asked
+once more). The plan is embedded as one JSON object
 (`<script type="application/json" id="skroute-plan">`) computed in Python: the stops of
 each day with their coordinates and names, the legs, the colours, and totals — `n_stops`
 and, when the fit had a time matrix, `driving_minutes` (the matrix is taken to be in
@@ -474,8 +482,12 @@ is written into the page — share the file accordingly.
 >>> page = google_maps_html(minutes, path=out / "barcelona.html", api_key="AIza-demo", title="Barcelona, two days")
 >>> text = page.read_text(encoding="utf-8")
 >>> plan = json.loads(re.search(r'id="skroute-plan">(.*?)</script>', text, re.S).group(1))
->>> plan["totals"], [(t["name"], t["n_stops"], t["legs"]) for t in plan["trips"]]
-({'n_trips': 2, 'n_stops': 18, 'driving_minutes': 676.7}, [('Day 1', 7, [[0, 8]]), ('Day 2', 11, [[0, 12]])])
+>>> plan["totals"]["n_trips"] == minutes.n_trips_, plan["totals"]["n_stops"], abs(plan["totals"]["driving_minutes"] - float(minutes.trip_times_.sum())) < 0.1
+(True, 18, True)
+>>> [(t["name"], t["n_stops"], t["legs"]) for t in plan["trips"]] == [
+...     (f"Day {k}", len(trip) - 2, [[0, len(trip) - 1]]) for k, trip in enumerate(minutes.trips_, start=1)
+... ]  # one request per day: none has more than 25 stops
+True
 >>> text.count("AIza-demo")  # the key appears once, in the script URL
 1
 

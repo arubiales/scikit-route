@@ -11,7 +11,7 @@ and replays the run at time-lapse speed as a matplotlib animation, a live replay
 or MP4, or a Plotly figure with Play/Pause, a speed menu and a slider. The plan also
 leaves the library: [`google_maps_urls`][skroute.viz.google_maps_urls],
 [`to_kml`][skroute.viz.to_kml] and [`google_maps_html`][skroute.viz.google_maps_html]
-(module `skroute.viz.google_maps`, standard library only) turn a fitted solver, a
+(module `skroute.viz.google_maps`, which needs none of the viz extras) turn a fitted solver, a
 `RouteEvent` or a plain route with its `(latitude, longitude)` coordinates into Google
 Maps Directions links per day, a KML for Google My Maps and Google Earth, and a
 standalone page that draws the real roads with the Maps JavaScript API — D34. The

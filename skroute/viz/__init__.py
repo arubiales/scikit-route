@@ -12,8 +12,8 @@ on first use (extra ``viz``: ``pip install scikit-route[viz]``), plotly only for
 - [`google_maps_urls`][skroute.viz.google_maps_urls], [`to_kml`][skroute.viz.to_kml] and
   [`google_maps_html`][skroute.viz.google_maps_html] — the plan on Google Maps (D34): Directions
   links per day, a KML for Google My Maps and Google Earth, and a standalone Maps JavaScript page
-  with real road directions (the only one that needs an API key). Standard library only:
-  ``skroute.viz.google_maps`` needs neither matplotlib nor plotly.
+  with real road directions (the only one that needs an API key). ``skroute.viz.google_maps``
+  needs none of the viz extras: neither matplotlib nor plotly.
 - [`LivePlot`][skroute.viz.LivePlot] — a ``fit(..., callback=)`` that redraws the current and best
   tours — and the structure being built: edges, pheromone trails, the SOM ring — while the solver
   runs, in a script or a notebook.
