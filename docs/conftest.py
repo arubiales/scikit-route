@@ -1,4 +1,4 @@
-"""Repository-level pytest configuration.
+"""pytest configuration for the documentation doctests.
 
 The doctests of the documentation pages (``pytest --doctest-modules docs ...``) read files by
 paths relative to the repository root (``examples/data/...``); this fixture makes them independent
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(autouse=True)
