@@ -31,6 +31,49 @@ class Identity(BaseRouter):
         return np.roll(np.arange(problem.n, dtype=np.int64), -problem.depot)
 
 
+class _BudgetAwareNN(BaseRouter):
+    """Nearest neighbour that closes a trip when the next leg no longer fits, priced on ``_durations``:
+    the effective matrix (correct) or, in the subclass, the raw ``problem.time`` (the D32 violation)."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction", budget_aware=True)
+
+    def _durations(self, problem):
+        return problem.time_or_cost
+
+    def _solve(self, problem, rng):
+        T, d = self._durations(problem), problem.depot
+        left, tour, cur, used = set(range(problem.n)) - {problem.depot}, [d], d, 0.0
+        while left:
+            nxt = min(left, key=lambda j: (problem.cost[cur, j], j))
+            if cur != d and used + T[cur, nxt] + T[nxt, d] > problem.max_time_work:
+                cur, used = d, 0.0  # back to the depot: a new trip starts from the nearest node to it
+                continue
+            used += T[cur, nxt]
+            tour.append(nxt)
+            left.remove(nxt)
+            cur = nxt
+        return np.array(tour, dtype=np.int64)
+
+
+class _PricesOnRawTime(_BudgetAwareNN):
+    def _durations(self, problem):
+        return problem.cost if problem.time is None else problem.time
+
+
+class _DropsServiceTime(BaseRouter):
+    """A ``fit`` override that swallows ``service_time`` (a third-party solver's easy mistake)."""
+
+    def _get_tags(self):
+        return RouterTags(kind="construction", budget_aware=True)
+
+    def fit(self, X, *, service_time=None, **kw):
+        return super().fit(X, **kw)
+
+    def _solve(self, problem, rng):
+        return np.roll(np.arange(problem.n, dtype=np.int64), -problem.depot)
+
+
 # --------------------------------------------------------------------------- validation
 def test_check_random_state():
     assert isinstance(check_random_state(None), np.random.Generator)
@@ -174,6 +217,25 @@ def test_route_cost_matches_the_label_space_oracle(n, asym):
             ref = reference.route_cost_from_labels(C, route, labels, "n1", T, budget, 7.5, split)
             assert got == pytest.approx(ref, rel=1e-9)
         assert route_cost(C, route, labels=labels) == pytest.approx(reference.tour_cost(C, tour), rel=1e-12)
+
+
+def test_check_router_catches_a_solver_that_ignores_the_service_times():
+    """Checks 6 and 8 of the public battery cover D32: a ``fit`` that drops ``service_time`` fails both, a
+    search that prices durations on ``problem.time`` instead of ``time_or_cost`` fails check 8, and a
+    correct budget-aware solver passes them (the same battery every shipped solver runs in test_common)."""
+    from skroute.utils import estimator_checks
+
+    estimator_checks.check_invalid_inputs(_BudgetAwareNN())
+    estimator_checks.check_multi_trip(_BudgetAwareNN())
+    with pytest.raises(AssertionError, match=r"check 6: fit must raise ValueError \('service_time given but"):
+        estimator_checks.check_invalid_inputs(_DropsServiceTime())
+    with pytest.raises(AssertionError, match=r"check 8: problem_\.service_time must be the given"):
+        estimator_checks.check_multi_trip(_DropsServiceTime())
+    estimator_checks.check_invalid_inputs(_PricesOnRawTime())  # validation is the base class's: fine
+    with pytest.raises(
+        AssertionError, match=r"check 8: a fit with service_time must equal the fit on the time"
+    ):
+        estimator_checks.check_multi_trip(_PricesOnRawTime())
 
 
 def test_route_cost_with_service_time_matches_the_estimator_and_the_folded_matrix():
