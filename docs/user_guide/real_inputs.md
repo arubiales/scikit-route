@@ -37,9 +37,9 @@ Burger King; look yours up on wikidata.org):
 >>> bk  # doctest: +SKIP
 Bunch(DESCR, addresses, coords, labels, names, tags)
 >>> bk.coords.shape, bk.labels[:2]  # doctest: +SKIP
-((98, 2), ['node/1048720657', 'node/1078765183'])
->>> bk.names[0], bk.addresses[0]  # doctest: +SKIP
-('Burger King', 'Calle de Alcalá 165, 28009 Madrid')
+((183, 2), ['node/26289763', 'node/178821228'])
+>>> bk.names[1], bk.addresses[1]  # doctest: +SKIP
+('Burger King', 'Calle de Esparteros 3, 28012 Madrid')
 >>> print(bk.DESCR.splitlines()[-1])  # doctest: +SKIP
 Data © OpenStreetMap contributors, licensed under the Open Database License (ODbL): https://www.openstreetmap.org/copyright
 
@@ -113,9 +113,9 @@ the roads are:
 >>> res  # doctest: +SKIP
 Bunch(coords, distance, provider, time, units)
 >>> res.units, res.time.shape  # doctest: +SKIP
-({'time': 'min', 'distance': 'm'}, (99, 99))
+({'time': 'min', 'distance': 'm'}, (184, 184))
 >>> res.time[0, 1:4].round(1), res.time[1:4, 0].round(1)  # doctest: +SKIP
-(array([26.5, 31.2, 19.8]), array([25.1, 30.4, 20.6]))
+(array([20.3, 18.8, 20.8]), array([21.7, 17.5, 18.6]))
 
 ```
 
@@ -128,8 +128,8 @@ needs finite matrices.
 The demo server caps the size of a table request, so the points are tiled in blocks of
 `chunk_size` (default 50): a request carries the row block as `sources` and the column
 block as `destinations` — at most 100 coordinates — and `pause` seconds (default 1)
-separate consecutive requests. 99 points are `2 × 2 = 4` requests; 300 points, 36
-requests and about half a minute. Your own OSRM server takes `base_url=`, `mode=` as
+separate consecutive requests. The 184 points of the case are `4 × 4 = 16` requests,
+twenty seconds with the default pause; 300 points would be 36. Your own OSRM server takes `base_url=`, `mode=` as
 the profile name in its URLs (`car`, `bike`, `foot`… — the demo only serves
 `driving`), `pause=0` and a larger `chunk_size`.
 
@@ -156,16 +156,17 @@ time itself as the cost:
 ```python
 >>> from skroute import MultiStart, IteratedLocalSearch
 >>> labels = ["office", *bk.labels]  # doctest: +SKIP
->>> est = MultiStart(IteratedLocalSearch(), n_restarts=8, random_state=0)  # doctest: +SKIP
+>>> est = MultiStart(IteratedLocalSearch(time_limit=15), n_restarts=4, random_state=0)  # doctest: +SKIP
 >>> est.fit(res.time, time_matrix=res.time, labels=labels, depot="office",
 ...         max_time_work=8 * 60, extra_cost=8 * 60, split="optimal")  # doctest: +SKIP
-MultiStart(...)
->>> est.n_trips_  # doctest: +SKIP
-9
+MultiStart(estimator=IteratedLocalSearch(time_limit=15), n_restarts=4, random_state=0)
+>>> est.n_trips_, round(float(est.trip_costs_.sum()))  # days, minutes of driving  # doctest: +SKIP
+(3, 1164)
 
 ```
 
-Every stop also takes time — half an hour of maintenance per restaurant here — and the
+Three days of pure driving — but every stop also takes time (half an hour of
+maintenance per restaurant here), which is what turns three days into many more. The
 2.1 release adds `service_time=` to `fit` so the budget accounts for it; see the
 problem model and the worked case of the technician.
 
