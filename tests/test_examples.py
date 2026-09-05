@@ -74,7 +74,9 @@ def test_example_writes_the_plan(run):
     folders = kml.findall(".//k:Folder", ns)
     assert folders and folders[0].find("k:name", ns).text == "Día 1"
     html = (out / f"{PREFIX}_map.html").read_text(encoding="utf-8")
-    assert "open-street-map" in html and "Día 1" in html
+    assert "open-street-map" in html
+    # plotly escapes non-ASCII text as \uXXXX unless orjson is installed: accept both spellings
+    assert "Día 1" in html or "D\\u00eda 1" in html
     urls = (out / f"{PREFIX}_google_urls.txt").read_text(encoding="utf-8").splitlines()
     assert urls[0] == "day\tleg\turl"
     assert all(line.split("\t")[2].startswith("https://www.google.com/maps/dir/?api=1&") for line in urls[1:])
