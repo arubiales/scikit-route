@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.1.0] - unreleased
+## [2.1.0] - 2026-09-05
 ### Added
 - Service times: `fit(..., service_time=)` adds the time spent at each stop to the per-trip budget;
   `skroute.metrics.timetable` (with `Stop`, `timetable_summary` and `units=`) turns a solution into a
