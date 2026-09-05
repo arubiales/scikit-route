@@ -8,7 +8,13 @@ at every iteration, together with the structure a solver is building when it rep
 (the edges of a construction heuristic, the pheromone trails of the ant colony, the SOM
 ring — D31); [`Recorder`][skroute.viz.Recorder] keeps every event with a wall-clock stamp
 and replays the run at time-lapse speed as a matplotlib animation, a live replay, a GIF
-or MP4, or a Plotly figure with Play/Pause, a speed menu and a slider. The
+or MP4, or a Plotly figure with Play/Pause, a speed menu and a slider. The plan also
+leaves the library: [`google_maps_urls`][skroute.viz.google_maps_urls],
+[`to_kml`][skroute.viz.to_kml] and [`google_maps_html`][skroute.viz.google_maps_html]
+(module `skroute.viz.google_maps`, standard library only) turn a fitted solver, a
+`RouteEvent` or a plain route with its `(latitude, longitude)` coordinates into Google
+Maps Directions links per day, a KML for Google My Maps and Google Earth, and a
+standalone page that draws the real roads with the Maps JavaScript API — D34. The
 [user guide page](../user_guide/visualisation.md) walks through the workflows.
 
 The package is optional and imported by nothing else in scikit-route. matplotlib is
@@ -48,6 +54,12 @@ True
 ::: skroute.viz.plot_history
 
 ::: skroute.viz.plot_route_map
+
+::: skroute.viz.google_maps_urls
+
+::: skroute.viz.to_kml
+
+::: skroute.viz.google_maps_html
 
 ::: skroute.viz.LivePlot
 

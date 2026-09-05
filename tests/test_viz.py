@@ -224,9 +224,12 @@ def test_public_api_and_lazy_imports():
         "LivePlot",
         "RecordedEvent",
         "Recorder",
+        "google_maps_html",
+        "google_maps_urls",
         "plot_history",
         "plot_route",
         "plot_route_map",
+        "to_kml",
     ]
     code = "import sys, skroute.viz; sys.exit(int('matplotlib' in sys.modules or 'plotly' in sys.modules))"
     env = {**os.environ, "PYTHONPATH": str(Path(skroute.__file__).resolve().parents[1])}
@@ -1046,6 +1049,29 @@ def test_plot_route_map(bcn_problem, two_trips):
         plot_route_map(two_trips)
     events, _ = fake_run(lambda ev: None, bcn_problem, n_iter=1)
     assert len(plot_route_map(events[-1]).data) == 3
+    # the legend stays hidden without trip_names, and the lines keep their generic names
+    assert fig2.layout.showlegend is False and [t.name for t in fig2.data[2:]] == ["trip 1", "trip 2"]
+
+
+def test_plot_route_map_names_and_trip_names(two_trips):
+    # names= in matrix row order ("d", "a", "b", "c") become the hover text; the depot keeps its own
+    fig = plot_route_map(two_trips, SQUARE + 40.0, names=["Office", "Ana", "Bea", "Carl"])
+    nodes, depot = fig.data[0], fig.data[1]
+    assert depot.text == ("Office",) and sorted(nodes.text) == ["Ana", "Bea", "Carl"]
+    assert nodes.hoverinfo == "text" and depot.hoverinfo == "text"
+    # a mapping by label names some nodes; the others show their label
+    fig = plot_route_map(two_trips, SQUARE + 40.0, names={"d": "Office", "b": "Bea"})
+    assert fig.data[1].text == ("Office",) and sorted(fig.data[0].text) == ["Bea", "a", "c"]
+    # trip_names= name the lines and show the legend, in trip order, one colour each
+    fig = plot_route_map(two_trips, SQUARE + 40.0, trip_names=["Monday", "Tuesday"])
+    assert [t.name for t in fig.data[2:]] == ["Monday", "Tuesday"]
+    assert fig.layout.showlegend is True
+    assert fig.data[0].showlegend is False and fig.data[1].showlegend is False
+    assert fig.data[2].line.color == "#1f77b4" and fig.data[3].line.color == "#ff7f0e"
+    with pytest.raises(ValueError, match="trip_names has 1 entries but the plan has 2 trips"):
+        plot_route_map(two_trips, SQUARE + 40.0, trip_names=["Monday"])
+    with pytest.raises(ValueError, match="names has 3 entries but there are 4 nodes"):
+        plot_route_map(two_trips, SQUARE + 40.0, names=["a", "b", "c"])
 
 
 # --------------------------------------------------------------------------- D31: structures being built
