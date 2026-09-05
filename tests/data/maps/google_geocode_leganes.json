@@ -1,0 +1,60 @@
+{
+ "results": [
+  {
+   "address_components": [
+    {
+     "long_name": "18",
+     "short_name": "18",
+     "types": [
+      "street_number"
+     ]
+    },
+    {
+     "long_name": "Calle de Ramón y Cajal",
+     "short_name": "C. de Ramón y Cajal",
+     "types": [
+      "route"
+     ]
+    },
+    {
+     "long_name": "Leganés",
+     "short_name": "Leganés",
+     "types": [
+      "locality",
+      "political"
+     ]
+    },
+    {
+     "long_name": "28916",
+     "short_name": "28916",
+     "types": [
+      "postal_code"
+     ]
+    }
+   ],
+   "formatted_address": "C. de Ramón y Cajal, 18, 28916 Leganés, Madrid, Spain",
+   "geometry": {
+    "location": {
+     "lat": 40.3295593,
+     "lng": -3.7372695
+    },
+    "location_type": "ROOFTOP",
+    "viewport": {
+     "northeast": {
+      "lat": 40.3309083,
+      "lng": -3.7359205
+     },
+     "southwest": {
+      "lat": 40.3282103,
+      "lng": -3.7386185
+     }
+    }
+   },
+   "place_id": "ChIJ-example-place-id",
+   "types": [
+    "street_address"
+   ]
+  }
+ ],
+ "status": "OK"
+}
