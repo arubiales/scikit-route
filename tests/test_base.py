@@ -9,6 +9,8 @@ import math
 import os
 import re
 import warnings
+from decimal import Decimal
+from fractions import Fraction
 
 import numpy as np
 import pytest
@@ -290,6 +292,52 @@ def test_time_matrix_is_keyword_only():
             {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": [0.0, -0.5, 0.5, 0.5]},
             "service_time contains negative durations",
         ),
+        # scalars numpy cannot take still get the message of the spec, never numpy's TypeError
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": -Fraction(1, 2)},
+            "service_time must be a finite number >= 0, got Fraction(-1, 2)",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": 10**400},
+            f"service_time must be a finite number >= 0, got {10**400!r}",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": np.array(-1.0)},
+            "service_time must be a finite number >= 0, got -1.0",
+        ),
+        # neither a number nor an array: a type-oriented message, not "got shape ()"
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": True},
+            "service_time must be a number or an (4,) array-like, got bool",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": "0.5"},
+            "service_time must be a number or an (4,) array-like, got str",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": Decimal("0.5")},
+            "service_time must be a number or an (4,) array-like, got Decimal",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": {0: 0.0, 1: 0.5}},
+            "service_time must be a number or an (4,) array-like, got dict",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": 0.5 + 0j},
+            "service_time must be a number or an (4,) array-like, got complex",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 9.0, "service_time": ["a", "b", "c", "d"]},
+            "service_time must be a number or an (4,) array-like, got list",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 10**400},
+            f"max_time_work must be a finite number > 0, got {10**400!r}",
+        ),
+        (
+            {"X": C4, "time_matrix": H4, "max_time_work": 4.0, "extra_cost": Fraction(-1, 3)},
+            "extra_cost must be a finite number >= 0, got Fraction(-1, 3)",
+        ),
     ],
 )
 def test_error_messages_of_spec(kwargs, message):
@@ -379,6 +427,35 @@ def test_service_time_effective_matrix_definition():
     s[0] = 99.0
     assert p.service_time[0] == 0.25
     assert repr(p) == "RoutingProblem(n=4, multi-trip, symmetric, depot='a')"
+
+
+def test_service_time_scalar_kinds_and_a_labelled_series():
+    kw = {"time_matrix": H4, "max_time_work": 9.0}
+    expected = [0.0, 0.5, 0.5, 0.5]
+    # every numbers.Real is a scalar, numpy-friendly or not; a 0-d numeric array is the scalar it wraps
+    for scalar in (Fraction(1, 2), np.array(0.5), np.array(0.5, dtype=np.float32), np.int64(1) / 2):
+        assert RoutingProblem(C4, service_time=scalar, **kw).service_time.tolist() == expected, scalar
+    # the same for the other scalar knobs
+    p = RoutingProblem(C4, max_time_work=Fraction(9, 2), extra_cost=Fraction(3, 2), time_matrix=H4)
+    assert p.max_time_work == 4.5 and p.extra_cost == 1.5
+    # a pandas Series is read in row order, and its index must be the labels of X
+    pd = pytest.importorskip("pandas")
+    frame = pd.DataFrame(C4, index=NAMES, columns=NAMES)
+    labelled = {"time_matrix": pd.DataFrame(H4, index=NAMES, columns=NAMES), "max_time_work": 9.0}
+    aligned = pd.Series(expected, index=NAMES)
+    assert RoutingProblem(frame, service_time=aligned, **labelled).service_time.tolist() == expected
+    assert (
+        RoutingProblem(C4, service_time=pd.Series(expected), **kw).service_time.tolist() == expected
+    )  # 0..n-1
+    mismatch = "service_time index differs from the labels of X"
+    with pytest.raises(ValueError, match=mismatch):
+        RoutingProblem(frame, service_time=pd.Series(expected, index=["a", "b", "c", "d"]), **labelled)
+    with pytest.raises(ValueError, match=mismatch):
+        RoutingProblem(frame, service_time=pd.Series(expected), **labelled)  # a RangeIndex on named labels
+    with pytest.raises(ValueError, match=mismatch):
+        RoutingProblem(C4, service_time=aligned, **kw)  # X has no labels
+    with pytest.raises(ValueError, match=re.escape("must be a scalar or have shape (4,), got shape (3,)")):
+        RoutingProblem(frame, service_time=pd.Series([0.5] * 3, index=NAMES[1:]), **labelled)  # shape first
 
 
 def test_infeasible_with_service_time_names_the_node_and_the_service():
