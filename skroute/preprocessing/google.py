@@ -53,8 +53,9 @@ class GoogleDistanceMatrix:
         to honour it.
     timeout : float, optional
         Seconds the ``googlemaps`` client waits for each HTTP answer (its ``timeout``,
-        connect and read combined). ``None``, the library default, waits without limit;
-        `skroute.preprocessing.travel_time_matrix` passes its own ``timeout`` here.
+        connect and read combined). ``None`` leaves the client's default (no limit) and
+        sends no ``timeout`` at all; `skroute.preprocessing.travel_time_matrix` passes its
+        own ``timeout`` here.
 
     Attributes
     ----------
@@ -113,7 +114,9 @@ class GoogleDistanceMatrix:
         self.batch_size = int(batch_size)
         self.departure_time = departure_time
         self.timeout = None if timeout is None else float(timeout)
-        self._client = googlemaps.Client(key=api_key, timeout=self.timeout)
+        # The keyword is sent only when asked for: a client faked or wrapped with (key) alone keeps working
+        client_kwargs: dict[str, Any] = {} if self.timeout is None else {"timeout": self.timeout}
+        self._client = googlemaps.Client(key=api_key, **client_kwargs)
 
     def fetch(self, coords: ArrayLike, labels: ArrayLike | None = None) -> Bunch:
         """Request the full ``(n, n)`` distance and duration matrices.

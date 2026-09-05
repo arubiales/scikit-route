@@ -511,8 +511,8 @@ def _fake_googlemaps(monkeypatch, *, traffic=False, unroutable=()):
     calls: list[dict] = []
 
     class FakeClient:
-        def __init__(self, key, timeout=None):
-            calls.append({"key": key, "timeout": timeout})
+        def __init__(self, key, **kwargs):
+            calls.append({"key": key, **kwargs})  # only what was actually passed (timeout when asked for)
 
         def distance_matrix(self, origins, destinations, **kwargs):
             calls.append({"origins": list(origins), "destinations": list(destinations), **kwargs})
@@ -592,7 +592,9 @@ def test_google_distance_matrix_departure_time_is_backwards_compatible(monkeypat
     calls = _fake_googlemaps(monkeypatch, traffic=True)
     gdm = GoogleDistanceMatrix("KEY")
     assert gdm.departure_time is None and gdm.timeout is None
-    assert calls[0] == {"key": "KEY", "timeout": None}, "the library default (no timeout) when not asked"
+    assert calls[0] == {"key": "KEY"}, (
+        "no timeout keyword when not asked: a client faked with (key) alone works"
+    )
     res = gdm.fetch(_points(2))
     assert "departure_time" not in calls[-1] and res.units == {"distance": "m", "time": "h"}
     assert res.time[0, 1] == pytest.approx(660.0 / 3600.0), "duration_in_traffic is preferred when present"
