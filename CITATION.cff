@@ -7,7 +7,7 @@ authors:
     given-names: Alberto
     email: al.rubiales.b@gmail.com
 version: 2.1.0
-date-released: "2026-09-05"
+date-released: 2026-09-05
 license: MIT
 repository-code: "https://github.com/arubiales/scikit-route"
 url: "https://arubiales.github.io/scikit-route/"
