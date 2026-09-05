@@ -90,7 +90,7 @@ OFFICE_ADDR = {
     "city": "Leganés",
     "street": "Calle de Ramón y Cajal",
     "housenumber": "18",
-    "postcode": "28914",
+    "postcode": "28916",
 }
 DUPLICATE_METRES = 60.0
 ATTRIBUTION = "Data © OpenStreetMap contributors (ODbL); routing by OSRM (router.project-osrm.org)"
