@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   data are committed under `examples/data/` (OpenStreetMap + OSRM, 2026-09-05) and the user guide page
   *A real case: the technician's plan* narrates it (D35).
 
+### Changed
+- `service_time` given as a pandas Series must carry the labels of `X` in row order (like `time_matrix`);
+  a bool, string or other non-numeric scalar is refused with a type-oriented message; a 0-d array is the
+  scalar it wraps. `timetable` warns when a route read as driven runs over the budget; `Stop` compares
+  without its clock; `timetable_summary` refuses the DataFrame form with a pointer to `groupby("day")`.
+- `fetch_pois(...).labels` is an object ndarray (was a list); `travel_time_matrix` never requests a
+  one-point table block; the Overpass socket timeout is the query timeout plus ten seconds;
+  `GoogleDistanceMatrix(timeout=)`.
+- The Google Maps exports refuse a route that visits a node twice and a `names=`/`trip_names=` given as one
+  string; the JavaScript page paces its Directions requests (two at a time, one retry).
+
 ## [2.0.0] - 2026-09-04
 
 A complete rewrite. Version 1.0.0a2 (2021) is the last release of the old code

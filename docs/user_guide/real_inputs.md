@@ -202,3 +202,8 @@ the request URL (API keys redacted) and the first 200 characters of the answer.
 Contributors: the tests of this module never touch the network (recorded answers under
 `tests/data/maps/`); the live checks carry the `network` marker and run in the nightly
 (`pytest -m network`).
+
+## See also
+
+- [A real case: the technician's plan](real_world.md) — the whole pipeline on 182 restaurants with real driving times.
+- [Service times](multi_trip.md#service-times) — the minutes spent at every stop count against the day.
