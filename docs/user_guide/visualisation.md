@@ -378,7 +378,111 @@ the same for `LivePlot`, `Recorder.replay` (both then draw with the plotly backe
 
 Multi-trip solutions get one `Scattermap` line per trip. The tiles are fetched by the
 browser that renders the figure, so a saved HTML file needs a network connection to
-show the map; the routes themselves are embedded.
+show the map; the routes themselves are embedded. `names=` puts a name per node in the
+hover text — a sequence in matrix row order or a mapping from label to name — and
+`trip_names=` names the days and shows them in a legend:
+
+```python
+>>> days = IteratedLocalSearch(random_state=0).fit(
+...     bcn.cost, labels=bcn.labels, coords=bcn.coords, time_matrix=bcn.time, max_time_work=6.0
+... )  # the bundled times are hours: two 6-hour days
+>>> places = {label: f"Place {label}" for label in bcn.labels}
+>>> fig = plot_route_map(days, names=places, trip_names=["Monday", "Tuesday"])
+>>> fig.data[1].text, [t.name for t in fig.data[2:]], fig.layout.showlegend
+(('Place 10000007',), ['Monday', 'Tuesday'], True)
+
+```
+
+## Take the plan to Google Maps
+
+A plan is followed on a phone, not in a notebook. `skroute.viz.google_maps` — standard
+library only, no matplotlib or plotly needed — exports a fitted solver, a `RouteEvent`
+or a plain route (an open tour, a closed one or a multi-trip route with the depot
+repeated between the days, with `coords=` as `(latitude, longitude)` rows and `labels=`
+naming them) in three forms that Google Maps understands. Every trip becomes one day,
+`depot → stops → depot`, numbered in driving order and coloured from the same ten-colour
+palette as `plot_route_map`.
+
+**Links.** [`google_maps_urls`][skroute.viz.google_maps_urls] returns one list of
+Directions links per day (`https://www.google.com/maps/dir/?api=1&origin=...&destination=...&waypoints=...&travelmode=driving`,
+coordinates with six decimals). The Maps URL scheme takes at most **nine waypoints**
+between the origin and the destination, so a longer day is split into consecutive legs
+that share their boundary stop: the first leaves the depot, the last returns to it, and
+each opens in a browser or in the Google Maps app with turn-by-turn navigation. `mode=`
+picks `"driving"`, `"walking"`, `"bicycling"` or `"transit"` (Google ignores waypoints in
+transit mode) and `max_waypoints=` lowers the limit — some clients accept fewer.
+
+```python
+>>> from skroute.viz import google_maps_html, google_maps_urls, to_kml
+>>> urls = google_maps_urls(days)
+>>> [len(day) for day in urls]  # 7 stops fit one link; 11 need two legs of at most nine
+[1, 2]
+>>> urls[0][0].startswith("https://www.google.com/maps/dir/?api=1&origin=41.398568%2C2.167441&destination=")
+True
+>>> urls[1][0].endswith("&travelmode=driving") and "&waypoints=" in urls[1][0]
+True
+
+```
+
+**KML.** [`to_kml`][skroute.viz.to_kml] writes a KML 2.2 file: the depot as one
+placemark, one folder per day — named `trip_names[k]` or `"Day k"` — holding a placemark
+per stop (`"k.j <name>"`, described as `"Day k, stop j of m"`) and a `LineString` of the
+closed trip, with a line style of its own colour per day (`colors=`). `names=` labels
+the stops, `depot_name=` the depot. To put it on your phone, open
+[Google My Maps](https://www.google.com/maps/d/), **Create a new map**, then in the
+untitled layer choose **Import** and pick the `.kml` — every folder arrives as a group of
+numbered pins with its line, and the map is available in the Google Maps app under
+*Saved → Maps*. Google Earth opens the file directly (**File → Open** on the desktop,
+**Projects → Open → Import KML file** on the web). The KML lines join the stops as the
+crow flies; the page below draws the roads.
+
+```python
+>>> import tempfile, xml.etree.ElementTree as ET
+>>> from pathlib import Path
+>>> out = Path(tempfile.mkdtemp())
+>>> kml = to_kml(days, path=out / "barcelona.kml", names=places, trip_names=["Monday", "Tuesday"])
+>>> root = ET.parse(kml).getroot()
+>>> ns = {"k": "http://www.opengis.net/kml/2.2"}
+>>> [(f.findtext("k:name", namespaces=ns), len(f.findall("k:Placemark", ns)) - 1) for f in root.iterfind(".//k:Folder", ns)]
+[('Monday', 7), ('Tuesday', 11)]
+>>> root.find(".//k:Folder/k:Placemark/k:name", ns).text, root.find(".//k:Folder/k:Placemark/k:description", ns).text
+('1.1 Place 23', 'Day 1, stop 1 of 7')
+
+```
+
+**A page with the real roads.** [`google_maps_html`][skroute.viz.google_maps_html]
+writes a standalone HTML page that loads the Maps JavaScript API with your key
+(`api_key=` or the `GOOGLE_MAPS_API_KEY` environment variable) and asks a
+`DirectionsService` for the roads of every day — one request per leg of at most 25
+waypoints, split like the links — drawn by a `DirectionsRenderer` in the day's colour
+with numbered markers at the stops and a star at the depot; a legend lists the days with
+a checkbox each (hide a day, its roads and markers go), the stops and the driving
+minutes, and a leg whose request fails is drawn as a dashed straight line and reported
+under the legend. The plan is embedded as one JSON object
+(`<script type="application/json" id="skroute-plan">`) computed in Python: the stops of
+each day with their coordinates and names, the legs, the colours, and totals — `n_stops`
+and, when the fit had a time matrix, `driving_minutes` (the matrix is taken to be in
+minutes, as `skroute.preprocessing.travel_time_matrix` returns it). The Maps
+JavaScript API and the Directions requests are billed to the key's project, and the key
+is written into the page — share the file accordingly.
+
+```python
+>>> import json, re
+>>> minutes = IteratedLocalSearch(random_state=0).fit(
+...     bcn.cost, labels=bcn.labels, coords=bcn.coords, time_matrix=bcn.time * 60, max_time_work=360
+... )  # the same two days with the times in minutes, as the page expects
+>>> page = google_maps_html(minutes, path=out / "barcelona.html", api_key="AIza-demo", title="Barcelona, two days")
+>>> text = page.read_text(encoding="utf-8")
+>>> plan = json.loads(re.search(r'id="skroute-plan">(.*?)</script>', text, re.S).group(1))
+>>> plan["totals"], [(t["name"], t["n_stops"], t["legs"]) for t in plan["trips"]]
+({'n_trips': 2, 'n_stops': 18, 'driving_minutes': 676.7}, [('Day 1', 7, [[0, 8]]), ('Day 2', 11, [[0, 12]])])
+>>> text.count("AIza-demo")  # the key appears once, in the script URL
+1
+
+```
+
+The key-free interactive alternative stays `plot_route_map` above: Plotly on
+OpenStreetMap tiles, with the same `names=` and `trip_names=`.
 
 ## What each solver reports in `extra`
 
