@@ -51,6 +51,10 @@ class GoogleDistanceMatrix:
         prefers over ``duration`` for the ``time`` matrix. Traffic-aware requests are
         billed at the higher "Advanced" rate; ``mode`` must be ``"driving"`` for Google
         to honour it.
+    timeout : float, optional
+        Seconds the ``googlemaps`` client waits for each HTTP answer (its ``timeout``,
+        connect and read combined). ``None``, the library default, waits without limit;
+        `skroute.preprocessing.travel_time_matrix` passes its own ``timeout`` here.
 
     Attributes
     ----------
@@ -80,7 +84,13 @@ class GoogleDistanceMatrix:
     """
 
     def __init__(
-        self, api_key: str, mode: str = "driving", *, batch_size: int = 10, departure_time: Any = None
+        self,
+        api_key: str,
+        mode: str = "driving",
+        *,
+        batch_size: int = 10,
+        departure_time: Any = None,
+        timeout: float | None = None,
     ) -> None:
         try:
             import googlemaps
@@ -92,11 +102,18 @@ class GoogleDistanceMatrix:
             raise ValueError(f"batch_size must be an integer in [1, 10]; got {batch_size!r}")
         if not 1 <= batch_size <= int(_MAX_ELEMENTS_PER_REQUEST**0.5):
             raise ValueError(f"batch_size must be an integer in [1, 10]; got {batch_size!r}")
+        if timeout is not None and (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, (int, float, np.integer, np.floating))
+            or timeout <= 0
+        ):
+            raise ValueError(f"timeout must be a positive number of seconds or None; got {timeout!r}")
         self.api_key = api_key
         self.mode = mode
         self.batch_size = int(batch_size)
         self.departure_time = departure_time
-        self._client = googlemaps.Client(key=api_key)
+        self.timeout = None if timeout is None else float(timeout)
+        self._client = googlemaps.Client(key=api_key, timeout=self.timeout)
 
     def fetch(self, coords: ArrayLike, labels: ArrayLike | None = None) -> Bunch:
         """Request the full ``(n, n)`` distance and duration matrices.

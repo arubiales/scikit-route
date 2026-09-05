@@ -27,13 +27,16 @@ Tests never touch the network: they monkeypatch the module-level ``_urlopen`` (a
 
 from __future__ import annotations
 
+import http.client
 import json
+import math
+import re
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import numpy as np
@@ -70,12 +73,18 @@ DEFAULT_CHUNK_SIZE = 50
 #: Nominatim's usage policy: at most one request per second.
 NOMINATIM_MIN_INTERVAL = 1.0
 
+#: Seconds the HTTP socket of an Overpass request waits beyond the query's own ``[timeout:]``, so the
+#: server's ``remark`` (a clean error, not retried) arrives before the client gives up (a retried timeout
+#: would re-run the same heavy query against a shared server).
+OVERPASS_HTTP_MARGIN = 10.0
+
 _BACKOFF = (0.5, 1.0, 2.0)
 _TIME_FACTORS = {"s": 1.0, "min": 1.0 / 60.0, "h": 1.0 / 3600.0}
 _MATRIX_PROVIDERS = ("osrm", "google")
 _GEOCODE_PROVIDERS = ("nominatim", "google")
 _POI_PROVIDERS = ("overpass",)
 _REDACTED_PARAMS = ("key",)
+_REDACT_RE = re.compile(r"(?<=[?&])(" + "|".join(re.escape(p) for p in _REDACTED_PARAMS) + r")=[^&#]*")
 
 # Indirections the tests monkeypatch: the opener (recorded answers instead of the network), the clock
 # and the sleeper (no real waiting for the back-off, the OSRM pause or the Nominatim throttle).
@@ -120,15 +129,12 @@ class MapServiceError(RuntimeError):
 
 
 def _redact_url(url: str) -> str:
-    """The URL with the values of credential parameters (``key=``) replaced by ``***``."""
-    parts = urllib.parse.urlsplit(url)
-    if not parts.query:
-        return url
-    pairs = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-    if not any(k in _REDACTED_PARAMS for k, _ in pairs):
-        return url
-    redacted = [(k, "***" if k in _REDACTED_PARAMS else v) for k, v in pairs]
-    return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(redacted)))
+    """The URL with the values of credential parameters (``key=``) replaced by ``***``.
+
+    A textual substitution, so every other parameter stays exactly as it was sent (re-encoding
+    the query would turn OSRM's ``sources=0;1;2`` into ``sources=0%3B1%3B2``).
+    """
+    return _REDACT_RE.sub(r"\1=***", url)
 
 
 def _excerpt(data: bytes) -> str:
@@ -143,7 +149,7 @@ def _http_error_body(exc: urllib.error.HTTPError) -> str:
         return ""
 
 
-def _get_json(
+def _fetch_json(
     url: str,
     *,
     params: Mapping[str, Any] | None = None,
@@ -151,14 +157,19 @@ def _get_json(
     timeout: float = 60.0,
     retries: int = 3,
     safe: str = "",
-) -> Any:
-    """GET ``url`` (with ``params`` URL-encoded) and decode the JSON answer, retrying with back-off.
+    before_attempt: Callable[[], None] | None = None,
+) -> tuple[Any, str, int]:
+    """GET ``url`` (with ``params`` URL-encoded), decode the JSON answer, retrying with back-off.
 
-    Retries ``HTTPError`` 429 and 5xx and connection failures (``URLError``, timeouts) up to
-    ``retries`` times, sleeping 0.5 s, 1 s and 2 s between attempts; any other HTTP status,
-    a non-JSON body and an exhausted retry budget raise `MapServiceError` with the status
-    and the first 200 characters of the body. ``safe`` lists the characters ``params`` may
-    keep unescaped (OSRM reads ``sources=0;1;2`` literally).
+    Returns ``(payload, shown_url, status)``: the decoded JSON, the request URL with credentials
+    redacted (for error messages) and the HTTP status. Retries ``HTTPError`` 429 and 5xx and
+    connection failures -- ``URLError``, timeouts, a connection dropped while reading the body
+    (``http.client.IncompleteRead``, ``RemoteDisconnected``, ``ConnectionResetError``) -- up to
+    ``retries`` times, sleeping 0.5 s, 1 s and 2 s between attempts; any other HTTP status, a
+    non-JSON body and an exhausted retry budget raise `MapServiceError` with the status and
+    the first 200 characters of the body. ``safe`` lists the characters ``params`` may keep
+    unescaped (OSRM reads ``sources=0;1;2`` literally). ``before_attempt`` runs before every
+    attempt, retries included -- the Nominatim throttle, so a retry also keeps its distance.
     """
     full_url = f"{url}?{urllib.parse.urlencode(dict(params), safe=safe)}" if params else url
     shown = _redact_url(full_url)
@@ -168,11 +179,16 @@ def _get_json(
     request = urllib.request.Request(full_url, headers=request_headers)
     attempt = 0
     while True:
+        if before_attempt is not None:
+            before_attempt()
         try:
             with _urlopen(request, timeout=timeout) as response:
                 raw = response.read()
+                # urllib raises HTTPError outside 2xx, so this is a success status (the test opener has none)
+                status = int(getattr(response, "status", 200))
             break
         except urllib.error.HTTPError as exc:
+            exc.url = exc.filename = shown  # the chained cause must not keep the key either
             body = _http_error_body(exc)
             retryable = exc.code == 429 or exc.code >= 500
             if not retryable or attempt >= retries:
@@ -182,18 +198,23 @@ def _get_json(
                     url=shown,
                     body=body,
                 ) from exc
-        except (urllib.error.URLError, TimeoutError) as exc:
+        except (OSError, http.client.HTTPException) as exc:  # URLError and TimeoutError are OSErrors
             if attempt >= retries:
                 reason = getattr(exc, "reason", exc)
                 raise MapServiceError(f"could not reach {shown}: {reason}", status=None, url=shown) from exc
         _sleep(_BACKOFF[min(attempt, len(_BACKOFF) - 1)])
         attempt += 1
     try:
-        return json.loads(raw.decode("utf-8", errors="replace"))
+        return json.loads(raw.decode("utf-8", errors="replace")), shown, status
     except ValueError as exc:
         raise MapServiceError(
-            f"{shown} did not answer JSON: {_excerpt(raw)!r}", status=200, url=shown, body=_excerpt(raw)
+            f"{shown} did not answer JSON: {_excerpt(raw)!r}", status=status, url=shown, body=_excerpt(raw)
         ) from exc
+
+
+def _get_json(url: str, **kwargs: Any) -> Any:
+    """The decoded JSON answer of `_fetch_json` alone (same keyword arguments)."""
+    return _fetch_json(url, **kwargs)[0]
 
 
 def _validate_coords(coords: ArrayLike) -> np.ndarray:
@@ -251,6 +272,12 @@ def _check_timeout(timeout: Any) -> float:
     return float(timeout)
 
 
+def _check_pause(pause: Any) -> float:
+    if isinstance(pause, bool) or not isinstance(pause, (int, float, np.integer, np.floating)) or pause < 0:
+        raise ValueError(f"pause must be a non-negative number of seconds; got {pause!r}")
+    return float(pause)
+
+
 # --------------------------------------------------------------------------- travel-time matrices
 
 
@@ -296,7 +323,8 @@ def travel_time_matrix(
         ``UserWarning``.
     base_url : str, optional
         OSRM server, default ``https://router.project-osrm.org`` (the public demo:
-        car profile, limited table size, one request per second is polite).
+        car profile, limited table size, one request per second is polite). Ignored by
+        ``"google"`` (the ``googlemaps`` client knows its endpoint).
     chunk_size : int, optional
         OSRM: the points are split into ``ceil(n / chunk_size)`` blocks of nearly equal
         size and the table is requested block by block (``sources`` = one block,
@@ -305,10 +333,13 @@ def travel_time_matrix(
         Google: the ``batch_size`` of `GoogleDistanceMatrix` (``1..10``, default 10).
     user_agent : str, optional
         ``User-Agent`` header; default ``scikit-route/<version> (+repository URL)``.
+        Ignored by ``"google"`` (the ``googlemaps`` client sends its own).
     pause : float, default=1.0
         Seconds to wait between consecutive OSRM requests (``0`` for a server of yours).
+        Ignored by ``"google"`` (its quota is per account, not per second).
     timeout : float, default=60
-        Seconds to wait for each HTTP answer.
+        Seconds to wait for each HTTP answer; for ``"google"``, the ``timeout`` of the
+        ``googlemaps`` client.
 
     Returns
     -------
@@ -329,16 +360,23 @@ def travel_time_matrix(
     -----
     RuntimeWarning
         Once, when some pairs could not be routed: they are ``nan`` in both matrices
-        (complete them before solving; every solver needs finite matrices).
+        (complete them before solving; every solver needs finite matrices). With
+        ``"google"``, `GoogleDistanceMatrix` additionally logs the details (per block and
+        a summary) on the ``skroute`` logger at WARNING. Also once when an OSRM server
+        returns no ``distances`` table (``annotations=distance`` unsupported): ``time`` is
+        complete and ``distance`` is ``nan`` off the diagonal for those blocks.
 
     Notes
     -----
     Each block request is ``GET {base_url}/table/v1/{mode}/{lon,lat;...}?sources=0;1;..&
     destinations=..&annotations=duration,distance``; the coordinate list is the row block
     followed by the column block (just the block for a diagonal one). ``n = 120`` points
-    with the default ``chunk_size`` mean ``3 x 3 = 9`` requests and 8 pauses. A single
-    point needs no request (a ``1 x 1`` table is just ``0``). Distances the server does
-    not return stay ``nan`` in ``distance`` without making the pair unroutable.
+    with the default ``chunk_size`` mean ``3 x 3 = 9`` requests and 8 pauses. A diagonal
+    block of one point is never requested (its only cell is the diagonal ``0``, and OSRM
+    rejects a one-coordinate table): ``n = 3`` with ``chunk_size=2`` is 3 requests, with
+    ``chunk_size=1`` 6; a single point needs no request at all, with either provider.
+    Distances the server does not return stay ``nan`` in ``distance`` without making the
+    pair unroutable.
 
     Examples
     --------
@@ -356,6 +394,10 @@ def travel_time_matrix(
     xy = _validate_coords(coords)
     factor = _time_factor(units)
     _check_provider(provider, _MATRIX_PROVIDERS)
+    # Validated for every provider, so a bad value never passes silently on the path that ignores it.
+    http_timeout = _check_timeout(timeout)
+    wait = _check_pause(pause)
+    headers = _headers(user_agent)
     if provider == "osrm":
         if departure_time is not None:
             warnings.warn(
@@ -369,13 +411,18 @@ def travel_time_matrix(
             mode=mode,
             base_url=base_url,
             chunk_size=chunk_size,
-            user_agent=user_agent,
-            pause=pause,
-            timeout=timeout,
+            headers=headers,
+            pause=wait,
+            timeout=http_timeout,
         )
     else:
         seconds, metres = _google_table(
-            xy, mode=mode, api_key=api_key, departure_time=departure_time, chunk_size=chunk_size
+            xy,
+            mode=mode,
+            api_key=api_key,
+            departure_time=departure_time,
+            chunk_size=chunk_size,
+            timeout=http_timeout,
         )
     np.fill_diagonal(seconds, 0.0)
     np.fill_diagonal(metres, 0.0)
@@ -412,7 +459,7 @@ def _osrm_table(
     mode: str,
     base_url: str | None,
     chunk_size: int | None,
-    user_agent: str | None,
+    headers: dict[str, str],
     pause: float,
     timeout: float,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -421,22 +468,21 @@ def _osrm_table(
     profile = urllib.parse.quote(_check_text(mode, "mode"), safe="")
     base = _check_text(base_url, "base_url").rstrip("/") if base_url is not None else OSRM_URL
     size = DEFAULT_CHUNK_SIZE if chunk_size is None else _check_chunk_size(chunk_size, None)
-    if isinstance(pause, bool) or not isinstance(pause, (int, float, np.integer, np.floating)) or pause < 0:
-        raise ValueError(f"pause must be a non-negative number of seconds; got {pause!r}")
-    http_timeout = _check_timeout(timeout)
-    headers = _headers(user_agent)
     seconds = np.full((n, n), np.nan, dtype=np.float64)
     metres = np.full((n, n), np.nan, dtype=np.float64)
-    if n == 1:
-        return seconds, metres  # the diagonal is forced to 0 by the caller; OSRM rejects a 1-point table
     blocks = [np.asarray(b, dtype=np.int64) for b in np.array_split(np.arange(n), -(-n // size))]
-    first = True
+    n_requests = 0
+    without_distances = 0
     for rows in blocks:
         for cols in blocks:
-            if not first and pause > 0:
-                _sleep(float(pause))
-            first = False
             diagonal = rows is cols
+            if diagonal and len(rows) == 1:
+                # Its only cell is the diagonal, forced to 0 by the caller -- and OSRM rejects a
+                # one-coordinate table ("Number of coordinates needs to be at least two", HTTP 400).
+                continue
+            if n_requests and pause > 0:
+                _sleep(pause)
+            n_requests += 1
             index = rows if diagonal else np.concatenate([rows, cols])
             sources = range(len(rows))
             destinations = range(len(rows)) if diagonal else range(len(rows), len(index))
@@ -447,30 +493,50 @@ def _osrm_table(
                 "destinations": ";".join(str(d) for d in destinations),
                 "annotations": "duration,distance",
             }
-            answer = _get_json(url, params=params, headers=headers, timeout=http_timeout, safe=";,")
-            _fill_osrm_block(answer, seconds, metres, rows, cols, url)
+            answer, shown, status = _fetch_json(
+                url, params=params, headers=headers, timeout=timeout, safe=";,"
+            )
+            if not _fill_osrm_block(answer, seconds, metres, rows, cols, url=shown, status=status):
+                without_distances += 1
+    if without_distances:
+        warnings.warn(
+            f"OSRM returned no 'distances' table in {without_distances} of {n_requests} requests (does the "
+            "server support annotations=distance?): time is complete but distance is nan off the diagonal "
+            "for those blocks",
+            RuntimeWarning,
+            stacklevel=3,
+        )
     return seconds, metres
 
 
 def _fill_osrm_block(
-    answer: Any, seconds: np.ndarray, metres: np.ndarray, rows: np.ndarray, cols: np.ndarray, url: str
-) -> None:
+    answer: Any,
+    seconds: np.ndarray,
+    metres: np.ndarray,
+    rows: np.ndarray,
+    cols: np.ndarray,
+    *,
+    url: str,
+    status: int,
+) -> bool:
+    """Scatter one block answer into ``seconds`` and ``metres``; ``False`` when it carried no distances."""
     if not isinstance(answer, dict) or answer.get("code") != "Ok":
         code = answer.get("code") if isinstance(answer, dict) else type(answer).__name__
         message = answer.get("message", "") if isinstance(answer, dict) else ""
         raise MapServiceError(
-            f"OSRM answered {code!r} {message}".rstrip(), status=200, url=url, body=str(message)
+            f"OSRM answered {code!r} {message}".rstrip(), status=status, url=url, body=str(message)
         )
-    durations = answer.get("durations")
-    distances = answer.get("distances")
-    if _as_table(durations, len(rows), len(cols)) is None:
+    durations = _as_table(answer.get("durations"), len(rows), len(cols))
+    if durations is None:
         raise MapServiceError(
-            f"OSRM answer has no {len(rows)} x {len(cols)} 'durations' table", status=200, url=url
+            f"OSRM answer has no {len(rows)} x {len(cols)} 'durations' table", status=status, url=url
         )
-    _scatter(_as_table(durations, len(rows), len(cols)) or [], seconds, rows, cols)
-    distance_table = _as_table(distances, len(rows), len(cols))
-    if distance_table is not None:
-        _scatter(distance_table, metres, rows, cols)
+    _scatter(durations, seconds, rows, cols, what="durations", url=url, status=status)
+    distances = _as_table(answer.get("distances"), len(rows), len(cols))
+    if distances is None:
+        return False
+    _scatter(distances, metres, rows, cols, what="distances", url=url, status=status)
+    return True
 
 
 def _as_table(value: Any, n_rows: int, n_cols: int) -> list[list[Any]] | None:
@@ -484,15 +550,44 @@ def _as_table(value: Any, n_rows: int, n_cols: int) -> list[list[Any]] | None:
     return None
 
 
-def _scatter(table: list[list[Any]], target: np.ndarray, rows: np.ndarray, cols: np.ndarray) -> None:
-    """Write a block table into ``target`` at ``rows x cols``; ``None`` (unroutable) becomes ``nan``."""
+def _scatter(
+    table: list[list[Any]],
+    target: np.ndarray,
+    rows: np.ndarray,
+    cols: np.ndarray,
+    *,
+    what: str,
+    url: str,
+    status: int,
+) -> None:
+    """Write a block table into ``target`` at ``rows x cols``; ``None`` (unroutable) becomes ``nan``.
+
+    Any other non-number is a malformed answer: `MapServiceError`, not a bare ``ValueError`` from
+    ``float()`` after the requests of the earlier blocks have been spent.
+    """
     for r, row in enumerate(table):
         for c, value in enumerate(row):
-            target[rows[r], cols[c]] = np.nan if value is None else float(value)
+            if value is None:
+                target[rows[r], cols[c]] = np.nan
+            elif isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise MapServiceError(
+                    f"OSRM {what!r} table has a non-numeric cell at [{r}, {c}]: {value!r}",
+                    status=status,
+                    url=url,
+                    body=repr(value),
+                )
+            else:
+                target[rows[r], cols[c]] = float(value)
 
 
 def _google_table(
-    xy: np.ndarray, *, mode: str, api_key: str | None, departure_time: Any, chunk_size: int | None
+    xy: np.ndarray,
+    *,
+    mode: str,
+    api_key: str | None,
+    departure_time: Any,
+    chunk_size: int | None,
+    timeout: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Seconds and metres through `GoogleDistanceMatrix` (hours -> seconds; ``nan`` where unroutable)."""
     if api_key is None or not str(api_key).strip():
@@ -502,7 +597,12 @@ def _google_table(
     if mode not in GOOGLE_MODES:
         raise ValueError(f"mode must be one of {list(GOOGLE_MODES)} for provider='google'; got {mode!r}")
     batch = 10 if chunk_size is None else _check_chunk_size(chunk_size, 10)
-    client = GoogleDistanceMatrix(str(api_key), mode, batch_size=batch, departure_time=departure_time)
+    client = GoogleDistanceMatrix(
+        str(api_key), mode, batch_size=batch, departure_time=departure_time, timeout=timeout
+    )
+    n = xy.shape[0]
+    if n == 1:  # the only cell is the diagonal (0 by the caller): no billed request for it
+        return np.full((1, 1), np.nan), np.full((1, 1), np.nan)
     result = client.fetch(xy)
     return np.asarray(result.time, dtype=np.float64) * 3600.0, np.asarray(result.distance, dtype=np.float64)
 
@@ -585,7 +685,11 @@ def geocode(
 
 
 def _throttle_nominatim() -> None:
-    """Sleep until a second has passed since the previous Nominatim request, then stamp this one."""
+    """Sleep until a second has passed since the previous Nominatim request, then stamp this one.
+
+    Runs before every attempt of the request (`_fetch_json`'s ``before_attempt``), so a retry
+    after a 429 also keeps its distance and the stamp is that of the request actually sent.
+    """
     global _last_nominatim_call
     now = _monotonic()
     if _last_nominatim_call is not None:
@@ -598,15 +702,20 @@ def _throttle_nominatim() -> None:
 
 def _geocode_nominatim(query: str, *, base_url: str | None, headers: dict[str, str], timeout: float) -> Bunch:
     base = _check_text(base_url, "base_url").rstrip("/") if base_url is not None else NOMINATIM_URL
-    _throttle_nominatim()
-    answer = _get_json(
+    answer, shown, status = _fetch_json(
         f"{base}/search",
         params={"format": "jsonv2", "limit": 1, "q": query},
         headers=headers,
         timeout=timeout,
+        before_attempt=_throttle_nominatim,
     )
     if not isinstance(answer, list):
-        raise MapServiceError(f"Nominatim answered an unexpected document: {str(answer)[:200]!r}", status=200)
+        raise MapServiceError(
+            f"Nominatim answered an unexpected document: {str(answer)[:200]!r}",
+            status=status,
+            url=shown,
+            body=str(answer),
+        )
     if not answer:
         raise ValueError(f"no result for {query!r}")
     hit = answer[0]
@@ -614,7 +723,10 @@ def _geocode_nominatim(query: str, *, base_url: str | None, headers: dict[str, s
         lat, lon = float(hit["lat"]), float(hit["lon"])
     except (KeyError, TypeError, ValueError) as exc:
         raise MapServiceError(
-            f"Nominatim result without coordinates: {str(hit)[:200]!r}", status=200
+            f"Nominatim result without coordinates: {str(hit)[:200]!r}",
+            status=status,
+            url=shown,
+            body=str(hit),
         ) from exc
     return Bunch(lat=lat, lon=lon, display_name=str(hit.get("display_name", "")), raw=hit)
 
@@ -625,7 +737,9 @@ def _geocode_google(
     if api_key is None or not str(api_key).strip():
         raise ValueError("provider='google' needs api_key: a Google Cloud key with the Geocoding API enabled")
     base = _check_text(base_url, "base_url") if base_url is not None else GOOGLE_GEOCODING_URL
-    answer = _get_json(base, params={"address": query, "key": str(api_key)}, headers=headers, timeout=timeout)
+    answer, shown, http_status = _fetch_json(
+        base, params={"address": query, "key": str(api_key)}, headers=headers, timeout=timeout
+    )
     status = answer.get("status") if isinstance(answer, dict) else None
     results = answer.get("results") if isinstance(answer, dict) else None
     if status == "ZERO_RESULTS" or (status == "OK" and not results):
@@ -633,14 +747,22 @@ def _geocode_google(
     if status != "OK" or not isinstance(results, list):
         detail = str(answer.get("error_message", "")) if isinstance(answer, dict) else ""
         raise MapServiceError(
-            f"Google Geocoding answered {status!r} {detail}".rstrip(), status=200, body=detail
+            f"Google Geocoding answered {status!r} {detail}".rstrip(),
+            status=http_status,
+            url=shown,
+            body=detail,
         )
     hit = results[0]
     try:
         location = hit["geometry"]["location"]
         lat, lon = float(location["lat"]), float(location["lng"])
     except (KeyError, TypeError, ValueError) as exc:
-        raise MapServiceError(f"Google result without coordinates: {str(hit)[:200]!r}", status=200) from exc
+        raise MapServiceError(
+            f"Google result without coordinates: {str(hit)[:200]!r}",
+            status=http_status,
+            url=shown,
+            body=str(hit),
+        ) from exc
     return Bunch(lat=lat, lon=lon, display_name=str(hit.get("formatted_address", "")), raw=hit)
 
 
@@ -681,25 +803,29 @@ def fetch_pois(
     base_url : str, optional
         Overpass endpoint, default ``https://overpass-api.de/api/interpreter``.
     timeout : float, default=90
-        Seconds: the ``[timeout:]`` of the query and the HTTP timeout.
+        Seconds the server may spend on the query (its ``[timeout:]``, rounded up to a
+        whole second); the HTTP socket waits this plus `OVERPASS_HTTP_MARGIN` (10 s), so
+        the server's own ``remark`` arrives before the client gives up and retries.
     user_agent : str, optional
         ``User-Agent`` header; default ``scikit-route/<version> (+repository URL)``.
 
     Returns
     -------
     Bunch
-        ``coords``: float64 ``(n, 2)`` array of ``(lat, lon)``; ``labels``: list of OSM
-        ids ``"node/123"`` / ``"way/123"`` / ``"relation/123"``; ``names``: list of str
-        (the ``name`` tag, else ``brand``, else ``""``); ``addresses``: list of str
-        (``"<street> <housenumber>, <postcode> <city>"`` from the ``addr:*`` tags, ``""``
-        when unknown); ``tags``: list of dicts (all the tags of each element);
-        ``DESCR``: the query, the server, the count and the ODbL attribution. Elements
-        are sorted by type and id -- i.e. by label -- so the order is deterministic.
+        ``coords``: float64 ``(n, 2)`` array of ``(lat, lon)``; ``labels``: object
+        ndarray of OSM ids ``"node/123"`` / ``"way/123"`` / ``"relation/123"`` (the
+        dtype every label array in scikit-route gives string labels, so a boolean mask
+        indexes it like ``coords``); ``names``: list of str (the ``name`` tag, else
+        ``brand``, else ``""``); ``addresses``: list of str (``"<street> <housenumber>,
+        <postcode> <city>"`` from the ``addr:*`` tags, ``""`` when unknown); ``tags``:
+        list of dicts (all the tags of each element); ``DESCR``: the query, the server,
+        the count and the ODbL attribution. Elements are sorted by type and id -- i.e. by
+        label -- so the order is deterministic.
 
     Raises
     ------
     ValueError
-        Empty area, no filter given, or unknown provider.
+        Empty area, no filter given, an empty filter value, or unknown provider.
     MapServiceError
         The server could not be reached after the retries, answered an error, or
         returned a ``remark`` (a query timeout or memory limit).
@@ -726,9 +852,10 @@ def fetch_pois(
     the centre of their bounding box; nodes keep their own position. Near-duplicates
     are **not** removed: a shop mapped both as a building way and as a node inside it
     appears twice. Drop them yourself when it matters, e.g. keep only nodes
-    (``mask = [l.startswith("node/") for l in res.labels]``) or merge elements closer
-    than a few metres with `skroute.preprocessing.haversine_matrix`. The data is
-    OpenStreetMap's (ODbL): show "© OpenStreetMap contributors" with it.
+    (``mask = [l.startswith("node/") for l in res.labels]``, then ``res.coords[mask]``
+    and ``res.labels[mask]``) or merge elements closer than a few metres with
+    `skroute.preprocessing.haversine_matrix`. The data is OpenStreetMap's (ODbL): show
+    "© OpenStreetMap contributors" with it.
 
     Examples
     --------
@@ -736,26 +863,34 @@ def fetch_pois(
     >>> bk = fetch_pois("Leganés", amenity="fast_food", wikidata="Q177054")  # doctest: +SKIP
     >>> bk  # doctest: +SKIP
     Bunch(DESCR, addresses, coords, labels, names, tags)
-    >>> bk.coords.shape, bk.labels[:2], bk.names[0]  # doctest: +SKIP
+    >>> bk.coords.shape, bk.labels[:2].tolist(), bk.names[0]  # doctest: +SKIP
     ((6, 2), ['node/2613719490', 'node/2631338026'], 'Burger King')
     >>> print(bk.DESCR.splitlines()[-1])  # doctest: +SKIP
     Data © OpenStreetMap contributors, licensed under the Open Database License (ODbL): https://www.openstreetmap.org/copyright
     """
     area_name = _check_text(area, "area")
     _check_provider(provider, _POI_PROVIDERS)
-    filters = {"amenity": amenity, "brand": brand, "name": name, "wikidata": wikidata}
-    if all(value is None for value in filters.values()):
+    given = {"amenity": amenity, "brand": brand, "name": name, "wikidata": wikidata}
+    if all(value is None for value in given.values()):
         raise ValueError("give at least one filter: brand=, name=, amenity= or wikidata=")
-    http_timeout = _check_timeout(timeout)
+    filters = {key: None if value is None else _check_text(value, key) for key, value in given.items()}
+    query_timeout = _check_timeout(timeout)
     headers = _headers(user_agent)
     base = _check_text(base_url, "base_url") if base_url is not None else OVERPASS_URL
-    query = _overpass_query(area_name, timeout=int(http_timeout), **filters)
-    answer = _get_json(base, params={"data": query}, headers=headers, timeout=http_timeout)
+    query = _overpass_query(area_name, timeout=max(1, math.ceil(query_timeout)), **filters)
+    answer, shown, status = _fetch_json(
+        base, params={"data": query}, headers=headers, timeout=query_timeout + OVERPASS_HTTP_MARGIN
+    )
     if not isinstance(answer, dict) or not isinstance(answer.get("elements"), list):
-        raise MapServiceError(f"Overpass answered an unexpected document: {str(answer)[:200]!r}", status=200)
+        raise MapServiceError(
+            f"Overpass answered an unexpected document: {str(answer)[:200]!r}",
+            status=status,
+            url=shown,
+            body=str(answer),
+        )
     if answer.get("remark"):
         remark = str(answer["remark"])
-        raise MapServiceError(f"Overpass reported a problem: {remark}", status=200, url=base, body=remark)
+        raise MapServiceError(f"Overpass reported a problem: {remark}", status=status, url=shown, body=remark)
     records, skipped = _parse_overpass_elements(answer["elements"])
     if skipped:
         warnings.warn(
@@ -769,7 +904,8 @@ def fetch_pois(
             stacklevel=2,
         )
     coords = np.array([[lat, lon] for _, _, lat, lon, _ in records], dtype=np.float64).reshape(-1, 2)
-    labels = [f"{kind}/{osm_id}" for kind, osm_id, _, _, _ in records]
+    # Object dtype, as coerce_labels gives every string label (an int64 empty array would be its edge case)
+    labels = np.array([f"{kind}/{osm_id}" for kind, osm_id, _, _, _ in records], dtype=object)
     tags = [element_tags for _, _, _, _, element_tags in records]
     names = [str(t.get("name") or t.get("brand") or "") for t in tags]
     addresses = [_format_address(t) for t in tags]
@@ -785,8 +921,13 @@ def fetch_pois(
 
 
 def _ql_string(value: Any) -> str:
-    """``value`` as a double-quoted Overpass QL string literal."""
+    """``value`` as a double-quoted Overpass QL string literal.
+
+    Backslash and double quote are escaped, and so are line breaks and tabs (QL knows ``\\n``,
+    ``\\r``, ``\\t``): a raw newline would split the query into two statements.
+    """
     text = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    text = text.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
     return f'"{text}"'
 
 
