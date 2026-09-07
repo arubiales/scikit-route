@@ -48,6 +48,8 @@ ALIGN = (":--", ":--", ":--", "--:", "--:", "--:", "--:")
 
 def load_rows(path: Path) -> list[dict[str, Any]]:
     """The record, one dict per line; a line that is not JSON is a corrupt record, not a warning."""
+    if not path.is_file():
+        raise SystemExit(f"no record at {path}: run benchmark.py, or point --results at one")
     rows = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
@@ -266,6 +268,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Print the three sections of the report."""
     args = build_parser().parse_args(argv)
     rows = load_rows(args.results)
+    if not args.bounds.is_file():
+        raise SystemExit(f"no bounds at {args.bounds}: run lower_bound.py, or point --bounds at one")
     bounds = json.loads(args.bounds.read_text(encoding="utf-8"))
     closure = (
         json.loads(args.closure_bounds.read_text(encoding="utf-8")) if args.closure_bounds.is_file() else None
