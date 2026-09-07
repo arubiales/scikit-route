@@ -132,6 +132,7 @@ def _run(script: str, *args: str) -> subprocess.CompletedProcess[str]:
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",  # the scripts print UTF-8 whatever the console's default codec
         check=False,
         timeout=120,
         cwd=ROOT,

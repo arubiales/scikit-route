@@ -132,6 +132,10 @@ DAY_MIN = 480.0  # the eight-hour working day
 EXTRA_DAY_MIN = 480.0  # charge per extra day: fewest days first, then least driving
 N_RESTAURANTS = 182
 
+if hasattr(sys.stdout, "reconfigure"):  # a Windows console defaults to cp1252 and cannot print Δ or ©
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 
 class Instance(NamedTuple):
     """The committed case: labels (the office first), ``(lat, lon)`` coordinates and minutes."""

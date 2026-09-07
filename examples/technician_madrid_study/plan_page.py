@@ -41,6 +41,10 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 
+if hasattr(sys.stdout, "reconfigure"):  # a Windows console defaults to cp1252 and cannot print Δ or ©
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 if importlib.util.find_spec("skroute") is None:  # development checkout without an installed package
     sys.path.insert(0, str(ROOT))
 DATA = ROOT / "examples" / "data"

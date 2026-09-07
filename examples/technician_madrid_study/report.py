@@ -45,6 +45,10 @@ LONG = "long run (30-60 min)"
 COLUMNS = ("Configuration", "Family", "Round", "Days", "Driving (min)", "Objective", "Wall (s)")
 ALIGN = (":--", ":--", ":--", "--:", "--:", "--:", "--:")
 
+if hasattr(sys.stdout, "reconfigure"):  # a Windows console defaults to cp1252 and cannot print Δ or ©
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 
 def load_rows(path: Path) -> list[dict[str, Any]]:
     """The record, one dict per line; a line that is not JSON is a corrupt record, not a warning."""
