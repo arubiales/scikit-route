@@ -739,6 +739,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../user_guide/algorithm_study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which solver wins: an algorithm study
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user_guide/warm_starts_and_ensembles/" class="md-nav__link">
         
   
@@ -1490,6 +1518,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1505,7 +1550,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Added
@@ -1544,7 +1589,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_1" class="md-nav__link">
+  <a href="#added_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Added
@@ -1684,6 +1729,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1699,7 +1761,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Added
@@ -1738,7 +1800,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_1" class="md-nav__link">
+  <a href="#added_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Added
@@ -1833,8 +1895,17 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/arubiales/scikit-route/compare/v2.0.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
-<h2 id="210-2026-09-05">[2.1.0] - 2026-09-05<a class="headerlink" href="#210-2026-09-05" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Algorithm study of the technician case, <code>examples/technician_madrid_study/</code>: 59 solver
+  configurations on the 183-node Madrid instance under equal wall-clock budgets, a rigorous bound
+  (<code>MILP</code> proves the plain tour optimal at 1 078.3 driving minutes in 559 s, hence at least 14
+  days) and an exact polish that re-solves every day with <code>HeldKarp</code>; the recorded results are
+  committed under <code>results/</code> and the user guide page <em>Which solver wins: an algorithm study</em>
+  narrates them (best plan: 15 days, 1 532.8 minutes of driving).</li>
+</ul>
+<h2 id="210-2026-09-05">[2.1.0] - 2026-09-05<a class="headerlink" href="#210-2026-09-05" title="Permanent link">&para;</a></h2>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Service times: <code>fit(..., service_time=)</code> adds the time spent at each stop to the per-trip budget;
   <code>skroute.metrics.timetable</code> (with <code>Stop</code>, <code>timetable_summary</code> and <code>units=</code>) turns a solution into a
@@ -1866,7 +1937,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <p>A complete rewrite. Version 1.0.0a2 (2021) is the last release of the old code
 base; see the <a href="https://arubiales.github.io/scikit-route/migration/">migration guide</a>
 for a symbol-by-symbol map.</p>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>One problem model for every solver: a closed tour from a depot over a dense cost
   matrix, optionally decoded into trips under a per-trip working-time budget with a

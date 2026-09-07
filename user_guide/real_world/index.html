@@ -16,7 +16,7 @@
         <link rel="prev" href="../real_inputs/">
       
       
-        <link rel="next" href="../warm_starts_and_ensembles/">
+        <link rel="next" href="../algorithm_study/">
       
       
         
@@ -856,6 +856,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../algorithm_study/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which solver wins: an algorithm study
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2171,6 +2199,14 @@ its first stops:</p>
 </tr>
 </tbody>
 </table>
+<p><strong>How good is this plan?</strong> The companion page
+<a href="../algorithm_study/"><em>Which solver wins: an algorithm study</em></a> measures it: <code>MILP</code> proves the
+plain closed tour over the 183 nodes optimal at 1 078.3 minutes, and since shortcutting the
+office visits of a multi-day plan cannot lengthen it, no plan drives less — and none fits in
+fewer than <code>ceil((5460 + 1078.3) / 480) = 14</code> days. Fifteen days is what 23 of the 59
+configurations run on this instance reach and 14 was never found, so this plan is at most one
+day from optimal; re-solving each of its days exactly with <code>HeldKarp</code> changes nothing, which
+leaves the assignment of restaurants to days as the only place a better plan could hide.</p>
 <h2 id="the-plan-on-google-maps">The plan on Google Maps<a class="headerlink" href="#the-plan-on-google-maps" title="Permanent link">&para;</a></h2>
 <p>Three exports of the same fitted estimator, none needing matplotlib, put the plan in the
 technician's hands (<a href="../../api/viz/"><code>skroute.viz.google_maps</code></a>):</p>
@@ -2315,13 +2351,13 @@ options are listed in <code>examples/README.md</code>.</p>
         
         
           
-          <a href="../warm_starts_and_ensembles/" class="md-footer__link md-footer__link--next" aria-label="Next: Warm starts and ensembles">
+          <a href="../algorithm_study/" class="md-footer__link md-footer__link--next" aria-label="Next: Which solver wins: an algorithm study">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Warm starts and ensembles
+                Which solver wins: an algorithm study
               </div>
             </div>
             <div class="md-footer__button md-icon">

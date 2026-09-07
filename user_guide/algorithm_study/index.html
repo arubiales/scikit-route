@@ -1,0 +1,2835 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Route optimisation (TSP and multi-trip routing) with a scikit-learn flavoured API and a Cython core">
+      
+      
+      
+        <link rel="canonical" href="https://arubiales.github.io/scikit-route/user_guide/algorithm_study/">
+      
+      
+        <link rel="prev" href="../real_world/">
+      
+      
+        <link rel="next" href="../warm_starts_and_ensembles/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Which solver wins: an algorithm study - scikit-route</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#which-solver-wins-an-algorithm-study" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="scikit-route" class="md-header__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scikit-route
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Which solver wins: an algorithm study
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting_started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../problem_model/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/base/" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../migration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Migration from 1.0
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="scikit-route" class="md-nav__button md-logo" aria-label="scikit-route" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    scikit-route
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/arubiales/scikit-route" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    arubiales/scikit-route
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../problem_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The problem model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../choosing_a_solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a solver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_trip/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-trip routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../real_inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real inputs from map services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../real_world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real case: the technician's plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which solver wins: an algorithm study
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which solver wins: an algorithm study
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-instance-and-the-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The instance and the protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-good-can-it-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How good can it get
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ranking-at-two-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ranking at two minutes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-minutes-against-one-hour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two minutes against one hour
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-each-solver-is-good-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each solver is good for
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What each solver is good for">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#iterated-local-search-with-or-opt-relocations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iterated local search, with Or-opt relocations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multistart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MultiStart
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tabu-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tabu search
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulated-annealing-and-its-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulated annealing and its schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#genetic-plain-and-memetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genetic, plain and memetic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ant-colony-at-n-183" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ant colony at n = 183
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#som-as-a-one-second-warm-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SOM as a one-second warm start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-construction-heuristics-as-starting-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The construction heuristics as starting points
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clarke-wright-and-the-matrix-it-insists-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clarke-Wright, and the matrix it insists on
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-exact-solvers-one-for-the-bound-one-for-the-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The exact solvers: one for the bound, one for the days
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-exact-hybrid-a-useful-negative-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The exact hybrid: a useful negative result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-we-would-do-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we would do next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../warm_starts_and_ensembles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warm starts and ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Base and problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/exact/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exact solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Construction heuristics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/simulated_annealing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulated annealing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/tabu_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tabu search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/genetic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genetic algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ant_colony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ant colony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/som/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-organising map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ensemble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration from 1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to contribute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-instance-and-the-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The instance and the protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-good-can-it-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How good can it get
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ranking-at-two-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ranking at two minutes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#two-minutes-against-one-hour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two minutes against one hour
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-each-solver-is-good-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each solver is good for
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What each solver is good for">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#iterated-local-search-with-or-opt-relocations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iterated local search, with Or-opt relocations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multistart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MultiStart
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tabu-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tabu search
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulated-annealing-and-its-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulated annealing and its schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#genetic-plain-and-memetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genetic, plain and memetic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ant-colony-at-n-183" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ant colony at n = 183
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#som-as-a-one-second-warm-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SOM as a one-second warm start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-construction-heuristics-as-starting-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The construction heuristics as starting points
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clarke-wright-and-the-matrix-it-insists-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clarke-Wright, and the matrix it insists on
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-exact-solvers-one-for-the-bound-one-for-the-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The exact solvers: one for the bound, one for the days
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-exact-hybrid-a-useful-negative-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The exact hybrid: a useful negative result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-we-would-do-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we would do next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="which-solver-wins-an-algorithm-study">Which solver wins: an algorithm study<a class="headerlink" href="#which-solver-wins-an-algorithm-study" title="Permanent link">&para;</a></h1>
+<p>The <a href="../real_world/">previous page</a> built one plan for one real instance. This page answers
+the question that comes right after it: every name in <code>skroute.all_solvers()</code> is fitted the
+same way, so which of the eighteen do you run on your own data, what does more wall clock buy,
+and is the answer any good in absolute terms? The case is the technician's: 59 configurations
+were run on it under equal budgets, the plain tour was proved optimal to get a rigorous bound,
+and every day of the winning plan was re-solved exactly. What follows is what those runs say —
+including where a solver looks bad and why.</p>
+<p>The short version: <a class="autorefs autorefs-internal" title="IteratedLocalSearch" href="../../api/local_search/#skroute.local_search.IteratedLocalSearch"><code>IteratedLocalSearch</code></a> with Or-opt
+relocations, wrapped in <a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a>, is the configuration to run — in
+an hour it plans <strong>15 days and 1 533.5 minutes of driving</strong>, and the best plan of the whole
+campaign, 1 532.8 minutes, is one more hour of the same search continued from it. That plan is
+at most one day away from the optimum and 42 % above a driving bound that no day-partitioned
+plan can reach.</p>
+<h2 id="the-instance-and-the-protocol">The instance and the protocol<a class="headerlink" href="#the-instance-and-the-protocol" title="Permanent link">&para;</a></h2>
+<p>The instance is the one of the previous page, unchanged: every configuration was fitted with
+the same arguments, on the same matrix, and its result was priced with the same objective, so
+the only difference between two rows of the tables below is the search. The recorded rows —
+one JSON object per configuration, with its parameters, wall clock, iterations and stop
+reason — are committed under <code>examples/technician_madrid_study/results/</code>.</p>
+<ul>
+<li><strong>Nodes:</strong> 183 — the 182 Burger King restaurants of the Comunidad de Madrid plus the office
+  in Leganés, from <code>examples/data/madrid_burger_king*.csv</code> (OpenStreetMap and OSRM, captured
+  2026-09-05). The travel times are <strong>asymmetric</strong> driving minutes.</li>
+<li><strong>Model:</strong> <code>service_time=30</code>, <code>max_time_work=480</code>, <code>extra_cost=480</code>, <code>split="optimal"</code>,
+  <code>depot="office"</code> — the fit of the previous page, one trip per working day.</li>
+<li><strong>Objective:</strong> reported as <strong>(days, driving minutes)</strong>. The single number the solvers
+  minimise is <code>driving + 480 * (days - 1)</code>, so one day saved beats any amount of driving: the
+  best plan scores <code>1532.8 + 14 * 480 = 8252.8</code>.</li>
+<li><strong>Budget:</strong> equal wall clock per configuration, given as <code>time_limit=</code> and never as an
+  iteration count — 120 s in the roster, 3 600 s in the long campaign. A roster
+  <code>MultiStart(...)</code> spends the same 120 s of CPU (four restarts of 30 s, in parallel); the
+  long <code>MultiStart</code>s do <strong>not</strong> — eight processes for the whole hour, eight times the CPU of
+  a single run. Read those four rows as "what the wrapper does with a core each", not as a
+  fair duel.</li>
+<li><strong>One process per configuration</strong>, and <code>prefer="processes"</code> inside every <code>MultiStart</code>.</li>
+<li><strong>Hardware and date:</strong> a 10-core Apple Silicon laptop, September 2026. The long campaign
+  ran nine single-process configurations in parallel and then the four <code>MultiStart</code>s one
+  after another: four hours of wall clock, 11.5 hours of process time.</li>
+<li><strong>The searches are stochastic and stopped by the clock.</strong> <code>random_state=0</code> everywhere, but
+  a time limit makes a run irreproducible bit for bit (the same seed sees a different number
+  of iterations). Expect a few minutes of driving either way on your machine, and, for the
+  configurations that sit on the 15/16-day boundary, the odd extra day.</li>
+</ul>
+<p>The plan to beat is the best of the campaign: <strong>15 days, 1 532.8 minutes of driving</strong> (25.5 h,
+1 206.7 km), 10 to 13 stops a day (<code>[13, 13, 12, 11, 12, 13, 13, 12, 13, 12, 10, 11, 13, 11,
+13]</code>) and day totals between 450 and 479 of the 480 available minutes. It was found by an hour
+of <code>IteratedLocalSearch</code> with the default move set continuing from the best plan then known,
+and the exact polish described below could not improve it. It is 16 minutes of driving better
+than the two-minute plan narrated on the previous page (1 549), which is the honest size of
+the prize for an hour of computing.</p>
+<h2 id="how-good-can-it-get">How good can it get<a class="headerlink" href="#how-good-can-it-get" title="Permanent link">&para;</a></h2>
+<p>Two bounds make the answer measurable, and neither depends on any heuristic.</p>
+<p><strong>The driving bound.</strong> A plan over <span class="arithmatex">\(k\)</span> days is a closed walk that starts at the office, visits
+every restaurant once and passes through the office <span class="arithmatex">\(k\)</span> times. Delete the intermediate office
+visits — replace <code>... a -&gt; office -&gt; b ...</code> by <code>a -&gt; b</code> — and what is left is a closed tour
+over the 183 nodes. Under the triangle inequality that shortcut can never lengthen the walk,
+so <strong>the driving of any plan, on any number of days, is at least the optimal closed tour over
+the 183 nodes</strong>. That tour is small enough to be <em>proved</em>: <a class="autorefs autorefs-internal" title="MILP" href="../../api/exact/#skroute.exact.MILP"><code>MILP</code></a> (the
+Dantzig–Fulkerson–Johnson formulation with lazy subtour cuts on HiGHS, arc variables because
+the matrix is asymmetric) returns <strong>1 078.3 minutes, proven optimal</strong> — <code>gap_ == 0.0</code> — in
+559 s.</p>
+<p>The caveat is that road times are not exactly metric: OSRM's matrix violates the triangle
+inequality in <strong>738 of 6 128 487 triples (0.012 %)</strong>, mostly where a motorway ramp makes the
+direct arc slower than a detour. That is small, but "small" is not an argument, so the same
+bound was recomputed on the <strong>metric closure</strong> of the matrix (all-pairs shortest paths, zero
+violations by construction, every entry at most the original): the proven optimum there is
+<strong>1 078.3 as well</strong>, in 570 s. The bound holds on a matrix where the shortcutting argument is
+exact, and the caveat is gone.</p>
+<p><strong>The day bounds.</strong> Every day holds at most 480 minutes of service plus driving, the service
+is fixed at <span class="arithmatex">\(182 \times 30 = 5460\)</span> minutes, and the driving is at least 1 078.3, so</p>
+<div class="arithmatex">\[\text{days} \ \ge\ \left\lceil \frac{5460 + 1078.3}{480} \right\rceil = \lceil 13.62 \rceil = 14\]</div>
+<p>A second bound needs no driving bound at all: sixteen visits are 480 minutes of service on
+their own and leave nothing for the road, while fifteen leave 30 minutes — more than the
+cheapest conceivable set of legs for a fifteen-stop day (2.6 out, 2.2 back and 14 hops of
+0.6 add up to 14). So a day holds at most 15 stops and <code>days &gt;= ceil(182 / 15) = 13</code>. It is
+weaker here, and it is the bound to reach for when no tour bound is available. Both improve on
+the 12 days of the service-only count quoted on the previous page.</p>
+<p><strong>What the searches reach.</strong> Of the 59 configurations that produced a plan, <strong>23 reach 15
+days and none reaches 14</strong> — including three configurations run specifically to hunt for a
+14-day plan, with <code>extra_cost=5000</code> instead of 480: at that price a search accepts a day
+fewer even if it costs 5 000 extra minutes of driving, and it still came back with 15 days.</p>
+<p>So, honestly stated:</p>
+<ul>
+<li><strong>Days: the optimum is 14 or 15, and the plan uses 15.</strong> At most one day from optimal. The
+  14 is not excluded by anything; it is simply never found.</li>
+<li><strong>Driving: 1 532.8 against a bound of 1 078.3 is 42 % above it</strong> — and almost none of that
+  42 % is slack. The 455 minutes between the two are the 14 extra returns to the office that a
+  15-day plan must drive and a single tour does not: 32.5 minutes each, against the 45 that an
+  average pair of office legs costs (the mean leg to a restaurant is 22.5 minutes), because the
+  optimal split cuts the tour where returning is cheapest. A plan with fewer days would recover
+  some of those returns; a better routing inside 15 days will not.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="s2">"examples/data/madrid_burger_king_times_min.csv"</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s2">","</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="o">...</span>                <span class="n">skiprows</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">184</span><span class="p">))</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">bound</span> <span class="o">=</span> <span class="mf">1078.32</span>          <span class="c1"># results/lower_bounds.json: proven optimal ATSP tour, 559 s</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">service</span> <span class="o">=</span> <span class="mi">182</span> <span class="o">*</span> <span class="mi">30</span>       <span class="c1"># 182 visits of half an hour</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">service</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">service</span> <span class="o">+</span> <span class="n">bound</span><span class="p">)</span> <span class="o">/</span> <span class="mi">480</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">(</span><span class="mi">5460</span><span class="p">,</span> <span class="mi">14</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">violations</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">T</span><span class="p">[:,</span> <span class="p">[</span><span class="n">k</span><span class="p">]]</span> <span class="o">+</span> <span class="n">T</span><span class="p">[[</span><span class="n">k</span><span class="p">],</span> <span class="p">:]</span> <span class="o">&lt;</span> <span class="n">T</span> <span class="o">-</span> <span class="mf">1e-9</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)))</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">violations</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">violations</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>      <span class="c1"># of 183 ** 3 triples</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">(</span><span class="mi">738</span><span class="p">,</span> <span class="mf">0.012</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">round</span><span class="p">(</span><span class="mf">1532.8</span> <span class="o">-</span> <span class="n">bound</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">round</span><span class="p">((</span><span class="mf">1532.8</span> <span class="o">-</span> <span class="n">bound</span><span class="p">)</span> <span class="o">/</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1532.8</span> <span class="o">/</span> <span class="n">bound</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">(</span><span class="mf">454.5</span><span class="p">,</span> <span class="mf">32.5</span><span class="p">,</span> <span class="mf">42.1</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="the-ranking-at-two-minutes">The ranking at two minutes<a class="headerlink" href="#the-ranking-at-two-minutes" title="Permanent link">&para;</a></h2>
+<p>Twenty-eight configurations, 120 s each, ranked by the objective (<code>driving + 480 * (days -
+1)</code>), which is why row 1 has <em>more</em> driving than row 2: fifteen days beat sixteen whatever the
+minutes. Every row is <code>fit</code> on the same matrix with the same arguments;
+<code>Wall</code> is the measured wall clock — a construction heuristic that answers in a millisecond
+returns the rest of its budget — and <code>Iterations</code> is <code>n_iter_</code>, whose unit differs per family
+(a kick and descent for an iterated local search, a temperature level for annealing, a
+generation for the genetic algorithm, a colony pass for the ant colony).</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">#</th>
+<th>Configuration</th>
+<th>Family</th>
+<th style="text-align: right;">Days</th>
+<th style="text-align: right;">Driving</th>
+<th style="text-align: right;">Objective</th>
+<th style="text-align: right;">Wall</th>
+<th style="text-align: right;">Iterations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>MultiStart(ILS or_opt k=5) x4</code></td>
+<td>ensemble</td>
+<td style="text-align: right;">15</td>
+<td style="text-align: right;">1 574.7</td>
+<td style="text-align: right;">8 294.7</td>
+<td style="text-align: right;">30.9 s</td>
+<td style="text-align: right;">94</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>ILS or_opt k=5</code></td>
+<td>ils</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 554.7</td>
+<td style="text-align: right;">8 754.7</td>
+<td style="text-align: right;">120.1 s</td>
+<td style="text-align: right;">862</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td><code>ILS or_opt k=5 from Insertion</code></td>
+<td>ils</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 565.1</td>
+<td style="text-align: right;">8 765.1</td>
+<td style="text-align: right;">120.2 s</td>
+<td style="text-align: right;">807</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td><code>ILS or_opt k=5 strength=2</code></td>
+<td>ils</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 570.3</td>
+<td style="text-align: right;">8 770.3</td>
+<td style="text-align: right;">120.0 s</td>
+<td style="text-align: right;">623</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td><code>ILS default (2opt+oropt, k=10)</code></td>
+<td>ils</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 572.5</td>
+<td style="text-align: right;">8 772.5</td>
+<td style="text-align: right;">120.2 s</td>
+<td style="text-align: right;">271</td>
+</tr>
+<tr>
+<td style="text-align: right;">6</td>
+<td><code>ILS or_opt k=5 metropolis</code></td>
+<td>ils</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 587.1</td>
+<td style="text-align: right;">8 787.1</td>
+<td style="text-align: right;">120.4 s</td>
+<td style="text-align: right;">698</td>
+</tr>
+<tr>
+<td style="text-align: right;">7</td>
+<td><code>TabuSearch k=20</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 600.2</td>
+<td style="text-align: right;">8 800.2</td>
+<td style="text-align: right;">120.0 s</td>
+<td style="text-align: right;">440</td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td><code>SOM + LocalSearch polish</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 601.2</td>
+<td style="text-align: right;">8 801.2</td>
+<td style="text-align: right;">0.6 s</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td style="text-align: right;">9</td>
+<td><code>Genetic memetic (or_opt)</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 607.0</td>
+<td style="text-align: right;">8 807.0</td>
+<td style="text-align: right;">121.0 s</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td style="text-align: right;">10</td>
+<td><code>MultiStart(SA) x4</code></td>
+<td>ensemble</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 611.0</td>
+<td style="text-align: right;">8 811.0</td>
+<td style="text-align: right;">30.1 s</td>
+<td style="text-align: right;">1462</td>
+</tr>
+<tr>
+<td style="text-align: right;">11</td>
+<td><code>MultiStart(Tabu) x4</code></td>
+<td>ensemble</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 612.8</td>
+<td style="text-align: right;">8 812.8</td>
+<td style="text-align: right;">30.1 s</td>
+<td style="text-align: right;">138</td>
+</tr>
+<tr>
+<td style="text-align: right;">12</td>
+<td><code>TabuSearch</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 612.8</td>
+<td style="text-align: right;">8 812.8</td>
+<td style="text-align: right;">120.1 s</td>
+<td style="text-align: right;">1073</td>
+</tr>
+<tr>
+<td style="text-align: right;">13</td>
+<td><code>SimulatedAnnealing init=random</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 615.0</td>
+<td style="text-align: right;">8 815.0</td>
+<td style="text-align: right;">27.5 s</td>
+<td style="text-align: right;">1838</td>
+</tr>
+<tr>
+<td style="text-align: right;">14</td>
+<td><code>LocalSearch from Insertion</code></td>
+<td>local search</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 619.2</td>
+<td style="text-align: right;">8 819.2</td>
+<td style="text-align: right;">0.4 s</td>
+<td style="text-align: right;">5</td>
+</tr>
+<tr>
+<td style="text-align: right;">15</td>
+<td><code>LocalSearch(2opt+oropt)</code></td>
+<td>local search</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 620.1</td>
+<td style="text-align: right;">8 820.1</td>
+<td style="text-align: right;">0.3 s</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td style="text-align: right;">16</td>
+<td><code>OrOpt</code></td>
+<td>local search</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 640.3</td>
+<td style="text-align: right;">8 840.3</td>
+<td style="text-align: right;">0.4 s</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr>
+<td style="text-align: right;">17</td>
+<td><code>Genetic</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 656.4</td>
+<td style="text-align: right;">8 856.4</td>
+<td style="text-align: right;">120.0 s</td>
+<td style="text-align: right;">134373</td>
+</tr>
+<tr>
+<td style="text-align: right;">18</td>
+<td><code>ClarkeWright (symmetrised T)</code></td>
+<td>construction</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 660.4</td>
+<td style="text-align: right;">8 860.4</td>
+<td style="text-align: right;">0.0 s</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td style="text-align: right;">19</td>
+<td><code>SimulatedAnnealing</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 667.4</td>
+<td style="text-align: right;">8 867.4</td>
+<td style="text-align: right;">23.8 s</td>
+<td style="text-align: right;">1838</td>
+</tr>
+<tr>
+<td style="text-align: right;">20</td>
+<td><code>Insertion(cheapest)</code></td>
+<td>construction</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 709.6</td>
+<td style="text-align: right;">8 909.6</td>
+<td style="text-align: right;">0.0 s</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td style="text-align: right;">21</td>
+<td><code>Insertion(nearest)</code></td>
+<td>construction</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 720.4</td>
+<td style="text-align: right;">8 920.4</td>
+<td style="text-align: right;">0.0 s</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td style="text-align: right;">22</td>
+<td><code>Insertion(farthest)</code></td>
+<td>construction</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 720.7</td>
+<td style="text-align: right;">8 920.7</td>
+<td style="text-align: right;">0.0 s</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td style="text-align: right;">23</td>
+<td><code>TwoOpt</code></td>
+<td>local search</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 743.7</td>
+<td style="text-align: right;">8 943.7</td>
+<td style="text-align: right;">0.1 s</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td style="text-align: right;">24</td>
+<td><code>AntColony</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 745.0</td>
+<td style="text-align: right;">8 945.0</td>
+<td style="text-align: right;">127.5 s</td>
+<td style="text-align: right;">18</td>
+</tr>
+<tr>
+<td style="text-align: right;">25</td>
+<td><code>SOM</code></td>
+<td>metaheuristic</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 790.3</td>
+<td style="text-align: right;">8 990.3</td>
+<td style="text-align: right;">0.8 s</td>
+<td style="text-align: right;">17</td>
+</tr>
+<tr>
+<td style="text-align: right;">26</td>
+<td><code>NearestNeighbour</code></td>
+<td>construction</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 843.6</td>
+<td style="text-align: right;">9 043.6</td>
+<td style="text-align: right;">0.0 s</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td style="text-align: right;">27</td>
+<td><code>NRBS</code></td>
+<td>construction</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1 845.4</td>
+<td style="text-align: right;">9 045.4</td>
+<td style="text-align: right;">0.0 s</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+<p>The tables of this page are generated from the recorded rows by <code>python
+examples/technician_madrid_study/report.py</code>.</p>
+<p>The twenty-eighth configuration is <a class="autorefs autorefs-internal" title="MILP" href="../../api/exact/#skroute.exact.MILP"><code>MILP</code></a>, which does not appear because it
+refuses the instance on purpose: <code>ValueError: MILP optimises the plain tour and cannot certify
+a multi-trip optimum; use BruteForce (n &lt;= 11) or a heuristic solver</code>. That refusal is the
+right behaviour — a "proven optimum" that ignored the day budget would be a lie — and it is
+also why the bound above is a <em>plain tour</em> bound.</p>
+<p>Three readings of the table. The ranking spans 291 minutes of driving, from 1 554.7 to
+1 845.4: the choice of solver is worth 19 % of the driving,
+and one day. The step to 15 days is worth 480 points of objective and only one configuration in
+the roster reached it, so at short budgets the interesting question is not "how little driving"
+but "who lands on the lower step". And the two cheapest searches in the table (<code>LocalSearch</code>
+from a construction, 0.3–0.4 s, 1 619–1 620) sit 4 % above the best two-minute driving: a third
+of a percent of the budget gets you within 4 %, and the whole rest of it buys those last few
+percent plus the day.</p>
+<h2 id="two-minutes-against-one-hour">Two minutes against one hour<a class="headerlink" href="#two-minutes-against-one-hour" title="Permanent link">&para;</a></h2>
+<p>The same families, at 120 s and at 3 600 s. <code>Iterations</code> shows what the extra wall clock
+actually bought each of them, which varies by five orders of magnitude.</p>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>2 min</th>
+<th>1 h</th>
+<th>Iterations (2 min, 1 h)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ILS or_opt k=5</code></td>
+<td>16 / 1 554.7</td>
+<td><strong>15 / 1 546.3</strong></td>
+<td>862, 25 070</td>
+</tr>
+<tr>
+<td><code>ILS 2opt+oropt k=10</code> (default)</td>
+<td>16 / 1 572.5</td>
+<td>16 / 1 557.1</td>
+<td>271, 9 312</td>
+</tr>
+<tr>
+<td><code>MultiStart(ILS or_opt k=5)</code></td>
+<td>15 / 1 574.7 (x4, 30 s each)</td>
+<td><strong>15 / 1 533.5</strong> (x8, 1 h each)</td>
+<td>94, 13 165</td>
+</tr>
+<tr>
+<td><code>MultiStart(ILS 2opt+oropt k=10)</code></td>
+<td>—</td>
+<td><strong>15 / 1 541.4</strong> (x8, 1 h each)</td>
+<td>—, 6 181</td>
+</tr>
+<tr>
+<td><code>TabuSearch k=20</code></td>
+<td>16 / 1 600.2</td>
+<td><strong>15 / 1 567.0</strong></td>
+<td>440, 17 542</td>
+</tr>
+<tr>
+<td><code>MultiStart(TabuSearch k=20)</code></td>
+<td>16 / 1 612.8 (x4, 30 s)</td>
+<td>16 / 1 592.0 (x8, 30 min)</td>
+<td>138, 8 950</td>
+</tr>
+<tr>
+<td><code>SimulatedAnnealing</code></td>
+<td>16 / 1 667.4 (alpha=0.995)</td>
+<td>16 / 1 554.2 (alpha=0.99995)</td>
+<td>1 838, 184 203</td>
+</tr>
+<tr>
+<td><code>MultiStart(SimulatedAnnealing)</code></td>
+<td>16 / 1 611.0 (x4, 30 s)</td>
+<td><strong>15 / 1 555.2</strong> (x8 slow, 30 min)</td>
+<td>1 462, 159 014</td>
+</tr>
+<tr>
+<td><code>Genetic memetic (or_opt)</code></td>
+<td>16 / 1 607.0</td>
+<td><strong>15 / 1 555.3</strong></td>
+<td>2, 90</td>
+</tr>
+<tr>
+<td><code>Genetic</code></td>
+<td>16 / 1 656.4</td>
+<td>16 / 1 617.8</td>
+<td>134 373, 5 757 448</td>
+</tr>
+<tr>
+<td><code>AntColony</code></td>
+<td>16 / 1 745.0</td>
+<td>16 / 1 624.0</td>
+<td>18, 612</td>
+</tr>
+<tr>
+<td><code>ILS</code> continued from the best plan</td>
+<td>—</td>
+<td><strong>15 / 1 532.8</strong> (from 1 537.1)</td>
+<td>—, 9 973</td>
+</tr>
+</tbody>
+</table>
+<p>Thirty times the budget moves four of the ten families that appear in both columns from 16 days
+to 15, and buys between 8 and 121 minutes of driving. It does not change the ranking much: what
+was ahead at two minutes is ahead at an hour, with one exception worth noting — the annealer,
+next to last at two minutes and, with a slow enough schedule, better driving at an hour than
+seven of the eleven other rows (while still needing 16 days).</p>
+<h2 id="what-each-solver-is-good-for">What each solver is good for<a class="headerlink" href="#what-each-solver-is-good-for" title="Permanent link">&para;</a></h2>
+<h3 id="iterated-local-search-with-or-opt-relocations">Iterated local search, with Or-opt relocations<a class="headerlink" href="#iterated-local-search-with-or-opt-relocations" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="IteratedLocalSearch" href="../../api/local_search/#skroute.local_search.IteratedLocalSearch"><code>IteratedLocalSearch</code></a> is the default and it wins here, in every
+budget and from every start. The setting that matters is the move set: <code>local_search=("or_opt",),
+n_candidates=5</code> beat the default <code>("two_opt", "or_opt")</code> with <code>n_candidates=10</code> at two minutes
+(1 554.7 against 1 572.5) and at an hour from scratch (1 546.3 and 15 days against 1 557.1 and
+16), because it does three times the iterations — 862 against 271 in two minutes — and because
+<strong>relocation is the move that repacks a day</strong>. Under <code>split="optimal"</code> the plan is decoded from
+a giant tour, so moving a segment of one to three stops to another part of the tour is what
+moves a restaurant from one day to another; a 2-opt reversal shortens the driving <em>inside</em> a day
+but rarely changes what fits in it. The order flips once the plan is already good: continuing
+from the best plan, the full move set gave 1 532.8 and Or-opt alone 1 532.9 — a tie, with 9 973
+iterations against 25 366, so at that point the expensive move is worth its price. Practical
+rule: search with Or-opt, polish with both.</p>
+<h3 id="multistart">MultiStart<a class="headerlink" href="#multistart" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="MultiStart" href="../../api/ensemble/#skroute.ensemble.MultiStart"><code>MultiStart</code></a> earns its place on a staircase objective. At two minutes,
+four restarts of 30 s reached 15 days while the same solver given the whole 120 s in one run
+reached 16 — the same CPU, four samples instead of one deep descent. That is the shape of the
+problem: crossing from 16 days to 15 needs several coordinated relocations that each add
+driving, so it is a matter of landing in the right basin, and four independent draws beat one
+long run at finding it. At an hour per restart, eight restarts of the Or-opt configuration gave
+1 533.5, within 0.7 minutes of the best chained run and 13 minutes better than the single
+one-hour run; the wrapper also lifted the slow annealer from 16 days to 15 (1 555.2). Use
+<code>prefer="processes"</code> (see below) and <code>n_jobs=-1</code>; the restarts are independent, so the result is
+the same for any <code>n_jobs</code>.</p>
+<h3 id="tabu-search">Tabu search<a class="headerlink" href="#tabu-search" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="TabuSearch" href="../../api/tabu_search/#skroute.metaheuristics.TabuSearch"><code>TabuSearch</code></a> is the mid-table solver of this instance: 15 days at an hour
+(1 567.0), 34 minutes behind the best. Widening the candidate lists helps — <code>n_candidates=20</code>
+gave 1 600.2 against 1 612.8 for the default 10 at two minutes, with 440 iterations against
+1 073, so fewer and better-informed moves beat more and blinder ones. Wrapped in <code>MultiStart</code>
+it does <em>not</em> improve (1 592.0 with eight restarts of 30 minutes, still 16 days): a
+best-admissible scan with a randomised tenure is already close to deterministic, so restarts
+mostly repeat each other. Its niche is elsewhere — a structured instance where annealing
+stalls; here the ILS relocations are simply better aimed.</p>
+<h3 id="simulated-annealing-and-its-schedule">Simulated annealing and its schedule<a class="headerlink" href="#simulated-annealing-and-its-schedule" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="SimulatedAnnealing" href="../../api/simulated_annealing/#skroute.metaheuristics.SimulatedAnnealing"><code>SimulatedAnnealing</code></a> with the defaults <em>converges</em> in 24 s
+(1 838 temperature levels, <code>stop_reason_ == "converged"</code>) and then cannot use the remaining 96
+seconds: at 1 667.4 it beats only the construction heuristics, a bare 2-opt descent, the raw SOM
+ring and the ant colony, and giving it more wall clock changes nothing. The schedule is the knob,
+not the budget. With <code>alpha=0.99995</code> it ran 184 203 levels and converged after 31 minutes at
+<strong>1 554.2</strong>, better driving than every other one-hour run except the three iterated local
+searches — and still 16 days, which is the pattern of this instance: annealing is very good at
+the driving inside a fixed number of days and unlucky at crossing the day boundary. Eight
+restarts of that slow schedule did cross it (15 days, 1 555.2). Note that "converged after 31
+minutes" is genuine convergence, not a time limit: if you want more, lower <code>alpha</code> further or add
+restarts, do not add minutes.</p>
+<h3 id="genetic-plain-and-memetic">Genetic, plain and memetic<a class="headerlink" href="#genetic-plain-and-memetic" title="Permanent link">&para;</a></h3>
+<p>The plain <a class="autorefs autorefs-internal" title="Genetic" href="../../api/genetic/#skroute.metaheuristics.Genetic"><code>Genetic</code></a> is the cheapest iteration of the library and the weakest
+result at this size: 134 373 generations in two minutes for 1 656.4, and <strong>5.76 million</strong>
+generations in an hour for 1 617.8 — 85 minutes behind the best, still 16 days. Recombining
+permutations of 183 nodes without a descent simply does not find the structure. The memetic form
+(<code>local_search=("or_opt",)</code>, an Or-opt descent on every child) is a different algorithm: 40
+seconds per generation, so <strong>2 generations</strong> in two minutes (1 607.0) and <strong>90</strong> in an hour —
+and those 90 generations reach 15 days at 1 555.3, fourth among the single-run configurations of
+the long campaign, behind three iterated local searches and nothing else. If you
+run a population-based search on an instance this size, run the memetic one and budget in tens
+of minutes; its by-product is a pool of good distinct plans in <code>estimators_</code>, which the
+<a href="../warm_starts_and_ensembles/">warm starts and ensembles</a> page uses.</p>
+<h3 id="ant-colony-at-n-183">Ant colony at n = 183<a class="headerlink" href="#ant-colony-at-n-183" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="AntColony" href="../../api/ant_colony/#skroute.metaheuristics.AntColony"><code>AntColony</code></a> is the solver most penalised by the size. Each iteration builds
+50 ant tours and polishes every one of them with a 2-opt descent priced under the optimal split,
+which at 183 nodes costs seconds: <strong>18 iterations</strong> in two minutes (1 745.0, behind all three
+insertion variants) and <strong>612</strong> in an hour (1 624.0). A MAX-MIN colony needs thousands of
+iterations before the pheromone means anything, and this instance never gives it that many. It is
+not a bad solver here, it is an unfinished one — on the plain Euclidean benchmarks, where an
+iteration is milliseconds, it lands within 2 % of the optimum.</p>
+<h3 id="som-as-a-one-second-warm-start">SOM as a one-second warm start<a class="headerlink" href="#som-as-a-one-second-warm-start" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="SOM" href="../../api/som/#skroute.metaheuristics.SOM"><code>SOM</code></a> is the only solver that never reads the cost matrix during its search (it
+pulls a ring of neurons towards the coordinates), and it is not budget-aware, so its tour is
+split into days afterwards. On its own that gives 1 790.3 in 0.8 s. Follow it with one
+<a class="autorefs autorefs-internal" title="LocalSearch" href="../../api/local_search/#skroute.local_search.LocalSearch"><code>LocalSearch</code></a> descent and the pair gives <strong>1 601.2 in 0.6 s</strong> — a
+whisker behind two minutes of <code>TabuSearch</code> with <code>n_candidates=20</code> (1 600.2) and ahead of the
+default tabu search (1 612.8) and of the memetic genetic algorithm (1 607.0), for a
+two-hundredth of the budget. That is its role on a real instance: a geometric first tour good
+enough to hand to a budget-aware search.</p>
+<h3 id="the-construction-heuristics-as-starting-points">The construction heuristics as starting points<a class="headerlink" href="#the-construction-heuristics-as-starting-points" title="Permanent link">&para;</a></h3>
+<p>The five construction rows answer in milliseconds and every one of them needs 16 days:
+<a class="autorefs autorefs-internal" title="Insertion" href="../../api/construction/#skroute.construction.Insertion"><code>Insertion</code></a> at 1 709.6 (<code>cheapest</code>), 1 720.4 (<code>nearest</code>) and 1 720.7
+(<code>farthest</code>), <a class="autorefs autorefs-internal" title="NearestNeighbour" href="../../api/construction/#skroute.construction.NearestNeighbour"><code>NearestNeighbour</code></a> at 1 843.6 and
+<a class="autorefs autorefs-internal" title="NRBS" href="../../api/construction/#skroute.construction.NRBS"><code>NRBS</code></a> at 1 845.3. Two details are worth taking away. First, <code>cheapest</code> beats
+<code>farthest</code> here, the reverse of the Euclidean benchmarks — a reminder that insertion strategies
+are a property of the metric, and on asymmetric road times you should try all three. Second, a
+better start is not a better search: <code>IteratedLocalSearch</code> started from <code>Insertion(farthest)</code>
+finished at 1 565.1 while the same search from the default nearest-neighbour start finished at
+1 554.7. What the constructions are really for is what goes on top of them: one
+<a class="autorefs autorefs-internal" title="LocalSearch" href="../../api/local_search/#skroute.local_search.LocalSearch"><code>LocalSearch</code></a> descent from <code>Insertion(farthest)</code> gives 1 619.2 in 0.4 s,
+while <a class="autorefs autorefs-internal" title="TwoOpt" href="../../api/local_search/#skroute.local_search.TwoOpt"><code>TwoOpt</code></a> (1 743.7) or <a class="autorefs autorefs-internal" title="OrOpt" href="../../api/local_search/#skroute.local_search.OrOpt"><code>OrOpt</code></a> (1 640.3) alone show
+which half of that descent does the work — the relocations, again.</p>
+<h3 id="clarke-wright-and-the-matrix-it-insists-on">Clarke-Wright, and the matrix it insists on<a class="headerlink" href="#clarke-wright-and-the-matrix-it-insists-on" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="ClarkeWright" href="../../api/construction/#skroute.construction.ClarkeWright"><code>ClarkeWright</code></a> is the one budget-aware construction — its savings merges
+refuse a trip that would not fit inside the day — and the one solver that <strong>requires a symmetric
+matrix</strong>, which this instance is not: up to ten minutes separate the two directions of a pair.
+Fitted on <code>(T + T.T) / 2</code> and re-priced on the real matrix it returns <strong>16 days and 1 660.4
+minutes</strong>: the same day count as every other construction, mid-table on driving between plain
+<a class="autorefs autorefs-internal" title="Genetic" href="../../api/genetic/#skroute.metaheuristics.Genetic"><code>Genetic</code></a> (1 656.4) and <a class="autorefs autorefs-internal" title="SimulatedAnnealing" href="../../api/simulated_annealing/#skroute.metaheuristics.SimulatedAnnealing"><code>SimulatedAnnealing</code></a>
+(1 667.4), and the tenth-worst objective of the 27. Respectable for a method that does no search at
+all, and instant.</p>
+<p>The averaging is the price. On the matrix it was given, the same plan looked like 8 868.8 against
+the 8 860.4 it really costs (<code>cost_sym</code> in the record): the distortion is small here and does not
+lean in a predictable direction, but the trips whose feasibility it checked were checked against
+times nobody drives. On a road network this asymmetric, take its output as the warm start of a
+descent — which is what row 14 of the table is — rather than as the plan.</p>
+<h3 id="the-exact-solvers-one-for-the-bound-one-for-the-days">The exact solvers: one for the bound, one for the days<a class="headerlink" href="#the-exact-solvers-one-for-the-bound-one-for-the-days" title="Permanent link">&para;</a></h3>
+<p><a class="autorefs autorefs-internal" title="MILP" href="../../api/exact/#skroute.exact.MILP"><code>MILP</code></a> refuses the multi-trip instance by design and proves the plain tour
+instead: 183 asymmetric nodes in 559 s, which is well beyond the "about 60 asymmetric nodes
+within a minute" rule of thumb of <a href="../choosing_a_solver/">choosing a solver</a> — the rule is about a
+minute, not about feasibility, and here nine minutes bought a proof. That proof is the only
+absolute statement on this page. <a class="autorefs autorefs-internal" title="HeldKarp" href="../../api/exact/#skroute.exact.HeldKarp"><code>HeldKarp</code></a> is capped at 20 nodes and is
+therefore useless on the instance and exactly right <em>inside a day</em>: 13 stops plus the office is
+14 nodes, three milliseconds of dynamic programming, an optimal day.
+<a class="autorefs autorefs-internal" title="BruteForce" href="../../api/exact/#skroute.exact.BruteForce"><code>BruteForce</code></a> is the only solver that certifies a multi-trip optimum, at 11
+nodes — the office plus ten stops, which is the size of day 11 of this plan and of no other.</p>
+<h2 id="the-exact-hybrid-a-useful-negative-result">The exact hybrid: a useful negative result<a class="headerlink" href="#the-exact-hybrid-a-useful-negative-result" title="Permanent link">&para;</a></h2>
+<p>The campaign closed with something the library does not offer as a solver, composed from two
+things it does offer: <strong>re-solve every day exactly with <a class="autorefs autorefs-internal" title="HeldKarp" href="../../api/exact/#skroute.exact.HeldKarp"><code>HeldKarp</code></a></strong> (at most
+13 stops plus the office, so at most 14 nodes), then <strong>try every relocation and every swap of
+stops between two days</strong>, re-solving both affected days exactly and accepting an exchange only
+when it improves the driving and both days still fit in 480 minutes.</p>
+<p>Applied to the 15-day plans it changed <strong>nothing on the routes</strong>: every day of the ILS plans was
+already optimal for its own set of restaurants, and the pass over the 1 532.8 plan converged in
+56 s with no improvement at all. On an earlier 15-day plan it found the routes optimal too and
+gained under a minute from the exchanges (1 541.5 to 1 540.6, 115 s, two passes). No day could be
+emptied by relocating its stops elsewhere, either.</p>
+<p>That is a negative result and it is the most useful one of the study, because it splits the
+remaining doubt in two and closes one half. The per-day sequencing is <strong>proved optimal</strong>; the
+driving of the plan is entirely determined by <em>which restaurants share a day</em>. So an
+<code>IteratedLocalSearch</code> polish is not leaving minutes on the table inside the days, and anything
+better than 1 532.8 — or a 14-day plan — has to come from a different assignment of restaurants
+to days, not from a better route through the same ones.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">results</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"examples/technician_madrid_study/results"</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">lines</span> <span class="o">=</span> <span class="p">(</span><span class="n">results</span> <span class="o">/</span> <span class="s2">"results.jsonl"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">ranked</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rows</span> <span class="k">if</span> <span class="s2">"objective"</span> <span class="ow">in</span> <span class="n">r</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="p">[</span><span class="s2">"objective"</span><span class="p">])</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ranked</span><span class="p">)</span>  <span class="c1"># one row raised: MILP</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">59</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">best</span> <span class="o">=</span> <span class="n">ranked</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="o">&gt;&gt;&gt;</span> <span class="n">best</span><span class="p">[</span><span class="s2">"days"</span><span class="p">],</span> <span class="n">best</span><span class="p">[</span><span class="s2">"driving_min"</span><span class="p">],</span> <span class="n">best</span><span class="p">[</span><span class="s2">"family"</span><span class="p">],</span> <span class="n">best</span><span class="p">[</span><span class="s2">"wall_s"</span><span class="p">]</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mf">1532.8</span><span class="p">,</span> <span class="s1">'hybrid'</span><span class="p">,</span> <span class="mf">55.9</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="o">&gt;&gt;&gt;</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ranked</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s2">"days"</span><span class="p">]</span> <span class="o">==</span> <span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)]</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+</code></pre></div>
+<h2 id="reproducing-it">Reproducing it<a class="headerlink" href="#reproducing-it" title="Permanent link">&para;</a></h2>
+<p>The harness lives in <code>examples/technician_madrid_study/</code> (its README lists the flags), together with
+<code>plan_page.py</code>, which turns any of these plans into one self-contained interactive page. It reads
+the committed CSVs, so nothing here touches the network. The wall clock is what the campaign
+cost on ten cores:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>examples/technician_madrid_study
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>benchmark.py<span class="w"> </span>--round<span class="w"> </span>roster<span class="w">                     </span><span class="c1"># 28 configurations, 120 s each: ~23 min of process time</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>python<span class="w"> </span>benchmark.py<span class="w"> </span>--round<span class="w"> </span>long<span class="w"> </span>--config<span class="w"> </span>ils_oropt5<span class="w">   </span><span class="c1"># one long configuration per process; --list shows them all</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>python<span class="w"> </span>lower_bound.py<span class="w">                                  </span><span class="c1"># the MILP tour bound (~10 min); --metric-closure for the other</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>python<span class="w"> </span>exact_polish.py<span class="w"> </span>--plan<span class="w"> </span>results/best_plan.json<span class="w">   </span><span class="c1"># Held-Karp days + inter-day exchanges: ~1 min</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>python<span class="w"> </span>report.py<span class="w">                                       </span><span class="c1"># rebuild the tables of this page from results/</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>python<span class="w"> </span>plan_page.py<span class="w"> </span>--out<span class="w"> </span>plan.html<span class="w">                    </span><span class="c1"># the plan as one interactive page, ranking included</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Processes, not threads</p>
+<p>Every <code>MultiStart</code> of the campaign runs with <code>prefer="processes"</code>. The multi-trip kernels hold
+the interpreter lock while they price a move, so with the default threads the restarts
+serialise: the same eight restarts took <strong>138 s against 36 s</strong>. Threads are the right default
+for the plain symmetric TSP, where the hot loops release the lock; on a multi-trip instance
+they cost you the cores.</p>
+</div>
+<p>Two more notes for a rerun. The long campaign ran nine single-process configurations at once on
+ten cores, which is deliberate: eight <code>MultiStart</code> processes plus nine searches would oversubscribe
+the machine and every wall-clock budget would measure contention instead of the algorithm. And the
+numbers will not repeat exactly — the budgets are wall clock, so a faster machine does more
+iterations with the same seed. The days should repeat; the driving will land within a few minutes.</p>
+<h2 id="what-we-would-do-next">What we would do next<a class="headerlink" href="#what-we-would-do-next" title="Permanent link">&para;</a></h2>
+<p><strong>Settle 14 against 15 exactly.</strong> Every heuristic in the campaign says 15 and the counting bound
+says 14 is not impossible, and no amount of extra search will close that gap — the exact hybrid
+showed the doubt lives entirely in the assignment of restaurants to days. The way to close it is
+to model the assignment itself: ask whether a <strong>14-day</strong> partition exists at all, as a
+set-partitioning problem over candidate day-routes (cover the 182 restaurants with exactly 14
+routes, each priced by an exact day solve, each within 480 minutes) or as a compact integer
+programme with a day index per restaurant and a per-day time constraint. A feasibility answer
+either produces a 14-day plan or proves 15 optimal. That model is outside what
+<a class="autorefs autorefs-internal" title="MILP" href="../../api/exact/#skroute.exact.MILP"><code>MILP</code></a> does today — it optimises the plain tour and says so — so it is a candidate
+for a future release rather than a recipe you can run now.</p>
+<p><strong>Do not expect much more from the driving.</strong> Within 15 days the margin is essentially gone: the
+best four configurations of the long campaign lie between 1 532.8 and 1 541.4, an hour of
+<code>IteratedLocalSearch</code> continuing from a 1 537.1 plan bought 4.3 minutes over 9 973 iterations, and
+the exact per-day re-solve found zero. If the technician needs a materially shorter plan, the lever
+is not the solver: it is the model — a second technician (<code>people=2</code>), a longer day, per-restaurant
+service times, or starting the day from home instead of the office.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../real_world/" class="md-footer__link md-footer__link--prev" aria-label="Previous: A real case: the technician&#39;s plan">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                A real case: the technician's plan
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../warm_starts_and_ensembles/" class="md-footer__link md-footer__link--next" aria-label="Next: Warm starts and ensembles">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Warm starts and ensembles
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2020-2026 Alberto Rubiales. MIT License.
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/arubiales/scikit-route" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/scikit-route/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
