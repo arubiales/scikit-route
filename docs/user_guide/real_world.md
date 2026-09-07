@@ -274,6 +274,15 @@ its first stops:
 | 1 | 13 | Burger King (node/5602005239) | 15:12 | 15:42 | 3.6 | 30.0 |
 | 1 | 14 | Oficina (Calle Ramón y Cajal 18, Leganés) | 15:51 | 15:51 | 9.1 | 0.0 |
 
+**How good is this plan?** The companion page
+[*Which solver wins: an algorithm study*](algorithm_study.md) measures it: `MILP` proves the
+plain closed tour over the 183 nodes optimal at 1 078.3 minutes, and since shortcutting the
+office visits of a multi-day plan cannot lengthen it, no plan drives less — and none fits in
+fewer than `ceil((5460 + 1078.3) / 480) = 14` days. Fifteen days is what 23 of the 59
+configurations run on this instance reach and 14 was never found, so this plan is at most one
+day from optimal; re-solving each of its days exactly with `HeldKarp` changes nothing, which
+leaves the assignment of restaurants to days as the only place a better plan could hide.
+
 ## The plan on Google Maps
 
 Three exports of the same fitted estimator, none needing matplotlib, put the plan in the

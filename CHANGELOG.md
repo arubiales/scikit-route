@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Algorithm study of the technician case, `examples/technician_madrid_study/`: 59 solver
+  configurations on the 183-node Madrid instance under equal wall-clock budgets, a rigorous bound
+  (`MILP` proves the plain tour optimal at 1 078.3 driving minutes in 559 s, hence at least 14
+  days) and an exact polish that re-solves every day with `HeldKarp`; the recorded results are
+  committed under `results/` and the user guide page *Which solver wins: an algorithm study*
+  narrates them (best plan: 15 days, 1 532.8 minutes of driving).
 
 ## [2.1.0] - 2026-09-05
 ### Added

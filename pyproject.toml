@@ -125,6 +125,8 @@ ignore = ["RUF012", "B028", "SIM108", "PERF203"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B011", "NPY002", "RUF005"]
+# the page generator embeds a CSS and JavaScript template: its long lines are the web page, not code
+"examples/technician_madrid_study/plan_page.py" = ["E501"]
 "benchmarks/**" = ["NPY002"]
 "docs/**" = ["E402", "F401"]
 

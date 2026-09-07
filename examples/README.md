@@ -156,3 +156,8 @@ nine stops), `technician_madrid_map.html` (the Plotly map on OpenStreetMap tiles
 colour per day), `technician_madrid_google.html` when a key is given, and the two PNGs of
 the documentation; the console shows the per-day table, the totals, the lower bound and
 the two construction baselines through the `skroute` logger.
+
+The algorithm study of that same instance — 59 solver configurations under equal wall-clock
+budgets, the proven `MILP` bound and the exact per-day polish — lives in
+`examples/technician_madrid_study/` (see its README), and is narrated by the user guide page
+*Which solver wins: an algorithm study*.
