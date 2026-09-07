@@ -145,11 +145,11 @@ the days the iterated local search produced were already exactly optimal, and no
 emptied by greedy relocation. On an earlier 15-day plan it found 0.9 minutes by exchanging stops —
 its note in the record reads `1541.5 -> 1541.5 (exact days) -> 1540.6 min`. That is why the plan is called unimprovable *by these moves* — not optimal.
 
-**Fourteen days is not excluded, and was never found.** The day bound is 14 and 23 configurations
-reached 15, including a dedicated hunt with `extra_cost=5000` (ten times the day's own budget, so
-any plan with fewer days wins by a landslide) from two different starts. Nothing reached 14. The honest statement is the one `report.py` prints:
-15 days is the best of everything that was tried, one day above a bound that may or may not be
-attainable.
+**Fourteen days is not excluded, and was never found.** The day bound is 14, and 23
+configurations reached 15 — including a dedicated hunt with `extra_cost=5000` (ten times the
+day's own budget, so any plan with fewer days wins by a landslide) from two different starts.
+Nothing reached 14. The honest statement is the one `report.py` prints: 15 days is the best of
+everything that was tried, one day above a bound that may or may not be attainable.
 
 ## The files
 
@@ -175,9 +175,9 @@ acceptance of a move depends on the iteration it happens at. A rerun therefore l
 few minutes of driving** of the recorded numbers and usually on the same day count — it does not
 reproduce them exactly, and a table that matched to the decimal would mean something was cached.
 
-What *is* exactly reproducible: the deterministic configurations. `NearestNeighbour`,
-`Insertion` (all three strategies), `NRBS`, `TwoOpt`, `OrOpt`, `LocalSearch`, `SOM`, `ClarkeWright` and the exact
-polish give the same tour byte for byte — their `tour_sha256` is a regression test. (The one
+What *is* exactly reproducible: the deterministic configurations. `NearestNeighbour`, `Insertion`
+(all three strategies), `NRBS`, `TwoOpt`, `OrOpt`, `LocalSearch`, `SOM`, `ClarkeWright` and the
+exact polish give the same tour byte for byte — their `tour_sha256` is a regression test. (The one
 wobble: `NRBS` records 1845.3 minutes where the harness now computes 1845.4 on the identical tour.
 The raw sum is 1845.3500000000001, which sits on a rounding tie.)
 
