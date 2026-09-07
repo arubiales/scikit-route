@@ -184,7 +184,14 @@ Burger King restaurants of the Madrid region from an office in Leganés, thirty 
 visit and eight-hour days on real OSRM driving times: in one two-minute run on the machine
 that wrote the docs, **15 days and 25.8 hours of driving** against the 16 days of the
 construction heuristics (12 is the service-only lower bound; a run with less luck lands on 16),
-rerunnable offline from the CSVs committed under `examples/data/`.
+rerunnable offline from the CSVs committed under `examples/data/`. The companion study
+[*Which solver wins: an algorithm study*](https://arubiales.github.io/scikit-route/user_guide/algorithm_study/)
+— `examples/technician_madrid_study/` — ranks 59 configurations on that same instance under equal
+wall-clock budgets and measures the winner against a rigorous bound: `MILP` proves the plain
+183-node tour optimal at 1 078.3 driving minutes, so no plan can drive less and none can use fewer
+than 14 days, and the best plan of the campaign (15 days, 1 532.8 minutes, iterated local search
+with Or-opt relocations) is therefore at most one day from optimal, with every one of its days
+proved optimal by `HeldKarp`.
 
 ## Documentation
 
