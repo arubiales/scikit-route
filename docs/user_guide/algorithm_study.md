@@ -124,8 +124,8 @@ So, honestly stated:
 ## The ranking at two minutes
 
 Twenty-eight configurations, 120 s each, ranked by the objective (`driving + 480 * (days -
-1)`), which is why row 1 has *more* driving than row 2 and row 18 has the least driving of the
-table and sits near the bottom. Every row is `fit` on the same matrix with the same arguments;
+1)`), which is why row 1 has *more* driving than row 2: fifteen days beat sixteen whatever the
+minutes. Every row is `fit` on the same matrix with the same arguments;
 `Wall` is the measured wall clock — a construction heuristic that answers in a millisecond
 returns the rest of its budget — and `Iterations` is `n_iter_`, whose unit differs per family
 (a kick and descent for an iterated local search, a temperature level for annealing, a
@@ -150,7 +150,7 @@ generation for the genetic algorithm, a colony pass for the ant colony).
 | 15 | `LocalSearch(2opt+oropt)` | local search | 16 | 1 620.1 | 8 820.1 | 0.3 s | 4 |
 | 16 | `OrOpt` | local search | 16 | 1 640.3 | 8 840.3 | 0.4 s | 6 |
 | 17 | `Genetic` | metaheuristic | 16 | 1 656.4 | 8 856.4 | 120.0 s | 134373 |
-| 18 | `ClarkeWright (symmetrised T)` | construction | 17 | 1 180.4 | 8 860.4 | 0.0 s | 0 |
+| 18 | `ClarkeWright (symmetrised T)` | construction | 16 | 1 660.4 | 8 860.4 | 0.0 s | 0 |
 | 19 | `SimulatedAnnealing` | metaheuristic | 16 | 1 667.4 | 8 867.4 | 23.8 s | 1838 |
 | 20 | `Insertion(cheapest)` | construction | 16 | 1 709.6 | 8 909.6 | 0.0 s | 0 |
 | 21 | `Insertion(nearest)` | construction | 16 | 1 720.4 | 8 920.4 | 0.0 s | 0 |
@@ -159,7 +159,7 @@ generation for the genetic algorithm, a colony pass for the ant colony).
 | 24 | `AntColony` | metaheuristic | 16 | 1 745.0 | 8 945.0 | 127.5 s | 18 |
 | 25 | `SOM` | metaheuristic | 16 | 1 790.3 | 8 990.3 | 0.8 s | 17 |
 | 26 | `NearestNeighbour` | construction | 16 | 1 843.6 | 9 043.6 | 0.0 s | 0 |
-| 27 | `NRBS` | construction | 16 | 1 845.3 | 9 045.3 | 0.0 s | 0 |
+| 27 | `NRBS` | construction | 16 | 1 845.4 | 9 045.4 | 0.0 s | 0 |
 
 The tables of this page are generated from the recorded rows by `python
 examples/technician_madrid_study/report.py`.
@@ -170,8 +170,8 @@ a multi-trip optimum; use BruteForce (n <= 11) or a heuristic solver`. That refu
 right behaviour — a "proven optimum" that ignored the day budget would be a lie — and it is
 also why the bound above is a *plain tour* bound.
 
-Three readings of the table. Leaving aside Clarke-Wright's 17-day plan, the ranking spans 291
-minutes of driving, from 1 554.7 to 1 845.3: the choice of solver is worth 19 % of the driving,
+Three readings of the table. The ranking spans 291 minutes of driving, from 1 554.7 to
+1 845.4: the choice of solver is worth 19 % of the driving,
 and one day. The step to 15 days is worth 480 points of objective and only one configuration in
 the roster reached it, so at short budgets the interesting question is not "how little driving"
 but "who lands on the lower step". And the two cheapest searches in the table (`LocalSearch`
@@ -310,17 +310,22 @@ finished at 1 565.1 while the same search from the default nearest-neighbour sta
 while [`TwoOpt`][skroute.TwoOpt] (1 743.7) or [`OrOpt`][skroute.OrOpt] (1 640.3) alone show
 which half of that descent does the work — the relocations, again.
 
-### Clarke-Wright, which optimises something else
+### Clarke-Wright, and the matrix it insists on
 
 [`ClarkeWright`][skroute.ClarkeWright] is the one budget-aware construction — its savings merges
-refuse a trip that would not fit the day — and the one solver that **requires a symmetric
-matrix**, which this instance is not (up to ten minutes between the two directions of a pair). Run
-on `(T + T.T) / 2` and re-priced on the real matrix it returns **17 days and 1 180.4 minutes**:
-the least driving of the whole campaign, only 9.5 % above the proven tour bound, and the
-tenth-worst objective of the 27, because two extra days cost 960. It is a good answer to a different
-question — "keep every trip short" — and `extra_cost=480` is the parameter that says a day is
-expensive. Take it as the warning that a solver aware of the *budget* is not automatically aware
-of the *charge per trip*.
+refuse a trip that would not fit inside the day — and the one solver that **requires a symmetric
+matrix**, which this instance is not: up to ten minutes separate the two directions of a pair.
+Fitted on `(T + T.T) / 2` and re-priced on the real matrix it returns **16 days and 1 660.4
+minutes**: the same day count as every other construction, mid-table on driving between plain
+[`Genetic`][skroute.Genetic] (1 656.4) and [`SimulatedAnnealing`][skroute.SimulatedAnnealing]
+(1 667.4), and the tenth-worst objective of the 27. Respectable for a method that does no search at
+all, and instant.
+
+The averaging is the price. On the matrix it was given, the same plan looked like 8 868.8 against
+the 8 860.4 it really costs (`cost_sym` in the record): the distortion is small here and does not
+lean in a predictable direction, but the trips whose feasibility it checked were checked against
+times nobody drives. On a road network this asymmetric, take its output as the warm start of a
+descent — which is what row 14 of the table is — rather than as the plan.
 
 ### The exact solvers: one for the bound, one for the days
 
@@ -359,31 +364,34 @@ to days, not from a better route through the same ones.
 >>> import json
 >>> from pathlib import Path
 >>> results = Path("examples/technician_madrid_study/results")
->>> lines = (results / "results.jsonl").read_text(encoding="utf-8").splitlines()  # doctest: +SKIP
->>> rows = [json.loads(line) for line in lines]  # doctest: +SKIP
->>> ranked = sorted((r for r in rows if "objective" in r), key=lambda r: r["objective"])  # doctest: +SKIP
->>> len(rows), len(ranked)                       # one row raised: MILP  # doctest: +SKIP
+>>> lines = (results / "results.jsonl").read_text(encoding="utf-8").splitlines()
+>>> rows = [json.loads(line) for line in lines]
+>>> ranked = sorted((r for r in rows if "objective" in r), key=lambda r: r["objective"])
+>>> len(rows), len(ranked)  # one row raised: MILP
 (60, 59)
->>> best = ranked[0]  # doctest: +SKIP
->>> best["days"], best["driving_min"], best["family"], best["wall_s"]  # doctest: +SKIP
+>>> best = ranked[0]
+>>> best["days"], best["driving_min"], best["family"], best["wall_s"]
 (15, 1532.8, 'hybrid', 55.9)
->>> [sum(1 for r in ranked if r["days"] == d) for d in (14, 15, 16, 17)]  # doctest: +SKIP
-[0, 23, 35, 1]
+>>> [sum(1 for r in ranked if r["days"] == d) for d in (14, 15, 16, 17)]
+[0, 23, 36, 0]
 
 ```
 
 ## Reproducing it
 
-The harness lives in `examples/technician_madrid_study/` (its README lists the flags); it reads
+The harness lives in `examples/technician_madrid_study/` (its README lists the flags), together with
+`plan_page.py`, which turns any of these plans into one self-contained interactive page. It reads
 the committed CSVs, so nothing here touches the network. The wall clock is what the campaign
 cost on ten cores:
 
 ```bash
-python examples/technician_madrid_study/roster.py        # 28 configurations, 120 s each: ~23 min of process time
-python examples/technician_madrid_study/long_runs.py     # 13 configurations, 1 h each: ~4 h wall clock
-python examples/technician_madrid_study/bounds.py        # the MILP tour bound + its metric closure: ~10 min each
-python examples/technician_madrid_study/exact_polish.py  # Held-Karp days + inter-day exchanges: ~1 min
-python examples/technician_madrid_study/report.py        # rebuild the tables of this page from results/
+cd examples/technician_madrid_study
+python benchmark.py --round roster                     # 28 configurations, 120 s each: ~23 min of process time
+python benchmark.py --round long --config ils_oropt5   # one long configuration per process; --list shows them all
+python lower_bound.py                                  # the MILP tour bound (~10 min); --metric-closure for the other
+python exact_polish.py --plan results/best_plan.json   # Held-Karp days + inter-day exchanges: ~1 min
+python report.py                                       # rebuild the tables of this page from results/
+python plan_page.py --out plan.html                    # the plan as one interactive page, ranking included
 ```
 
 !!! warning "Processes, not threads"

@@ -125,7 +125,7 @@ configurations only `MultiStart(ILS or_opt k=5) x4` reached 15 days (1574.7 min)
 solver, `ILS or_opt k=5`, stopped at 16 days and 1554.7 min — *less driving over more days*, which
 the objective rightly ranks worse. Then `TabuSearch k=20` (1600.2), `SOM + LocalSearch` (1601.2),
 `Genetic` memetic (1607.0), `MultiStart(SA)` (1611.0), down to `NearestNeighbour` (1843.6) and
-`NRBS` (1845.3). A plain `LocalSearch` from an `Insertion` tour reaches 1619.2 in **0.4 seconds**,
+`NRBS` (1845.4). A plain `LocalSearch` from an `Insertion` tour reaches 1619.2 in **0.4 seconds**,
 which is the cheapest good answer in the whole study.
 
 **An hour buys one day, not much driving.** `ILS or_opt k=5` goes from 16 days / 1554.7 to 15 days
@@ -159,8 +159,8 @@ everything that was tried, one day above a bound that may or may not be attainab
 | `lower_bound.py` | the MILP bound (`--time-limit`, `--metric-closure`), the triangle-inequality statistics and the two day bounds |
 | `exact_polish.py` | the Held-Karp hybrid: `--plan` (a `best_plan.json` or a timetable CSV of the example), `--max-seconds` |
 | `report.py` | reads the record and prints the ranking, the two-minutes-against-an-hour comparison and the gap against the bound; `--format {markdown,text}`, `--sort {objective,name,family}` |
+| `plan_page.py` | turns a plan into one self-contained interactive HTML page — the map, the timetable of every day, a Google Maps Directions link per leg (from `skroute.viz.google_maps_urls`) and the ranking table; `--plan` or `--timetable/--days`, `--no-study`, `--out` |
 | `results/results.jsonl` | 60 rows: 59 plans and one recorded refusal (`MILP` on a multi-trip instance). One JSON object per configuration, with `name`, `family`, `params`, `round`, `days`, `driving_min`, `objective`, `stops_per_day`, `day_minutes`, `n_iter`, `stop_reason`, `wall_s`, `budget_s`, `fit_time_s` and `tour_sha256` — the first 16 hex characters of the sha256 of the tour's JSON. The tours themselves are dropped (they would be 60 × 183 labels); `--keep-tours` writes them |
-| `results/results.jsonl` (the refusal row) | the `MILP` row carries `error` and a `trace` field whose paths point at the throwaway prototype the campaign was driven from, on the machine that ran it. The prototype is not in the repository — these four scripts are what it became — so read the `error` and ignore the file names |
 | `results/best_plan.json` | the plan the study reports, with its tour, its days as labels, and the minutes and kilometres of each day. `tests/test_study.py` rebuilds it from the committed matrices and checks all of it |
 | `results/lower_bounds.json` | the ATSP bound on the OSRM matrix: proven optimal, 1078.32 min, 559 s, plus the tour, the triangle statistics and the tail of the cut loop's bound trace |
 | `results/lower_bounds_metric_closure.json` | the same on the metric closure of the matrix: 1078.32 min again, 0 violating triples — which is what removes the triangle-inequality caveat |
@@ -178,40 +178,38 @@ reproduce them exactly, and a table that matched to the decimal would mean somet
 
 What *is* exactly reproducible: the deterministic configurations. `NearestNeighbour`, `Insertion`
 (all three strategies), `NRBS`, `TwoOpt`, `OrOpt`, `LocalSearch`, `SOM`, `ClarkeWright` and the
-exact polish give the same tour byte for byte — their `tour_sha256` is a regression test. (The one
-wobble: `NRBS` records 1845.3 minutes where the harness now computes 1845.4 on the identical tour.
-The raw sum is 1845.3500000000001, which sits on a rounding tie.)
+exact polish give the same tour byte for byte — their `tour_sha256` is a regression test, and since
+the record is priced from the tours the minutes come back identical too. (One of them sits on a
+rounding tie: `NRBS` drives 1845.3500000000001 minutes, recorded as 1845.4.)
 
 The MILP bound is deterministic too: HiGHS runs single-threaded and deterministically, so the
 1078.32 comes back, in about the same nine and a half minutes.
 
-## What the record gets wrong
+## How the record was produced
 
-`results/` is committed **verbatim** as the campaign wrote it, because its tours and their hashes
-are the study's evidence. Two *derived* fields in it are wrong, both from the same off-by-one, and
-both are pinned by `tests/test_study.py` so that nobody rediscovers them by surprise:
+`results/results.jsonl` keeps one row per configuration **without its tour** — 59 tours of 183
+labels would triple the file — but every row carries `tour_sha256`, the first sixteen hex digits of
+the sha256 of the tour the run produced, so a rerun can prove it found the same plan.
 
-1. **`stops_per_day` counts legs, not stops, on every solver row.** The campaign recorded
-   `len(trip) - 1`, and `trips_` are closed `[office, ..., office]` arrays, so each day's figure
-   is one too high and the row sums to 182 + `days` instead of 182. The two `hybrid` rows (the
-   exact polish) carry the true counts, as does `best_plan.json`, and `benchmark.py` now records
-   the true count. `days`, `driving_min` and `objective` are unaffected.
-2. **The `ClarkeWright (symmetrised T)` row records 17 days and 1180.4 minutes of driving.** Both
-   are wrong. `RoutingProblem.trip_starts` returns `n_trips + 1` positions and the campaign read
-   that length as the day count, then derived the driving by subtracting `480 * (days - 1)` from a
-   correct objective. The plan is **16 days and 1660.4 minutes** — the same day count as the other
-   constructions, mid-table on driving — and its objective, 8860.4, is right. So the tempting
-   reading, "fewer minutes over two more days", is an artefact: re-run it and check.
+The numeric fields are not copied from the campaign's console log: every row was **re-priced from
+its own stored tour** with `RoutingProblem(service_time=30, max_time_work=480, extra_cost=480,
+split="optimal")` over the committed matrices, and `tests/test_study.py` checks that arithmetic
+again on every run. That regeneration was needed because the campaign's recorder read
+`RoutingProblem.trip_starts` — which returns `n_trips + 1` positions, the last one a sentinel — as
+the day count on the one path that re-prices a plan fitted on a different matrix. The
+`ClarkeWright (symmetrised T)` row was logged as 17 days and 1180.4 minutes of driving; its plan is
+**16 days and 1660.4 minutes**, the same day count as every other construction and mid-table on
+driving. Its objective, 8860.4, was right all along. Re-run it and compare the hash:
 
-   ```bash
-   python benchmark.py --round roster --config clarke_wright --budget 120 --results /tmp/cw.jsonl
-   # ClarkeWright (symmetrised T)   days 16  driving 1660.4 min   (tour_sha256 deddfe827e718a4c,
-   # the same tour as the record)
-   ```
+```bash
+python benchmark.py --round roster --config clarke_wright --budget 120 --results /tmp/cw.jsonl
+# ClarkeWright (symmetrised T)   days 16  driving 1660.4 min   (tour_sha256 deddfe827e718a4c,
+# the same tour as the record)
+```
 
-The same off-by-one was in the plan reader of the prototypes, where it produced an empty leading
-and an empty trailing day; `exact_polish.days_from_tour` cuts on `starts[1:-1]`, asserts every day
-non-empty and asserts that the days partition the 182 restaurants exactly once.
+The same sentinel is easy to walk into when splitting a giant tour into days:
+`exact_polish.days_from_tour` cuts on `starts[1:-1]`, asserts every day is non-empty and asserts
+that the days partition the 182 restaurants exactly once.
 
 Two smaller differences between the record and what the harness writes today, neither of them a
 correction: `params.passes` and `n_iter` of an exact-polish row now count the *accepted* passes

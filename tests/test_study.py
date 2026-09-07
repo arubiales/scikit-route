@@ -9,19 +9,12 @@ The study and its data are located from **this file**, never from ``skroute.__fi
 and wheel jobs import skroute from site-packages, where no ``examples/`` exists (D16), so the
 module skips when the checkout is not beside it -- exactly as ``tests/test_examples.py`` does.
 
-What is *not* asserted, and why, is as informative as what is: two derived fields of the record
-disagree with the plans they describe, both from the same off-by-one in the campaign's recording
-code, and both are pinned here so that a future regeneration of the record has to face them --
-
-* ``stops_per_day`` counts the *legs* of a day (the stops plus the return to the office) on every
-  solver row, because the campaign recorded ``len(trip) - 1`` and ``trips_`` are closed
-  ``[office, ..., office]`` arrays. The two hybrid rows carry the true stop count.
-* the row fitted on the symmetrised matrix records one day more than its own plan has, because
-  the campaign read ``len(trip_starts(tour))`` -- which is ``n_trips + 1`` -- as the day count.
-
-``days``, ``driving_min`` and ``objective`` of every other row are consistent, and the objective
-of that row is right too, so the ranking of the study is unaffected. See the study's README,
-"What the record gets wrong".
+Every row of the record was priced from its own stored tour with ``RoutingProblem``, so the
+checks below are real: ``days``, ``driving_min``, ``objective``, ``stops_per_day`` and
+``day_minutes`` all have to agree with the committed matrices, and a row whose day partition does
+not cover the 182 restaurants exactly once fails here. See the study's README, "How the record
+was produced", for why that regeneration was needed -- one row of the original campaign log read
+its day count off by one.
 """
 
 from __future__ import annotations
@@ -30,6 +23,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -179,23 +173,24 @@ def test_the_arithmetic_of_every_result_row(results):
 
 
 def test_the_shape_of_every_recorded_plan(results):
-    """The stops are all accounted for -- under each of the two conventions of the record."""
+    """Every recorded plan visits the 182 restaurants once, spread over exactly ``days`` days."""
     for row in results:
         stops = row["stops_per_day"]
-        # the hybrid rows count stops; the solver rows count legs, i.e. one more per day
-        legs = 0 if row["family"] == "hybrid" else len(stops)
-        assert sum(stops) == N_RESTAURANTS + legs, row["name"]
-        # ... and the day count matches the plan, except on the symmetrised-matrix row
-        off_by_one = 1 if "cost_sym" in row else 0
-        assert len(stops) == row["days"] - off_by_one, row["name"]
+        assert sum(stops) == N_RESTAURANTS, row["name"]
+        assert len(stops) == row["days"], row["name"]
+        assert min(stops) > 0, row["name"]
 
 
-def test_the_two_conventions_are_the_documented_rows(results):
-    """Whoever regenerates the record must face these two rows, not discover them later."""
-    hybrid = [row["name"] for row in results if row["family"] == "hybrid"]
-    assert len(hybrid) == 2 and all(name.startswith("Exact per-day routes") for name in hybrid)
-    symmetric = [row["name"] for row in results if "cost_sym" in row]
-    assert symmetric == ["ClarkeWright (symmetrised T)"]
+def test_the_symmetrised_row_is_priced_on_the_real_matrix(results):
+    """``ClarkeWright`` is fitted on ``(T + T.T) / 2`` but must be ranked by the real times."""
+    symmetric = [row for row in results if "cost_sym" in row]
+    assert [row["name"] for row in symmetric] == ["ClarkeWright (symmetrised T)"]
+    row = symmetric[0]
+    assert row["days"] == 16 and row["driving_min"] == pytest.approx(1660.4, abs=0.05)
+    # what it believed it had driven, on the averaged matrix, is not the real objective: averaging
+    # the two directions distorts in either direction, here by 8.4 minutes against the plan
+    assert row["cost_sym"] != row["objective"]
+    assert abs(row["cost_sym"] - row["objective"]) < 15
 
 
 def test_the_best_row_of_the_record_is_the_best_plan(results, best_plan):
@@ -322,6 +317,22 @@ def test_report_runs_in_every_shape(tmp_path):
     missing = tmp_path / "never-written.jsonl"
     done = _run("report.py", "--results", str(missing))
     assert done.returncode != 0 and "no record at" in done.stderr + done.stdout
+
+
+def test_plan_page_builds_one_self_contained_page(tmp_path, best_plan):
+    """``plan_page.py`` turns the recorded plan into a page that carries the plan as JSON."""
+    out = tmp_path / "plan.html"
+    done = _run("plan_page.py", "--out", str(out))
+    assert done.returncode == 0, done.stderr
+    page = out.read_text(encoding="utf-8")
+    block = re.search(r'id="plan" type="application/json">(.*?)</script>', page, re.S)
+    assert block is not None, "the page must embed its plan"
+    plan = json.loads(block.group(1).replace("<\\/", "</"))
+    assert len(plan["days"]) == best_plan["days"]
+    assert sum(day["n_stops"] for day in plan["days"]) == N_RESTAURANTS
+    assert all(day["urls"] for day in plan["days"])  # a Google Maps link per leg, from skroute.viz
+    assert "Proven lower bound" in page  # the ranking section, built from the committed record
+    assert "<script src=" not in page, "the page loads no external script"
 
 
 def test_the_harness_still_knows_every_recorded_configuration(rows):
